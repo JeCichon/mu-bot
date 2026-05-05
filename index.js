@@ -1,6 +1,11 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const cron = require('node-cron');
+const http = require('http');
+
+// ─── Keep-Alive Server (required for Render free Web Service) ─────────────────
+// UptimeRobot pings this every 5 min to prevent Render from sleeping the bot.
+http.createServer((_, res) => res.end('Mu is here.')).listen(process.env.PORT || 3000);
 
 // ─── Card Data ────────────────────────────────────────────────────────────────
 const CARDS = [
