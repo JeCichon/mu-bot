@@ -149,7 +149,7 @@ function rgbToHex(r,g,b) {
   return (r << 16) + (g << 8) + b;
 }
 function imageUrl(card) {
-  return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${card.id}.png`;
+  return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(card.id).padStart(2,'0')}.png`;
 }
 
 // ─── Embed Builders ───────────────────────────────────────────────────────────
@@ -229,14 +229,18 @@ client.once('clientReady', async () => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'draw') {
-    const [card] = drawCards(1);
-    await interaction.reply({ embeds: [buildSingleDrawEmbed(card)] });
-  }
+  try {
+    if (interaction.commandName === 'draw') {
+      const [card] = drawCards(1);
+      await interaction.reply({ embeds: [buildSingleDrawEmbed(card)] });
+    }
 
-  if (interaction.commandName === 'draw3') {
-    const cards = drawCards(3);
-    await interaction.reply({ embeds: [buildThreeCardEmbed(cards)] });
+    if (interaction.commandName === 'draw3') {
+      const cards = drawCards(3);
+      await interaction.reply({ embeds: [buildThreeCardEmbed(cards)] });
+    }
+  } catch (err) {
+    console.error('Interaction error (non-fatal):', err.message);
   }
 });
 
