@@ -8,87 +8,136 @@ http.createServer((_, res) => res.end('Mu is here.')).listen(process.env.PORT ||
 
 // ─── Card Data ────────────────────────────────────────────────────────────────
 const CARDS = [
-  { id:0,  name:"The Fool",           adj:"Curious",       noun:"Endeavor",        r:255,g:255,b:55,  suit:"major", desc:"Pure potential before experience shapes it — the leap taken before looking down." },
-  { id:1,  name:"The Magus",          adj:"Inward",        noun:"Vigor",           r:255,g:255,b:0,   suit:"major", desc:"Will made into act; the one who bends reality by understanding how it bends." },
-  { id:2,  name:"The Priestess",      adj:"Hidden",        noun:"Intelligence",    r:42, g:42, b:255,  suit:"major", desc:"The knowing that arrives before the reason does; silence with a memory." },
-  { id:3,  name:"The Empress",        adj:"Pregnant",      noun:"Devotion",        r:0,  g:170,b:0,   suit:"major", desc:"The condition under which everything grows; abundance that doesn't ask permission." },
-  { id:4,  name:"The Emperor",        adj:"Just",          noun:"Absolution",      r:255,g:0,  b:0,   suit:"major", desc:"Order imposed on chaos by will alone; civilization as an act of stubbornness." },
-  { id:5,  name:"The Hierophant",     adj:"Illuminated",   noun:"Truth",           r:255,g:102,b:0,   suit:"major", desc:"Not the religion — the secret living inside the religion." },
-  { id:6,  name:"The Lovers",         adj:"Brave",         noun:"Decision",        r:255,g:138,b:13,  suit:"major", desc:"The moment of irreversible choice where two paths become one step." },
-  { id:7,  name:"The Chariot",        adj:"Conquered",     noun:"Ego",             r:255,g:193,b:3,   suit:"major", desc:"Victory through surrender; the warrior who wins by becoming the vehicle." },
-  { id:8,  name:"The Adjustment",     adj:"Balanced",      noun:"Law",             r:0,  g:170,b:68,  suit:"major", desc:"The universe correcting its own ledger; not punishment but precision." },
-  { id:9,  name:"The Hermit",         adj:"Deep",          noun:"Disillusionment", r:85, g:212,b:0,   suit:"major", desc:"The light carried alone into the dark; wisdom found only by going inward." },
-  { id:10, name:"Fortune",            adj:"Projected",     noun:"Wealth",          r:178,g:0,  b:109, suit:"major", desc:"The wheel that turns whether you're ready or not; every peak carries its descent." },
-  { id:11, name:"Lust",               adj:"Passionate",    noun:"Energy",          r:182,g:234,b:0,   suit:"major", desc:"The sacred fire of desire — not appetite but the radiance of loving what you are." },
-  { id:12, name:"The Hanged Man",     adj:"Sacrificial",   noun:"Solution",        r:0,  g:102,b:255, suit:"major", desc:"Suspension chosen freely; the wisdom that only comes from stopping." },
-  { id:13, name:"Death",              adj:"Cyclical",      noun:"Rebirth",         r:0,  g:136,b:131, suit:"major", desc:"Not an ending but a clearing; the scythe that makes room." },
-  { id:14, name:"Art",                adj:"Appropriate",   noun:"Measurement",     r:42, g:42, b:255,  suit:"major", desc:"Fire and water meeting in the vessel and becoming something neither was alone." },
-  { id:15, name:"The Devil",          adj:"Illuminating",  noun:"Darkness",        r:145,g:0,  b:178, suit:"major", desc:"The creative darkness; not evil but the raw material of everything, including light." },
-  { id:16, name:"The Tower",          adj:"Productive",    noun:"Destruction",     r:255,g:0,  b:0,   suit:"major", desc:"The structure that had to fall; liberation living inside the destruction." },
-  { id:17, name:"The Star",           adj:"Reckless",      noun:"Progress",        r:178,g:0,  b:109, suit:"major", desc:"The navigator's fixed point; hope practiced daily, not waited for." },
-  { id:18, name:"The Moon",           adj:"Intuitive",     noun:"Knowledge",       r:206,g:0,  b:82,  suit:"major", desc:"What the mind makes in the dark when reason sleeps." },
-  { id:19, name:"The Sun",            adj:"Confident",     noun:"Illumination",    r:255,g:138,b:13,  suit:"major", desc:"Consciousness fully expressed; the light that doesn't ask permission to shine." },
-  { id:20, name:"The Aeon",           adj:"Liberating",    noun:"Power",           r:255,g:69, b:69,  suit:"major", desc:"The old age ended and the new one began; still unfolding in every direction." },
-  { id:21, name:"The Universe",       adj:"Karmic",        noun:"Conclusion",      r:145,g:0,  b:178, suit:"major", desc:"The completed work; the dance that contains all other dances." },
-  { id:22, name:"Ace of Wands",       adj:"Pioneering",    noun:"Spirit",          r:255,g:255,b:255, suit:"wands", desc:"Pure fire before it becomes anything specific; raw will at its most alive." },
-  { id:23, name:"2 · Dominion",       adj:"Assertive",     noun:"Will",            r:0,  g:148,b:214, suit:"wands", desc:"Will finding its shape; fire learning to direct itself." },
-  { id:24, name:"3 · Virtue",         adj:"Creative",      noun:"Harmony",         r:206,g:0,  b:82,  suit:"wands", desc:"The harmony of creative forces aligned; making something true." },
-  { id:25, name:"4 · Completion",     adj:"Inner",         noun:"Order",           r:142,g:0,  b:100, suit:"wands", desc:"A cycle of fire closed; the quiet satisfaction of a finished thing." },
-  { id:26, name:"5 · Strife",         adj:"Challenging",   noun:"Impulse",         r:255,g:138,b:13,  suit:"wands", desc:"Fire meeting resistance and growing hotter for it." },
-  { id:27, name:"6 · Victory",        adj:"Bright",        noun:"Personality",     r:255,g:168,b:168, suit:"wands", desc:"The moment the battle turns in your favor; recognition earned through endurance." },
-  { id:28, name:"7 · Valour",         adj:"Renewable",     noun:"Capacity",        r:255,g:193,b:3,   suit:"wands", desc:"Holding ground when everything says to yield." },
-  { id:29, name:"8 · Swiftness",      adj:"Unexpected",    noun:"Motivation",      r:178,g:0,  b:109, suit:"wands", desc:"Fire moving at its natural speed — faster than thought, cleaner than planning." },
-  { id:30, name:"9 · Strength",       adj:"Spiritual",     noun:"Wholeness",       r:145,g:0,  b:178, suit:"wands", desc:"The fire that has burned through everything and still burns." },
-  { id:31, name:"10 · Oppression",    adj:"Self",          noun:"Determination",   r:255,g:255,b:0,   suit:"wands", desc:"Will turned against itself; the flame that became its own cage." },
-  { id:32, name:"Prince of Wands",    adj:"Attractive",    noun:"Arrogance",       r:243,g:111,b:12,  suit:"wands", desc:"Brilliant, reckless, magnetic; the fire at its most dangerous and most alive." },
-  { id:33, name:"Princess of Wands",  adj:"Enthusiastic",  noun:"Love",            r:170,g:106,b:0,   suit:"wands", desc:"Enthusiasm as a spiritual practice; the flame that dances for the joy of it." },
-  { id:34, name:"Queen of Wands",     adj:"Righteous",     noun:"Vision",          r:128,g:51, b:128, suit:"wands", desc:"Fire that knows itself; warm and fierce, purposeful and magnetic." },
-  { id:35, name:"Knight of Wands",    adj:"Personal",      noun:"Potential",       r:244,g:31, b:33,  suit:"wands", desc:"The first charge before strategy arrives; somehow, it works." },
-  { id:36, name:"Ace of Cups",        adj:"Experiencing",  noun:"Grace",           r:250,g:250,b:250, suit:"cups",  desc:"Pure feeling before it becomes a named emotion; the cup empty and open." },
-  { id:37, name:"2 · Love",           adj:"Dissolving",    noun:"Boundaries",      r:174,g:177,b:178, suit:"cups",  desc:"The boundary between self and other beginning to dissolve." },
-  { id:38, name:"3 · Abundance",      adj:"Overflowing",   noun:"Value",           r:0,  g:0,  b:0,   suit:"cups",  desc:"So full it has stopped reaching; stillness as the deepest kind of overflow." },
-  { id:39, name:"4 · Luxury",         adj:"Emotional",     noun:"Prosperity",      r:42, g:42, b:255,  suit:"cups",  desc:"Feeling grown comfortable in itself; pleasure and its long shadow." },
-  { id:40, name:"5 · Disappointment", adj:"Painful",       noun:"Birth",           r:255,g:39, b:0,   suit:"cups",  desc:"The ache of what was hoped for and did not arrive." },
-  { id:41, name:"6 · Pleasure",       adj:"Sensual",       noun:"Desire",          r:251,g:180,b:2,   suit:"cups",  desc:"Sensation fully savored; the gift of a body that feels." },
-  { id:42, name:"7 · Debauch",        adj:"Ephemeral",     noun:"Pleasure",        r:0,  g:170,b:0,   suit:"cups",  desc:"Pleasure that has lost its center; wanting without the capacity to arrive." },
-  { id:43, name:"8 · Indolence",      adj:"Abandoned",     noun:"Values",          r:255,g:138,b:13,  suit:"cups",  desc:"The feeling that has given up moving; still water forgetting it was a river." },
-  { id:44, name:"9 · Happiness",      adj:"Optimistic",    noun:"Future",          r:178,g:0,  b:109, suit:"cups",  desc:"Sun through water; simple, warm, complete." },
-  { id:45, name:"10 · Satiety",       adj:"Satisfied",     noun:"Being",           r:100,g:79, b:14,  suit:"cups",  desc:"The cup so full it overflows and you've stopped noticing." },
-  { id:46, name:"Prince of Cups",     adj:"Sincere",       noun:"Emotion",         r:117,g:112,b:139, suit:"cups",  desc:"Feeling so deep it becomes strange; the mystic of the suit." },
-  { id:47, name:"Princess of Cups",   adj:"Esoteric",      noun:"Intuition",       r:117,g:112,b:139, suit:"cups",  desc:"Intuition as a way of life; she reads water." },
-  { id:48, name:"Queen of Cups",      adj:"Feminine",      noun:"Wisdom",          r:1,  g:52, b:255,  suit:"cups",  desc:"She contains without drowning; the mother of feeling." },
-  { id:49, name:"Knight of Cups",     adj:"Renouncing",    noun:"Instincts",       r:117,g:32, b:161, suit:"cups",  desc:"The romantic who has renounced romance but keeps riding toward it." },
-  { id:50, name:"Ace of Swords",      adj:"Mindful",       noun:"Activities",      r:242,g:242,b:242, suit:"swords", desc:"Pure mind before it cuts anything; the blade undrawn, the thought unthought." },
-  { id:51, name:"2 · Peace",          adj:"Seeking",       noun:"Balance",         r:146,g:161,b:188, suit:"swords", desc:"The mind that has agreed to disagree with itself; fragile and honest." },
-  { id:52, name:"3 · Sorrow",         adj:"Growing",       noun:"Pains",           r:117,g:66, b:0,   suit:"swords", desc:"The pain that teaches; growing pains of a mind becoming larger." },
-  { id:53, name:"4 · Truce",          adj:"Arranging",     noun:"Peace",           r:84, g:11, b:85,  suit:"swords", desc:"Rest taken in the middle of conflict; the pause that makes continuation possible." },
-  { id:54, name:"5 · Defeat",         adj:"Passive",       noun:"Suffering",       r:255,g:111,b:99,  suit:"swords", desc:"The mind that lost and is slowly learning what that means." },
-  { id:55, name:"6 · Science",        adj:"Objective",     noun:"Understanding",   r:255,g:95, b:93,  suit:"swords", desc:"The mind working beautifully; understanding as its own reward." },
-  { id:56, name:"7 · Futility",       adj:"Stupid",        noun:"Trust",           r:231,g:221,b:23,  suit:"swords", desc:"The clever plan that defeats itself; intelligence outwitting its own purpose." },
-  { id:57, name:"8 · Interference",   adj:"Total",         noun:"Correlation",     r:133,g:27, b:28,  suit:"swords", desc:"Too many signals arriving at once; the mind tangled in its own wiring." },
-  { id:58, name:"9 · Cruelty",        adj:"Psychopathic",  noun:"Extremes",        r:51, g:0,  b:68,  suit:"swords", desc:"Thought turned against the self; the mind as its own wound." },
-  { id:59, name:"10 · Ruin",          adj:"Disruptive",    noun:"Ending",          r:65, g:60, b:5,   suit:"swords", desc:"The end that was always coming; the mind that watched it arrive." },
-  { id:60, name:"Prince of Swords",   adj:"Breaking",      noun:"Chains",          r:243,g:238,b:12,  suit:"swords", desc:"The idea that breaks everything open; necessary, dangerous, brilliant." },
-  { id:61, name:"Princess of Swords", adj:"Intellectual",  noun:"Revolution",      r:170,g:234,b:0,   suit:"swords", desc:"The revolutionary thought; she doesn't argue, she rearranges." },
-  { id:62, name:"Queen of Swords",    adj:"Independent",   noun:"Resourcefulness", r:128,g:179,b:128, suit:"swords", desc:"Clarity without mercy; she sees and tells you exactly what she sees." },
-  { id:63, name:"Knight of Swords",   adj:"Mental",        noun:"Strength",        r:244,g:158,b:33,  suit:"swords", desc:"The mind at full speed with no brakes and no apology." },
-  { id:64, name:"Ace of Disks",       adj:"Tangible",      noun:"Matter",          r:255,g:246,b:205, suit:"disks",  desc:"The seed of everything material; potential made solid and held." },
-  { id:65, name:"2 · Change",         adj:"Mirrored",      noun:"Reality",         r:166,g:153,b:142, suit:"disks",  desc:"The material world in perpetual flux; nothing stays, everything continues." },
-  { id:66, name:"3 · Works",          adj:"Crystallized",  noun:"Force",           r:202,g:184,b:184, suit:"disks",  desc:"Skill made visible; the hands that know before the mind does." },
-  { id:67, name:"4 · Power",          adj:"Reinforced",    noun:"Stability",       r:67, g:136,b:146, suit:"disks",  desc:"The earth holding what it has gathered; stability through accumulation." },
-  { id:68, name:"5 · Worry",          adj:"Unfortunate",   noun:"Thought",         r:132,g:56, b:56,  suit:"disks",  desc:"The body knowing something is wrong before the mind names it." },
-  { id:69, name:"6 · Success",        adj:"Heavenly",      noun:"Conditions",      r:163,g:121,b:15,  suit:"disks",  desc:"The right conditions arrived at the right time; abundance as alignment." },
-  { id:70, name:"7 · Failure",        adj:"Prolonged",     noun:"Emptiness",       r:158,g:163,b:15,  suit:"disks",  desc:"The harvest that didn't come; what the earth teaches through withholding." },
-  { id:71, name:"8 · Prudence",       adj:"Comprehensive", noun:"View",            r:174,g:145,b:98,  suit:"disks",  desc:"The careful tending that no one notices until it's gone." },
-  { id:72, name:"9 · Gain",           adj:"Material",      noun:"Adequacy",        r:67, g:146,b:130, suit:"disks",  desc:"Enough; the deep satisfaction of sufficiency." },
-  { id:73, name:"10 · Wealth",        adj:"Prosperous",    noun:"Foundation",      r:57, g:57, b:13,  suit:"disks",  desc:"Generations of accumulation made solid; the full foundation." },
-  { id:74, name:"Prince of Disks",    adj:"Industrious",   noun:"Temperament",     r:116,g:238,b:12,  suit:"disks",  desc:"The patient builder; he takes his time and the thing gets made." },
-  { id:75, name:"Princess of Disks",  adj:"Physical",      noun:"Connection",      r:43, g:234,b:0,   suit:"disks",  desc:"The body as sacred ground; she tends what grows in the dark." },
-  { id:76, name:"Queen of Disks",     adj:"Luxurious",     noun:"Matriarchy",      r:0,  g:179,b:128, suit:"disks",  desc:"Abundance through presence; the earth that gives without being asked." },
-  { id:77, name:"Knight of Disks",    adj:"Masculine",     noun:"Influence",       r:116,g:158,b:33,  suit:"disks",  desc:"Not fast, not flashy, immovable; the steady force that outlasts everything." },
+  { id:0,  name:"The Fool",           subject:"It is I that",                    verb:"embarks on quest",            adv:"without looking",        adj:"Curious",       noun:"Endeavor",        r:255,g:255,b:55,  suit:"major" },
+  { id:1,  name:"The Magus",          subject:"My resolution",                   verb:"wills itself",                adv:"dynamically",            adj:"Inward",        noun:"Vigor",           r:255,g:255,b:0,   suit:"major" },
+  { id:2,  name:"The Priestess",      subject:"My mind",                         verb:"perceives",                   adv:"intuitively",            adj:"Hidden",        noun:"Intelligence",    r:42, g:42, b:255,  suit:"major" },
+  { id:3,  name:"The Empress",        subject:"A mother's love",                 verb:"bridges",                     adv:"safely",                 adj:"Pregnant",      noun:"Devotion",        r:0,  g:170,b:0,   suit:"major" },
+  { id:4,  name:"The Emperor",        subject:"Justice and Order",               verb:"dominates",                   adv:"objectively",            adj:"Just",          noun:"Absolution",      r:255,g:0,  b:0,   suit:"major" },
+  { id:5,  name:"The Hierophant",     subject:"Knowledge and Understanding",     verb:"discovers",                   adv:"faithfully",             adj:"Illuminated",   noun:"Truth",           r:255,g:102,b:0,   suit:"major" },
+  { id:6,  name:"The Lovers",         subject:"Opposites",                       verb:"consecrate",                  adv:"whole heartedly",        adj:"Brave",         noun:"Decision",        r:255,g:138,b:13,  suit:"major" },
+  { id:7,  name:"The Chariot",        subject:"The spirit of adventure",         verb:"overcomes",                   adv:"bravely",                adj:"Conquered",     noun:"Ego",             r:255,g:193,b:3,   suit:"major" },
+  { id:8,  name:"The Adjustment",     subject:"Harmony",                         verb:"seeks",                       adv:"responsibly",            adj:"Balanced",      noun:"Law",             r:0,  g:170,b:68,  suit:"major" },
+  { id:9,  name:"The Hermit",         subject:"That which is within",            verb:"embraces",                    adv:"seriously",              adj:"Deep",          noun:"Disillusionment", r:85, g:212,b:0,   suit:"major" },
+  { id:10, name:"Fortune",            subject:"A calmness of spirit",            verb:"rises",                       adv:"in time",                adj:"Projected",     noun:"Wealth",          r:178,g:0,  b:109, suit:"major" },
+  { id:11, name:"Lust",               subject:"Your animal nature",              verb:"transforms",                  adv:"lovingly",               adj:"Passionate",    noun:"Energy",          r:182,g:234,b:0,   suit:"major" },
+  { id:12, name:"The Hanged Man",     subject:"Acceptance",                      verb:"matures",                     adv:"wisely",                 adj:"Sacrificial",   noun:"Solution",        r:0,  g:102,b:255, suit:"major" },
+  { id:13, name:"Death",              subject:"Death",                           verb:"returns",                     adv:"consistently",           adj:"Cyclical",      noun:"Rebirth",         r:0,  g:136,b:131, suit:"major" },
+  { id:14, name:"Art",                subject:"The philosopher's stone",         verb:"dissolves and bonds",         adv:"completely",             adj:"Appropriate",   noun:"Measurement",     r:42, g:42, b:255,  suit:"major" },
+  { id:15, name:"The Devil",          subject:"Dark magic",                      verb:"opens awareness",             adv:"ritually",               adj:"Illuminating",  noun:"Darkness",        r:145,g:0,  b:178, suit:"major" },
+  { id:16, name:"The Tower",          subject:"Old systems",                     verb:"are leveled and replaced",    adv:"in the blink of an eye", adj:"Productive",    noun:"Destruction",     r:255,g:0,  b:0,   suit:"major" },
+  { id:17, name:"The Star",           subject:"A creative moment",               verb:"innovates",                   adv:"faithfully",             adj:"Reckless",      noun:"Progress",        r:178,g:0,  b:109, suit:"major" },
+  { id:18, name:"The Moon",           subject:"The depths of my soul",           verb:"confronts",                   adv:"profoundly",             adj:"Intuitive",     noun:"Knowledge",       r:206,g:0,  b:82,  suit:"major" },
+  { id:19, name:"The Sun",            subject:"That which is beyond me",         verb:"fuels",                       adv:"boundlessly",            adj:"Confident",     noun:"Illumination",    r:255,g:138,b:13,  suit:"major" },
+  { id:20, name:"The Aeon",           subject:"A great correlation",             verb:"awakens",                     adv:"endlessly",              adj:"Liberating",    noun:"Power",           r:255,g:69, b:69,  suit:"major" },
+  { id:21, name:"The Universe",       subject:"All that is",                     verb:"spins together",              adv:"freely",                 adj:"Karmic",        noun:"Conclusion",      r:145,g:0,  b:178, suit:"major" },
+  { id:22, name:"Ace of Wands",       subject:"Your talents",                    verb:"ignite",                      adv:"energetically",          adj:"Pioneering",    noun:"Spirit",          r:255,g:255,b:255, suit:"wands" },
+  { id:23, name:"2 · Dominion",       subject:"My Will",                         verb:"dominates",                   adv:"assertively",            adj:"Assertive",     noun:"Will",            r:0,  g:148,b:214, suit:"wands" },
+  { id:24, name:"3 · Virtue",         subject:"Creative strength",               verb:"reinforces",                  adv:"brilliantly",            adj:"Creative",      noun:"Harmony",         r:206,g:0,  b:82,  suit:"wands" },
+  { id:25, name:"4 · Completion",     subject:"A perfected work",                verb:"aligns with intention",       adv:"",                       adj:"Inner",         noun:"Order",           r:142,g:0,  b:100, suit:"wands" },
+  { id:26, name:"5 · Strife",         subject:"Competition",                     verb:"burns away",                  adv:"individually",           adj:"Challenging",   noun:"Impulse",         r:255,g:138,b:13,  suit:"wands" },
+  { id:27, name:"6 · Victory",        subject:"My fire",                         verb:"expands",                     adv:"joyfully",               adj:"Bright",        noun:"Personality",     r:255,g:168,b:168, suit:"wands" },
+  { id:28, name:"7 · Valour",         subject:"Resistance",                      verb:"fights on",                   adv:"courageously",           adj:"Renewable",     noun:"Capacity",        r:255,g:193,b:3,   suit:"wands" },
+  { id:29, name:"8 · Swiftness",      subject:"Your knowledge",                  verb:"implements",                  adv:"straightaway",           adj:"Unexpected",    noun:"Motivation",      r:178,g:0,  b:109, suit:"wands" },
+  { id:30, name:"9 · Strength",       subject:"Emotion",                         verb:"becomes whole",               adv:"powerfully",             adj:"Spiritual",     noun:"Wholeness",       r:145,g:0,  b:178, suit:"wands" },
+  { id:31, name:"10 · Oppression",    subject:"My structure",                    verb:"grows",                       adv:"responsibly",            adj:"Self",          noun:"Determination",   r:255,g:255,b:0,   suit:"wands" },
+  { id:32, name:"Prince of Wands",    subject:"Rich experience",                 verb:"calls out",                   adv:"fiercely",               adj:"Attractive",    noun:"Arrogance",       r:243,g:111,b:12,  suit:"wands" },
+  { id:33, name:"Princess of Wands",  subject:"The love of life",                verb:"sublimates",                  adv:"beautifully",            adj:"Enthusiastic",  noun:"Love",            r:170,g:106,b:0,   suit:"wands" },
+  { id:34, name:"Queen of Wands",     subject:"Compassion",                      verb:"changes",                     adv:"naturally",              adj:"Righteous",     noun:"Vision",          r:128,g:51, b:128, suit:"wands" },
+  { id:35, name:"Knight of Wands",    subject:"Ideal humanity",                  verb:"affirms",                     adv:"inherently",             adj:"Personal",      noun:"Potential",       r:244,g:31, b:33,  suit:"wands" },
+  { id:36, name:"Ace of Cups",        subject:"The secret of love",              verb:"enlightens",                  adv:"together",               adj:"Experiencing",  noun:"Grace",           r:250,g:250,b:250, suit:"cups"  },
+  { id:37, name:"2 · Love",           subject:"The happiness of love",           verb:"balances",                    adv:"harmoniously",           adj:"Dissolving",    noun:"Boundaries",      r:174,g:177,b:178, suit:"cups"  },
+  { id:38, name:"3 · Abundance",      subject:"All that is needed",              verb:"flows",                       adv:"bountifully",            adj:"Overflowing",   noun:"Value",           r:0,  g:0,  b:0,   suit:"cups"  },
+  { id:39, name:"4 · Luxury",         subject:"Safety",                          verb:"stabilizes",                  adv:"generously",             adj:"Emotional",     noun:"Prosperity",      r:42, g:42, b:255,  suit:"cups"  },
+  { id:40, name:"5 · Disappointment", subject:"A new consciousness",             verb:"tears through",               adv:"painfully",              adj:"Painful",       noun:"Birth",           r:255,g:39, b:0,   suit:"cups"  },
+  { id:41, name:"6 · Pleasure",       subject:"Your emotional power",            verb:"is found within",             adv:"blissfully",             adj:"Sensual",       noun:"Desire",          r:251,g:180,b:2,   suit:"cups"  },
+  { id:42, name:"7 · Debauch",        subject:"A lack of balance",               verb:"dissolves",                   adv:"longingly",              adj:"Ephemeral",     noun:"Pleasure",        r:0,  g:170,b:0,   suit:"cups"  },
+  { id:43, name:"8 · Indolence",      subject:"Self-denial",                     verb:"breaks down form",            adv:"resignedly",             adj:"Abandoned",     noun:"Values",          r:255,g:138,b:13,  suit:"cups"  },
+  { id:44, name:"9 · Happiness",      subject:"Love",                            verb:"opens everything",            adv:"profoundly",             adj:"Optimistic",    noun:"Future",          r:178,g:0,  b:109, suit:"cups"  },
+  { id:45, name:"10 · Satiety",       subject:"A new intensity",                 verb:"gathers",                     adv:"warmly",                 adj:"Satisfied",     noun:"Being",           r:100,g:79, b:14,  suit:"cups"  },
+  { id:46, name:"Prince of Cups",     subject:"Sincerity",                       verb:"connects",                    adv:"logically",              adj:"Sincere",       noun:"Emotion",         r:117,g:112,b:139, suit:"cups"  },
+  { id:47, name:"Princess of Cups",   subject:"Fantasy",                         verb:"dances",                      adv:"aesthetically",          adj:"Esoteric",      noun:"Intuition",       r:117,g:112,b:139, suit:"cups"  },
+  { id:48, name:"Queen of Cups",      subject:"The collective unconscious",      verb:"understands",                 adv:"affectionately",         adj:"Feminine",      noun:"Wisdom",          r:1,  g:52, b:255,  suit:"cups"  },
+  { id:49, name:"Knight of Cups",     subject:"A compassionate spirit",          verb:"shares",                      adv:"hesitantly",             adj:"Renouncing",    noun:"Instincts",       r:117,g:32, b:161, suit:"cups"  },
+  { id:50, name:"Ace of Swords",      subject:"Your mind",                       verb:"cuts through the noise",      adv:"objectively",            adj:"Mindful",       noun:"Activities",      r:242,g:242,b:242, suit:"swords"},
+  { id:51, name:"2 · Peace",          subject:"Stillness",                       verb:"holds",                       adv:"without incident",       adj:"Seeking",       noun:"Balance",         r:146,g:161,b:188, suit:"swords"},
+  { id:52, name:"3 · Sorrow",         subject:"An ending",                       verb:"embodies purpose",            adv:"through suffering",      adj:"Growing",       noun:"Pains",           r:117,g:66, b:0,   suit:"swords"},
+  { id:53, name:"4 · Truce",          subject:"Stability",                       verb:"maintains",                   adv:"temporarily",            adj:"Arranging",     noun:"Peace",           r:84, g:11, b:85,  suit:"swords"},
+  { id:54, name:"5 · Defeat",         subject:"Your limit",                      verb:"reveals",                     adv:"intrinsically",          adj:"Passive",       noun:"Suffering",       r:255,g:111,b:99,  suit:"swords"},
+  { id:55, name:"6 · Science",        subject:"My objectivity",                  verb:"measures",                    adv:"comprehensibly",         adj:"Objective",     noun:"Understanding",   r:255,g:95, b:93,  suit:"swords"},
+  { id:56, name:"7 · Futility",       subject:"My lack of trust",                verb:"turns in on me",              adv:"dishonestly",            adj:"Stupid",        noun:"Trust",           r:231,g:221,b:23,  suit:"swords"},
+  { id:57, name:"8 · Interference",   subject:"Restraint and inhibition",        verb:"ensures development",         adv:"steadily",               adj:"Total",         noun:"Correlation",     r:133,g:27, b:28,  suit:"swords"},
+  { id:58, name:"9 · Cruelty",        subject:"Fear, guilt, and helplessness",   verb:"torments",                    adv:"toxically",              adj:"Psychopathic",  noun:"Extremes",        r:51, g:0,  b:68,  suit:"swords"},
+  { id:59, name:"10 · Ruin",          subject:"A final blow",                    verb:"ends a cycle",                adv:"inevitably",             adj:"Disruptive",    noun:"Ending",          r:65, g:60, b:5,   suit:"swords"},
+  { id:60, name:"Prince of Swords",   subject:"A creative spirit",               verb:"seeks solutions",             adv:"with an open mind",      adj:"Breaking",      noun:"Chains",          r:243,g:238,b:12,  suit:"swords"},
+  { id:61, name:"Princess of Swords", subject:"Transparent insight",             verb:"rises",                       adv:"clairvoyantly",          adj:"Intellectual",  noun:"Revolution",      r:170,g:234,b:0,   suit:"swords"},
+  { id:62, name:"Queen of Swords",    subject:"Unbiased intelligence",           verb:"decides",                     adv:"honestly",               adj:"Independent",   noun:"Resourcefulness", r:128,g:179,b:128, suit:"swords"},
+  { id:63, name:"Knight of Swords",   subject:"Abstract thinking",               verb:"refines",                     adv:"like a storm",           adj:"Mental",        noun:"Strength",        r:244,g:158,b:33,  suit:"swords"},
+  { id:64, name:"Ace of Disks",       subject:"Great happiness",                 verb:"shines",                      adv:"within and without",     adj:"Tangible",      noun:"Matter",          r:255,g:246,b:205, suit:"disks" },
+  { id:65, name:"2 · Change",         subject:"Division",                        verb:"changes",                     adv:"infinitely",             adj:"Mirrored",      noun:"Reality",         r:166,g:153,b:142, suit:"disks" },
+  { id:66, name:"3 · Works",          subject:"Self-development",                verb:"grows",                       adv:"constructively",         adj:"Crystallized",  noun:"Force",           r:202,g:184,b:184, suit:"disks" },
+  { id:67, name:"4 · Power",          subject:"Your fortress",                   verb:"defines reality",             adv:"for now",                adj:"Reinforced",    noun:"Stability",       r:67, g:136,b:146, suit:"disks" },
+  { id:68, name:"5 · Worry",          subject:"The current crisis",              verb:"opens your eyes",             adv:"urgently",               adj:"Unfortunate",   noun:"Thought",         r:132,g:56, b:56,  suit:"disks" },
+  { id:69, name:"6 · Success",        subject:"Prosperity",                      verb:"overcomes",                   adv:"abundantly",             adj:"Heavenly",      noun:"Conditions",      r:163,g:121,b:15,  suit:"disks" },
+  { id:70, name:"7 · Failure",        subject:"Darkness",                        verb:"disintegrates",               adv:"effortlessly",           adj:"Prolonged",     noun:"Emptiness",       r:158,g:163,b:15,  suit:"disks" },
+  { id:71, name:"8 · Prudence",       subject:"Self-discipline",                 verb:"adapts",                      adv:"orderly",                adj:"Comprehensive", noun:"View",            r:174,g:145,b:98,  suit:"disks" },
+  { id:72, name:"9 · Gain",           subject:"Financial luck",                  verb:"achieves",                    adv:"satisfactorily",         adj:"Material",      noun:"Adequacy",        r:67, g:146,b:130, suit:"disks" },
+  { id:73, name:"10 · Wealth",        subject:"Earthly happiness",               verb:"culminates",                  adv:"splendidly",             adj:"Prosperous",    noun:"Foundation",      r:57, g:57, b:13,  suit:"disks" },
+  { id:74, name:"Prince of Disks",    subject:"Work",                            verb:"shapes you",                  adv:"reliably",               adj:"Industrious",   noun:"Temperament",     r:116,g:238,b:12,  suit:"disks" },
+  { id:75, name:"Princess of Disks",  subject:"Motherly intuition",              verb:"nurtures",                    adv:"calmly",                 adj:"Physical",      noun:"Connection",      r:43, g:234,b:0,   suit:"disks" },
+  { id:76, name:"Queen of Disks",     subject:"Family",                          verb:"strengthens",                 adv:"sensibly",               adj:"Luxurious",     noun:"Matriarchy",      r:0,  g:179,b:128, suit:"disks" },
+  { id:77, name:"Knight of Disks",    subject:"Perseverance",                    verb:"communes with Mother Nature", adv:"patiently",              adj:"Masculine",     noun:"Influence",       r:116,g:158,b:33,  suit:"disks" },
 ];
 
-// ─── Mu's Voice ───────────────────────────────────────────────────────────────
+// ─── Sentence Templates ───────────────────────────────────────────────────────
+// Each template is a function taking an array of cards and returning a string.
+// Adverbs can be empty strings — clean() removes double spaces.
+const clean = s => s.replace(/\s{2,}/g, ' ').replace(/ \./g, '.').trim();
+
+const SENTENCE_TEMPLATES = {
+  2: [
+    c => `${c[0].subject} ${c[1].verb}.`,
+    c => `${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.`,
+    c => `${c[0].subject} ${c[1].verb} ${c[0].adv}.`,
+  ],
+  3: [
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}.`,
+    c => `${c[0].subject} ${c[1].verb} — ${c[2].adj} ${c[2].noun} ${c[1].adv}.`,
+    c => `${c[0].adj} ${c[1].noun} ${c[2].verb} ${c[0].adv}. ${c[2].subject} listens.`,
+  ],
+  4: [
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[3].noun} ${c[0].verb} ${c[1].adv}.`,
+    c => `Where ${c[0].subject} ${c[1].verb}, ${c[2].adj} ${c[3].noun} ${c[1].verb} ${c[2].adv}.`,
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv} — ${c[3].adj} ${c[3].noun}. ${c[2].subject} ${c[0].verb}.`,
+  ],
+  5: [
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[1].verb} ${c[3].adv}.`,
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv} toward ${c[3].adj} ${c[4].noun}. ${c[2].subject} watches.`,
+    c => `${c[0].adj} ${c[1].noun} ${c[2].verb} ${c[3].adv}. ${c[4].subject} ${c[0].verb} ${c[1].adv}.`,
+  ],
+  6: [
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].subject} ${c[4].verb} ${c[5].adv}.`,
+    c => `Where ${c[0].subject} ${c[1].verb} ${c[2].adv}, ${c[3].adj} ${c[4].noun} ${c[5].verb}.`,
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} — ${c[5].subject} ${c[1].verb} ${c[2].adv}.`,
+  ],
+  7: [
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[5].verb} ${c[6].adv}.`,
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv} — ${c[3].adj} ${c[4].noun}. Yet ${c[5].subject} ${c[6].verb} ${c[1].adv}.`,
+    c => `Where ${c[0].subject} ${c[1].verb} ${c[2].adv}, ${c[3].subject} ${c[4].verb}. ${c[5].adj} ${c[6].noun} ${c[0].verb}.`,
+  ],
+  8: [
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[5].verb} ${c[6].adv}. ${c[7].subject} ${c[0].verb}.`,
+    c => `${c[0].subject} ${c[1].verb} ${c[2].adv} — ${c[3].adj} ${c[4].noun}. ${c[5].subject} ${c[6].verb} ${c[7].adv}. ${c[2].subject} watches.`,
+    c => `Where ${c[0].subject} ${c[1].verb}, ${c[2].adj} ${c[3].noun} ${c[4].verb} ${c[5].adv}. ${c[6].subject} ${c[7].verb} ${c[1].adv}.`,
+  ],
+};
+
+function buildSentence(cards) {
+  const n = Math.min(cards.length, 8);
+  const templates = SENTENCE_TEMPLATES[n] || SENTENCE_TEMPLATES[3];
+  return clean(pick(templates)(cards));
+}
+
+// ─── Mu's Koan Voice ──────────────────────────────────────────────────────────
 const KOAN_FRAMES = [
   (a,b) => `${a.adj} ${a.noun} does not explain itself to ${b.adj} ${b.noun}.`,
   (a,b) => `You are looking for ${b.noun}. ${a.adj} is the door.`,
@@ -143,6 +192,7 @@ const SUIT_EMOJI = { major:"☉", wands:"🔥", cups:"🌊", swords:"⚔️", di
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function drawCards(n) { return [...CARDS].sort(() => Math.random() - 0.5).slice(0, n); }
+function randBetween(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function rgbToHex(r,g,b) {
   const lum = (r*299 + g*587 + b*114) / 1000;
   if (lum < 20) { r=30; g=20; b=40; }
@@ -152,17 +202,30 @@ function imageUrl(card) {
   return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(card.id).padStart(2,'0')}.png`;
 }
 
+// Extract meaningful words from a question for /askmu
+const STOP_WORDS = new Set(['what','does','the','is','are','was','were','will','would','could','should','how','why','when','where','who','which','that','this','these','those','and','but','or','for','with','from','into','onto','over','under','about','after','before','between','have','has','had','can','its','your','my','our','their','you','they','them','just','very','then','than','more','some','been','being','also','each','there']);
+
+function extractKeyWords(text) {
+  return text.toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w));
+}
+
 // ─── Embed Builders ───────────────────────────────────────────────────────────
+
+// /draw — single card
 function buildSingleDrawEmbed(card) {
   return new EmbedBuilder()
     .setColor(rgbToHex(card.r, card.g, card.b))
     .setAuthor({ name: "Mu · The Great Librarian" })
     .setTitle(card.name)
-    .setDescription(`${SUIT_EMOJI[card.suit]}  *${card.adj} ${card.noun}*\n\n${card.desc}`)
+    .setDescription(`${SUIT_EMOJI[card.suit]}  *${card.adj} ${card.noun}*\n\n${card.subject} ${card.verb} ${card.adv}.`.replace(/\s{2,}/g,' ').trim())
     .setImage(imageUrl(card))
     .setFooter({ text: pick(CARD_QUESTIONS) });
 }
 
+// /draw3 — three card spread
 function buildThreeCardEmbed(cards) {
   const [focus, ctxA, ctxB] = cards;
   return new EmbedBuilder()
@@ -182,6 +245,43 @@ function buildThreeCardEmbed(cards) {
     .setFooter({ text: "Three cards. One story. Yours to tell." });
 }
 
+// Hey Mu / Sup Mu — sentence from cards
+function buildMuSpeaksEmbed(cards) {
+  const sentence = buildSentence(cards);
+  const cardNames = cards.map(c => c.name).join('  ·  ');
+  return new EmbedBuilder()
+    .setColor(rgbToHex(cards[0].r, cards[0].g, cards[0].b))
+    .setAuthor({ name: "Mu · The Great Librarian" })
+    .setDescription(`*${sentence}*`)
+    .setFooter({ text: cardNames });
+}
+
+// /askmu — question + card sentence response
+function buildAskMuEmbed(cards, question) {
+  const keywords = extractKeyWords(question);
+  const chosenWords = [...keywords].sort(() => Math.random() - 0.5).slice(0, 2);
+  let sentence = buildSentence(cards);
+
+  if (chosenWords.length > 0) {
+    const word = chosenWords[0];
+    const weavers = [
+      `*${word}* — ${sentence}`,
+      `${sentence} *${word}* remains.`,
+      `${sentence} What of *${word}*?`,
+      `Before *${word}* — ${sentence}`,
+    ];
+    sentence = pick(weavers);
+  }
+
+  return new EmbedBuilder()
+    .setColor(rgbToHex(cards[0].r, cards[0].g, cards[0].b))
+    .setAuthor({ name: "Mu · The Great Librarian" })
+    .addFields({ name: 'You asked:', value: `*"${question}"*` })
+    .setDescription(`\n${sentence}`)
+    .setFooter({ text: cards.map(c => c.name).join('  ·  ') });
+}
+
+// Daily wisdom koan
 function buildDailyEmbed() {
   const [a, b] = drawCards(2);
   const koan  = pick(KOAN_FRAMES)(a, b);
@@ -194,15 +294,36 @@ function buildDailyEmbed() {
 }
 
 // ─── Bot ──────────────────────────────────────────────────────────────────────
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ]
+});
 
 client.once('clientReady', async () => {
   console.log(`✓ Mu is awake as ${client.user.tag}`);
 
   const rest = new REST({ version:'10' }).setToken(process.env.BOT_TOKEN);
   const commands = [
-    new SlashCommandBuilder().setName('draw').setDescription('Draw a single card from the Thoth deck.').toJSON(),
-    new SlashCommandBuilder().setName('draw3').setDescription('Draw three cards — one focus, two context.').toJSON(),
+    new SlashCommandBuilder()
+      .setName('draw')
+      .setDescription('Draw a single card from the Thoth deck.')
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('draw3')
+      .setDescription('Draw three cards — one focus, two context.')
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('askmu')
+      .setDescription('Ask Mu a question and receive an answer from the cards.')
+      .addStringOption(opt =>
+        opt.setName('question')
+           .setDescription('What would you like to ask?')
+           .setRequired(true)
+      )
+      .toJSON(),
   ];
 
   try {
@@ -210,11 +331,12 @@ client.once('clientReady', async () => {
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
-    console.log('✓ Commands registered: /draw and /draw3');
+    console.log('✓ Commands registered: /draw, /draw3, /askmu');
   } catch (err) {
     console.error('Command registration error:', err);
   }
 
+  // Daily wisdom — 9am UTC
   cron.schedule('0 9 * * *', async () => {
     try {
       const channel = await client.channels.fetch(process.env.CHANNEL_ID);
@@ -226,6 +348,25 @@ client.once('clientReady', async () => {
   });
 });
 
+// ─── Message Triggers ─────────────────────────────────────────────────────────
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+  const content = message.content.toLowerCase();
+
+  try {
+    if (content.includes('hey mu')) {
+      const cards = drawCards(randBetween(2, 5));
+      await message.reply({ embeds: [buildMuSpeaksEmbed(cards)] });
+    } else if (content.includes('sup mu')) {
+      const cards = drawCards(randBetween(4, 8));
+      await message.reply({ embeds: [buildMuSpeaksEmbed(cards)] });
+    }
+  } catch (err) {
+    console.error('Message trigger error (non-fatal):', err.message);
+  }
+});
+
+// ─── Slash Commands ───────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -234,10 +375,14 @@ client.on('interactionCreate', async (interaction) => {
       const [card] = drawCards(1);
       await interaction.reply({ embeds: [buildSingleDrawEmbed(card)] });
     }
-
     if (interaction.commandName === 'draw3') {
       const cards = drawCards(3);
       await interaction.reply({ embeds: [buildThreeCardEmbed(cards)] });
+    }
+    if (interaction.commandName === 'askmu') {
+      const question = interaction.options.getString('question');
+      const cards = drawCards(randBetween(3, 5));
+      await interaction.reply({ embeds: [buildAskMuEmbed(cards, question)] });
     }
   } catch (err) {
     console.error('Interaction error (non-fatal):', err.message);
