@@ -403,6 +403,7 @@ client.once('clientReady', async () => {
           { name: 'Concept',   value: 'concept'   },
           { name: 'Place',     value: 'place'     },
         ))
+      .addStringOption(opt => opt.setName('subtype').setDescription('Subtype (e.g. book, weapon, god).').setRequired(false).setAutocomplete(true))
       .addStringOption(opt => opt.setName('content').setDescription('What do you want to record?').setRequired(true))
       .addStringOption(opt => opt.setName('cards').setDescription('Cards involved (optional)').setRequired(false))
       .addStringOption(opt => opt.setName('tags').setDescription('Tags for searching (optional)').setRequired(false))
@@ -481,6 +482,24 @@ client.on('messageCreate', async (message) => {
 
 // ─── Slash Commands ───────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
+  // Autocomplete handler
+  if (interaction.isAutocomplete()) {
+    if (interaction.commandName === 'remember' && interaction.options.getFocused(true).name === 'subtype') {
+      try {
+        const typed = interaction.options.getFocused().toLowerCase();
+        const { data } = await supabase
+          .from('library_entries')
+          .select('subtype')
+          .not('subtype', 'is', null)
+          .ilike('subtype', `%${typed}%`);
+        const unique = [...new Set((data || []).map(r => r.subtype).filter(Boolean))].slice(0, 25);
+        await interaction.respond(unique.map(s => ({ name: s, value: s })));
+      } catch (err) {
+        await interaction.respond([]);
+      }
+    }
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
   try {
     // Card commands
@@ -507,6 +526,7 @@ client.on('interactionCreate', async (interaction) => {
       const entry = {
         title:      interaction.options.getString('title'),
         entry_type: interaction.options.getString('type'),
+        subtype:    interaction.options.getString('subtype') || null,
         content:    interaction.options.getString('content'),
         cards:      interaction.options.getString('cards') || null,
         tags:       interaction.options.getString('tags')  || null,
