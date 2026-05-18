@@ -403,8 +403,8 @@ client.once('clientReady', async () => {
           { name: 'Concept',   value: 'concept'   },
           { name: 'Place',     value: 'place'     },
         ))
-      .addStringOption(opt => opt.setName('subtype').setDescription('Subtype (e.g. book, weapon, god).').setRequired(false).setAutocomplete(true))
       .addStringOption(opt => opt.setName('content').setDescription('What do you want to record?').setRequired(true))
+      .addStringOption(opt => opt.setName('subtype').setDescription('Subtype (e.g. book, weapon, god).').setRequired(false).setAutocomplete(true))
       .addStringOption(opt => opt.setName('cards').setDescription('Cards involved (optional)').setRequired(false))
       .addStringOption(opt => opt.setName('tags').setDescription('Tags for searching (optional)').setRequired(false))
       .toJSON(),
