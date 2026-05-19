@@ -92,17 +92,9 @@ const CARDS = [
   { id:77, name:"Knight of Disks",    timeframe:"With steady resolve",                    command:"Commune",     subject:"Perseverance",                  verb:"communes with Mother Nature",adv:"patiently",              adj:"Masculine",     noun:"Influence",       r:116,g:158,b:33,  suit:"disks" },
 ];
 
-// ─── Library Colors & Emojis ──────────────────────────────────────────────────
-const ENTRY_COLORS = {
-  item:      0x8B6914,
-  character: 0x6B4FA0,
-  session:   0x1A6B5A,
-  concept:   0x1A3F6B,
-  place:     0x2D6B1A,
-};
-const ENTRY_EMOJI = {
-  item: '📖', character: '🧙', session: '🎭', concept: '🌀', place: '🗺️',
-};
+// ─── Library ──────────────────────────────────────────────────────────────────
+const ENTRY_COLORS = { item:0x8B6914, character:0x6B4FA0, session:0x1A6B5A, concept:0x1A3F6B, place:0x2D6B1A };
+const ENTRY_EMOJI  = { item:'📖', character:'🧙', session:'🎭', concept:'🌀', place:'🗺️' };
 
 // ─── Fortune Templates ────────────────────────────────────────────────────────
 const clean = s => s.replace(/\s{2,}/g,' ').replace(/ \./g,'.').replace(/ ,/g,',').trim();
@@ -123,10 +115,9 @@ const FORTUNE_TEMPLATES = [
   c => `${c[0].timeframe}: ${c[1].adj} ${c[2].noun} ${c[0].verb}. ${c[2].command} it ${c[1].adv}.`,
   c => `${c[2].timeframe} — ${c[0].command} your ${c[1].adj} ${c[2].noun}, for ${c[0].noun} awaits.`,
 ];
-
 function buildFortune(cards) { return clean(pick(FORTUNE_TEMPLATES)(cards)); }
 
-// ─── Mu's Koan Voice ──────────────────────────────────────────────────────────
+// ─── Koan Voice ───────────────────────────────────────────────────────────────
 const KOAN_FRAMES = [
   (a,b) => `${a.adj} ${a.noun} does not explain itself to ${b.adj} ${b.noun}.`,
   (a,b) => `You are looking for ${b.noun}. ${a.adj} is the door.`,
@@ -190,7 +181,6 @@ function rgbToHex(r,g,b) {
 function imageUrl(card) {
   return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(card.id).padStart(2,'0')}.png`;
 }
-
 const STOP_WORDS = new Set(['what','does','the','is','are','was','were','will','would','could','should','how','why','when','where','who','which','that','this','these','those','and','but','or','for','with','from','into','onto','over','under','about','after','before','between','have','has','had','can','its','your','my','our','their','you','they','them','just','very','then','than','more','some','been','being','also','each','there']);
 function extractKeyWords(text) {
   return text.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
@@ -198,33 +188,13 @@ function extractKeyWords(text) {
 
 // ─── Sentence Builder ─────────────────────────────────────────────────────────
 const SENTENCE_TEMPLATES = {
-  2: [
-    c => `${c[0].subject} ${c[1].verb}.`,
-    c => `${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.`,
-  ],
-  3: [
-    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}.`,
-    c => `${c[0].subject} ${c[1].verb} — ${c[2].adj} ${c[2].noun} ${c[1].adv}.`,
-    c => `${c[0].adj} ${c[1].noun} ${c[2].verb} ${c[0].adv}. ${c[2].subject} listens.`,
-  ],
-  4: [
-    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[3].noun} ${c[0].verb} ${c[1].adv}.`,
-    c => `Where ${c[0].subject} ${c[1].verb}, ${c[2].adj} ${c[3].noun} ${c[1].verb} ${c[2].adv}.`,
-  ],
-  5: [
-    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[1].verb} ${c[3].adv}.`,
-    c => `${c[0].subject} ${c[1].verb} ${c[2].adv} toward ${c[3].adj} ${c[4].noun}. ${c[2].subject} watches.`,
-  ],
-  6: [
-    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].subject} ${c[4].verb} ${c[5].adv}.`,
-    c => `Where ${c[0].subject} ${c[1].verb} ${c[2].adv}, ${c[3].adj} ${c[4].noun} ${c[5].verb}.`,
-  ],
-  7: [
-    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[5].verb} ${c[6].adv}.`,
-  ],
-  8: [
-    c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[5].verb} ${c[6].adv}. ${c[7].subject} ${c[0].verb}.`,
-  ],
+  2: [ c => `${c[0].subject} ${c[1].verb}.`, c => `${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.` ],
+  3: [ c => `${c[0].subject} ${c[1].verb} ${c[2].adv}.`, c => `${c[0].subject} ${c[1].verb} — ${c[2].adj} ${c[2].noun} ${c[1].adv}.`, c => `${c[0].adj} ${c[1].noun} ${c[2].verb} ${c[0].adv}. ${c[2].subject} listens.` ],
+  4: [ c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[3].noun} ${c[0].verb} ${c[1].adv}.`, c => `Where ${c[0].subject} ${c[1].verb}, ${c[2].adj} ${c[3].noun} ${c[1].verb} ${c[2].adv}.` ],
+  5: [ c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[1].verb} ${c[3].adv}.`, c => `${c[0].subject} ${c[1].verb} ${c[2].adv} toward ${c[3].adj} ${c[4].noun}. ${c[2].subject} watches.` ],
+  6: [ c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].subject} ${c[4].verb} ${c[5].adv}.`, c => `Where ${c[0].subject} ${c[1].verb} ${c[2].adv}, ${c[3].adj} ${c[4].noun} ${c[5].verb}.` ],
+  7: [ c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[5].verb} ${c[6].adv}.` ],
+  8: [ c => `${c[0].subject} ${c[1].verb} ${c[2].adv}. ${c[3].adj} ${c[4].noun} ${c[5].verb} ${c[6].adv}. ${c[7].subject} ${c[0].verb}.` ],
 };
 function buildSentence(cards) {
   const n = Math.min(cards.length, 8);
@@ -298,25 +268,14 @@ function buildFortuneEmbed(cards, member) {
     .setFooter({ text: cardLine });
 }
 
-function buildDailyEmbed() {
-  const [a, b] = drawCards(2);
-  const koan  = pick(KOAN_FRAMES)(a, b);
-  const intro = pick(MU_INTROS);
-  return new EmbedBuilder()
-    .setColor(rgbToHex(a.r, a.g, a.b))
-    .setAuthor({ name: "Mu · The Great Librarian" })
-    .setDescription(`${intro}\n\n> ${koan}`)
-    .setFooter({ text: `${a.name}  ·  ${b.name}` });
-}
-
-// ─── Library Embed Builders ───────────────────────────────────────────────────
 function buildRememberEmbed(entry) {
   const fields = [
-    { name: 'Type', value: entry.entry_type, inline: true },
-    { name: 'Recorded by', value: entry.author, inline: true },
+    { name: 'Type',        value: entry.entry_type,          inline: true },
+    { name: 'Recorded by', value: entry.author,              inline: true },
   ];
-  if (entry.cards) fields.push({ name: 'Cards', value: entry.cards, inline: false });
-
+  if (entry.subtype) fields.push({ name: 'Subtype', value: entry.subtype, inline: true });
+  if (entry.cards)   fields.push({ name: 'Cards',   value: entry.cards,   inline: false });
+  if (entry.tags)    fields.push({ name: 'Tags',    value: entry.tags,    inline: false });
   return new EmbedBuilder()
     .setColor(ENTRY_COLORS[entry.entry_type] || 0x4A3560)
     .setAuthor({ name: 'Mu · The Great Library' })
@@ -328,12 +287,12 @@ function buildRememberEmbed(entry) {
 
 function buildRecallEmbed(entry) {
   const fields = [
-    { name: 'Type', value: entry.entry_type, inline: true },
-    { name: 'Recorded by', value: entry.author || 'unknown', inline: true },
+    { name: 'Type',        value: entry.entry_type,              inline: true },
+    { name: 'Recorded by', value: entry.author || 'unknown',     inline: true },
   ];
-  if (entry.cards) fields.push({ name: 'Cards', value: entry.cards, inline: false });
-  if (entry.tags)  fields.push({ name: 'Tags',  value: entry.tags,  inline: false });
-
+  if (entry.subtype) fields.push({ name: 'Subtype', value: entry.subtype, inline: true });
+  if (entry.cards)   fields.push({ name: 'Cards',   value: entry.cards,   inline: false });
+  if (entry.tags)    fields.push({ name: 'Tags',    value: entry.tags,    inline: false });
   return new EmbedBuilder()
     .setColor(ENTRY_COLORS[entry.entry_type] || 0x4A3560)
     .setAuthor({ name: 'Mu · The Great Library' })
@@ -345,9 +304,7 @@ function buildRecallEmbed(entry) {
 
 function buildLibraryListEmbed(entries, type) {
   const heading = type ? `The Library · ${type}s` : 'The Library · Recent Entries';
-  const lines   = entries.map(e =>
-    `${ENTRY_EMOJI[e.entry_type] || '📜'} **${e.title}** — *${e.entry_type}*`
-  );
+  const lines   = entries.map(e => `${ENTRY_EMOJI[e.entry_type] || '📜'} **${e.title}** — *${e.entry_type}${e.subtype ? ' · ' + e.subtype : ''}*`);
   return new EmbedBuilder()
     .setColor(0x4A3560)
     .setAuthor({ name: 'Mu · The Great Library' })
@@ -356,7 +313,7 @@ function buildLibraryListEmbed(entries, type) {
     .setFooter({ text: 'Use /recall [title] to read an entry.' });
 }
 
-// ─── Bot Setup ────────────────────────────────────────────────────────────────
+// ─── Bot ──────────────────────────────────────────────────────────────────────
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -371,26 +328,18 @@ client.once('clientReady', async () => {
 
   const rest = new REST({ version:'10' }).setToken(process.env.BOT_TOKEN);
   const commands = [
-    new SlashCommandBuilder()
-      .setName('draw')
-      .setDescription('Draw a single card from the Thoth deck.')
-      .toJSON(),
-    new SlashCommandBuilder()
-      .setName('draw3')
-      .setDescription('Draw three cards — one focus, two context.')
-      .toJSON(),
+    new SlashCommandBuilder().setName('draw').setDescription('Draw a single card from the Thoth deck.').toJSON(),
+    new SlashCommandBuilder().setName('draw3').setDescription('Draw three cards — one focus, two context.').toJSON(),
     new SlashCommandBuilder()
       .setName('askmu')
       .setDescription('Ask Mu a question and receive an answer from the cards.')
-      .addStringOption(opt =>
-        opt.setName('question').setDescription('What would you like to ask?').setRequired(true)
-      ).toJSON(),
+      .addStringOption(opt => opt.setName('question').setDescription('What would you like to ask?').setRequired(true))
+      .toJSON(),
     new SlashCommandBuilder()
       .setName('fortune')
       .setDescription('Mu delivers a personal fortune to someone.')
-      .addUserOption(opt =>
-        opt.setName('recipient').setDescription('Who receives the fortune?').setRequired(true)
-      ).toJSON(),
+      .addUserOption(opt => opt.setName('recipient').setDescription('Who receives the fortune?').setRequired(true))
+      .toJSON(),
     new SlashCommandBuilder()
       .setName('remember')
       .setDescription('Save something to the Great Library.')
@@ -404,14 +353,14 @@ client.once('clientReady', async () => {
           { name: 'Place',     value: 'place'     },
         ))
       .addStringOption(opt => opt.setName('content').setDescription('What do you want to record?').setRequired(true))
-      .addStringOption(opt => opt.setName('subtype').setDescription('Subtype (e.g. book, weapon, god).').setRequired(false).setAutocomplete(true))
+      .addStringOption(opt => opt.setName('subtype').setDescription('Subtype (e.g. book, weapon, god)').setRequired(false).setAutocomplete(true))
       .addStringOption(opt => opt.setName('cards').setDescription('Cards involved (optional)').setRequired(false))
-      .addStringOption(opt => opt.setName('tags').setDescription('Tags for searching (optional)').setRequired(false))
+      .addStringOption(opt => opt.setName('tags').setDescription('Tags for searching (optional)').setRequired(false).setAutocomplete(true))
       .toJSON(),
     new SlashCommandBuilder()
       .setName('recall')
       .setDescription('Retrieve an entry from the Great Library.')
-      .addStringOption(opt => opt.setName('title').setDescription('What are you looking for?').setRequired(true))
+      .addStringOption(opt => opt.setName('title').setDescription('What are you looking for?').setRequired(true).setAutocomplete(true))
       .toJSON(),
     new SlashCommandBuilder()
       .setName('library')
@@ -437,17 +386,6 @@ client.once('clientReady', async () => {
     console.error('Command registration error:', err);
   }
 
-  // Daily wisdom — 9am UTC
-  cron.schedule('0 9 * * *', async () => {
-    try {
-      const channel = await client.channels.fetch(process.env.CHANNEL_ID);
-      await channel.send({ embeds: [buildDailyEmbed()] });
-      console.log('✓ Daily wisdom posted');
-    } catch (err) {
-      console.error('Daily wisdom error:', err);
-    }
-  });
-
   // Daily fortune — 8am UTC
   cron.schedule('0 8 * * *', async () => {
     try {
@@ -457,7 +395,7 @@ client.once('clientReady', async () => {
       if (members.size === 0) return;
       const member = members.random();
       const cards  = drawCards(3);
-      await channel.send({ content: `<@${member.id}>`, embeds: [buildFortuneEmbed(cards, member)] });
+      await channel.send({ content:`<@${member.id}>`, embeds:[buildFortuneEmbed(cards, member)] });
       console.log(`✓ Daily fortune sent to ${member.displayName}`);
     } catch (err) {
       console.error('Daily fortune error:', err);
@@ -480,29 +418,41 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// ─── Slash Commands ───────────────────────────────────────────────────────────
+// ─── Interactions ─────────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
-  // Autocomplete handler
+
+  // Autocomplete
   if (interaction.isAutocomplete()) {
-    if (interaction.commandName === 'remember' && interaction.options.getFocused(true).name === 'subtype') {
-      try {
-        const typed = interaction.options.getFocused().toLowerCase();
-        const { data } = await supabase
-          .from('library_entries')
-          .select('subtype')
-          .not('subtype', 'is', null)
-          .ilike('subtype', `%${typed}%`);
-        const unique = [...new Set((data || []).map(r => r.subtype).filter(Boolean))].slice(0, 25);
-        await interaction.respond(unique.map(s => ({ name: s, value: s })));
-      } catch (err) {
+    const focused = interaction.options.getFocused(true);
+    const typed   = focused.value.toLowerCase();
+    try {
+      if (interaction.commandName === 'remember' && focused.name === 'subtype') {
+        const { data } = await supabase.from('library_entries').select('subtype').not('subtype','is',null).ilike('subtype',`%${typed}%`);
+        const unique = [...new Set((data||[]).map(r=>r.subtype).filter(Boolean))].slice(0,25);
+        await interaction.respond(unique.map(s=>({name:s,value:s})));
+
+      } else if (interaction.commandName === 'remember' && focused.name === 'tags') {
+        const { data } = await supabase.from('library_entries').select('tags').not('tags','is',null);
+        const allTags = (data||[]).flatMap(r=>r.tags.split(',').map(t=>t.trim().toLowerCase())).filter(t=>t&&t.includes(typed));
+        const unique = [...new Set(allTags)].slice(0,25);
+        await interaction.respond(unique.map(s=>({name:s,value:s})));
+
+      } else if (interaction.commandName === 'recall' && focused.name === 'title') {
+        const { data } = await supabase.from('library_entries').select('title').ilike('title',`%${typed}%`).limit(25);
+        const titles = (data||[]).map(r=>r.title).filter(Boolean);
+        await interaction.respond(titles.map(s=>({name:s,value:s})));
+
+      } else {
         await interaction.respond([]);
       }
+    } catch (err) {
+      await interaction.respond([]);
     }
     return;
   }
+
   if (!interaction.isChatInputCommand()) return;
   try {
-    // Card commands
     if (interaction.commandName === 'draw') {
       const [card] = drawCards(1);
       await interaction.reply({ embeds: [buildSingleDrawEmbed(card)] });
@@ -519,17 +469,15 @@ client.on('interactionCreate', async (interaction) => {
       const member = await interaction.guild.members.fetch(user.id);
       await interaction.reply({ content:`<@${user.id}>`, embeds:[buildFortuneEmbed(drawCards(3), member)] });
     }
-
-    // Library commands
     if (interaction.commandName === 'remember') {
       await interaction.deferReply();
       const entry = {
         title:      interaction.options.getString('title'),
         entry_type: interaction.options.getString('type'),
-        subtype:    interaction.options.getString('subtype') || null,
         content:    interaction.options.getString('content'),
-        cards:      interaction.options.getString('cards') || null,
-        tags:       interaction.options.getString('tags')  || null,
+        subtype:    interaction.options.getString('subtype') || null,
+        cards:      interaction.options.getString('cards')   || null,
+        tags:       interaction.options.getString('tags')    || null,
         author:     interaction.user.username,
       };
       const { error } = await supabase.from('library_entries').insert(entry);
@@ -539,27 +487,20 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply({ embeds: [buildRememberEmbed(entry)] });
       }
     }
-
     if (interaction.commandName === 'recall') {
       await interaction.deferReply();
       const title = interaction.options.getString('title');
-      const { data, error } = await supabase
-        .from('library_entries')
-        .select('*')
-        .ilike('title', `%${title}%`)
-        .order('created_at', { ascending: false })
-        .limit(1);
+      const { data, error } = await supabase.from('library_entries').select('*').ilike('title',`%${title}%`).order('created_at',{ascending:false}).limit(1);
       if (error || !data || data.length === 0) {
         await interaction.editReply(`*Mu searches the stacks.* Nothing found for "${title}".`);
       } else {
         await interaction.editReply({ embeds: [buildRecallEmbed(data[0])] });
       }
     }
-
     if (interaction.commandName === 'library') {
       await interaction.deferReply();
       const type = interaction.options.getString('type');
-      let query = supabase.from('library_entries').select('*').order('created_at', { ascending:false }).limit(8);
+      let query = supabase.from('library_entries').select('*').order('created_at',{ascending:false}).limit(8);
       if (type) query = query.eq('entry_type', type);
       const { data, error } = await query;
       if (error || !data || data.length === 0) {
@@ -568,7 +509,6 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply({ embeds: [buildLibraryListEmbed(data, type)] });
       }
     }
-
   } catch (err) {
     console.error('Interaction error (non-fatal):', err.message);
   }
