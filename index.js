@@ -102,11 +102,25 @@ const MU_INTROS = [
 ];
 
 const SUIT_EMOJI = { major:"☉", wands:"🔥", cups:"🌊", swords:"⚔️", disks:"🌍" };
+const SUIT_CHOICES = [
+  { name:'Major Arcana', value:'major'  },
+  { name:'Wands',        value:'wands'  },
+  { name:'Cups',         value:'cups'   },
+  { name:'Swords',       value:'swords' },
+  { name:'Disks',        value:'disks'  },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function drawCards(n) { return [...CARDS].sort(() => Math.random() - 0.5).slice(0, n); }
+
+function drawCards(n, suit) {
+  const pool = suit ? CARDS.filter(c => c.suit === suit) : CARDS;
+  if (pool.length === 0) return CARDS.sort(() => Math.random() - 0.5).slice(0, n);
+  return [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(n, pool.length));
+}
+
 function randBetween(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
 function rgbToHex(r,g,b) {
   const lum = (r*299 + g*587 + b*114) / 1000;
   if (lum < 20) { r=30; g=20; b=40; }
@@ -115,6 +129,7 @@ function rgbToHex(r,g,b) {
 function imageUrl(card) {
   return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(card.card_id).padStart(2,'0')}.png`;
 }
+
 const STOP_WORDS = new Set(['what','does','the','is','are','was','were','will','would','could','should','how','why','when','where','who','which','that','this','these','those','and','but','or','for','with','from','into','onto','over','under','about','after','before','between','have','has','had','can','its','your','my','our','their','you','they','them','just','very','then','than','more','some','been','being','also','each','there']);
 function extractKeyWords(text) {
   return text.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
@@ -265,8 +280,24 @@ client.once('clientReady', async () => {
 
   const rest = new REST({ version:'10' }).setToken(process.env.BOT_TOKEN);
   const commands = [
-    new SlashCommandBuilder().setName('draw').setDescription('Draw a single card from the Thoth deck.').toJSON(),
-    new SlashCommandBuilder().setName('draw3').setDescription('Draw three cards — one focus, two context.').toJSON(),
+    // ── Card draws ──
+    new SlashCommandBuilder()
+      .setName('draw')
+      .setDescription('Draw a single card — optionally filtered by suit.')
+      .addStringOption(opt => opt.setName('suit').setDescription('Draw only from this suit (optional)').setRequired(false).addChoices(...SUIT_CHOICES))
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('draw3')
+      .setDescription('Draw three cards — optionally filtered by suit.')
+      .addStringOption(opt => opt.setName('suit').setDescription('Draw only from this suit (optional)').setRequired(false).addChoices(...SUIT_CHOICES))
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('card')
+      .setDescription('Choose a specific card from the deck.')
+      .addStringOption(opt => opt.setName('name').setDescription('Card name').setRequired(true).setAutocomplete(true))
+      .addStringOption(opt => opt.setName('suit').setDescription('Filter the list by suit (optional)').setRequired(false).addChoices(...SUIT_CHOICES))
+      .toJSON(),
+    // ── Mu speaks ──
     new SlashCommandBuilder()
       .setName('askmu')
       .setDescription('Ask Mu a question and receive an answer from the cards.')
@@ -277,17 +308,18 @@ client.once('clientReady', async () => {
       .setDescription('Mu delivers a personal fortune to someone.')
       .addUserOption(opt => opt.setName('recipient').setDescription('Who receives the fortune?').setRequired(true))
       .toJSON(),
+    // ── Library ──
     new SlashCommandBuilder()
       .setName('remember')
       .setDescription('Save something to the Great Library.')
       .addStringOption(opt => opt.setName('title').setDescription('Name of this entry').setRequired(true))
       .addStringOption(opt => opt.setName('type').setDescription('Type of entry').setRequired(true)
         .addChoices(
-          { name: 'Item',      value: 'item'      },
-          { name: 'Character', value: 'character' },
-          { name: 'Session',   value: 'session'   },
-          { name: 'Concept',   value: 'concept'   },
-          { name: 'Place',     value: 'place'     },
+          { name:'Item',      value:'item'      },
+          { name:'Character', value:'character' },
+          { name:'Session',   value:'session'   },
+          { name:'Concept',   value:'concept'   },
+          { name:'Place',     value:'place'     },
         ))
       .addStringOption(opt => opt.setName('content').setDescription('What do you want to record?').setRequired(true))
       .addStringOption(opt => opt.setName('subtype').setDescription('Subtype (e.g. book, weapon, god)').setRequired(false).setAutocomplete(true))
@@ -304,11 +336,11 @@ client.once('clientReady', async () => {
       .setDescription('Browse recent entries in the Great Library.')
       .addStringOption(opt => opt.setName('type').setDescription('Filter by type (optional)').setRequired(false)
         .addChoices(
-          { name: 'Item',      value: 'item'      },
-          { name: 'Character', value: 'character' },
-          { name: 'Session',   value: 'session'   },
-          { name: 'Concept',   value: 'concept'   },
-          { name: 'Place',     value: 'place'     },
+          { name:'Item',      value:'item'      },
+          { name:'Character', value:'character' },
+          { name:'Session',   value:'session'   },
+          { name:'Concept',   value:'concept'   },
+          { name:'Place',     value:'place'     },
         ))
       .toJSON(),
   ];
@@ -318,7 +350,7 @@ client.once('clientReady', async () => {
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
-    console.log('✓ Commands registered: /draw, /draw3, /askmu, /fortune, /remember, /recall, /library');
+    console.log('✓ Commands registered: /draw, /draw3, /card, /askmu, /fortune, /remember, /recall, /library');
   } catch (err) {
     console.error('Command registration error:', err);
   }
@@ -363,17 +395,27 @@ client.on('interactionCreate', async (interaction) => {
     const focused = interaction.options.getFocused(true);
     const typed   = focused.value.toLowerCase();
     try {
-      if (interaction.commandName === 'remember' && focused.name === 'subtype') {
+      // /card name — filtered by suit if provided
+      if (interaction.commandName === 'card' && focused.name === 'name') {
+        const suit = interaction.options.getString('suit');
+        let pool = CARDS.filter(c => c.name.toLowerCase().includes(typed));
+        if (suit) pool = pool.filter(c => c.suit === suit);
+        await interaction.respond(pool.slice(0,25).map(c => ({ name:`${SUIT_EMOJI[c.suit]} ${c.name}`, value:c.name })));
+
+      // /remember subtype
+      } else if (interaction.commandName === 'remember' && focused.name === 'subtype') {
         const { data } = await supabase.from('library_entries').select('subtype').not('subtype','is',null).ilike('subtype',`%${typed}%`);
         const unique = [...new Set((data||[]).map(r=>r.subtype).filter(Boolean))].slice(0,25);
         await interaction.respond(unique.map(s=>({name:s,value:s})));
 
+      // /remember tags
       } else if (interaction.commandName === 'remember' && focused.name === 'tags') {
         const { data } = await supabase.from('library_entries').select('tags').not('tags','is',null);
         const allTags = (data||[]).flatMap(r=>r.tags.split(',').map(t=>t.trim().toLowerCase())).filter(t=>t&&t.includes(typed));
         const unique = [...new Set(allTags)].slice(0,25);
         await interaction.respond(unique.map(s=>({name:s,value:s})));
 
+      // /recall title
       } else if (interaction.commandName === 'recall' && focused.name === 'title') {
         const { data } = await supabase.from('library_entries').select('title').ilike('title',`%${typed}%`).limit(25);
         const titles = (data||[]).map(r=>r.title).filter(Boolean);
@@ -390,22 +432,42 @@ client.on('interactionCreate', async (interaction) => {
 
   if (!interaction.isChatInputCommand()) return;
   try {
+    // ── Card draws ──
     if (interaction.commandName === 'draw') {
-      const [card] = drawCards(1);
+      const suit = interaction.options.getString('suit');
+      const [card] = drawCards(1, suit);
       await interaction.reply({ embeds: [buildSingleDrawEmbed(card)] });
     }
+
     if (interaction.commandName === 'draw3') {
-      await interaction.reply({ embeds: [buildThreeCardEmbed(drawCards(3))] });
+      const suit  = interaction.options.getString('suit');
+      const cards = drawCards(3, suit);
+      await interaction.reply({ embeds: [buildThreeCardEmbed(cards)] });
     }
+
+    if (interaction.commandName === 'card') {
+      const name = interaction.options.getString('name');
+      const card = CARDS.find(c => c.name.toLowerCase() === name.toLowerCase());
+      if (!card) {
+        await interaction.reply({ content:`*Mu searches the archive.* No card found named "${name}".`, ephemeral:true });
+      } else {
+        await interaction.reply({ embeds: [buildSingleDrawEmbed(card)] });
+      }
+    }
+
+    // ── Mu speaks ──
     if (interaction.commandName === 'askmu') {
       const question = interaction.options.getString('question');
       await interaction.reply({ embeds: [buildAskMuEmbed(drawCards(randBetween(3,5)), question)] });
     }
+
     if (interaction.commandName === 'fortune') {
       const user   = interaction.options.getUser('recipient');
       const member = await interaction.guild.members.fetch(user.id);
       await interaction.reply({ content:`<@${user.id}>`, embeds:[buildFortuneEmbed(drawCards(3), member)] });
     }
+
+    // ── Library ──
     if (interaction.commandName === 'remember') {
       await interaction.deferReply();
       const entry = {
@@ -424,6 +486,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply({ embeds: [buildRememberEmbed(entry)] });
       }
     }
+
     if (interaction.commandName === 'recall') {
       await interaction.deferReply();
       const title = interaction.options.getString('title');
@@ -434,6 +497,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply({ embeds: [buildRecallEmbed(data[0])] });
       }
     }
+
     if (interaction.commandName === 'library') {
       await interaction.deferReply();
       const type = interaction.options.getString('type');
@@ -446,6 +510,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply({ embeds: [buildLibraryListEmbed(data, type)] });
       }
     }
+
   } catch (err) {
     console.error('Interaction error (non-fatal):', err.message);
   }
