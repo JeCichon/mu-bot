@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tricknologic · Card Piano</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap');
+:root{--bg:#06040e;--gold:#c9a96e;--cw:78px;--ch:134px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);font-family:'EB Garamond',serif;color:#ccc8b8;min-height:100vh;overflow-x:auto;}
+
+/* ── TOP BAR ── */
+#bar{position:sticky;top:0;z-index:80;background:rgba(6,4,14,.97);border-bottom:1px solid rgba(201,169,110,.1);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#bar h1{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.3em;color:var(--gold);opacity:.65;white-space:nowrap;}
+.tb{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;background:transparent;border:1px solid rgba(201,169,110,.22);color:var(--gold);padding:5px 12px;cursor:pointer;border-radius:2px;transition:all .2s;white-space:nowrap;}
+.tb:hover{background:rgba(201,169,110,.08);border-color:rgba(201,169,110,.5);}
+.tb.active{background:rgba(201,169,110,.12);border-color:rgba(201,169,110,.5);}
+#set-nav{display:flex;align-items:center;gap:6px;padding:0 4px;border:1px solid rgba(201,169,110,.15);border-radius:3px;}
+#set-name{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:var(--gold);min-width:100px;text-align:center;}
+.arr{font-size:14px;color:rgba(201,169,110,.5);cursor:pointer;padding:0 4px;background:none;border:none;transition:color .2s;}
+.arr:hover{color:var(--gold);}
+#bar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+#active-suit-label{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(201,169,110,.4);}
+
+/* ── GRADIENT EDITOR ── */
+#grad-editor{background:rgba(6,4,14,.96);border-bottom:1px solid rgba(201,169,110,.15);padding:10px 16px;display:none;align-items:center;gap:12px;flex-wrap:wrap;}
+#grad-editor.show{display:flex;}
+.ge-label{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(201,169,110,.5);}
+.ge-toggle{width:36px;height:18px;border-radius:9px;background:rgba(201,169,110,.15);border:1px solid rgba(201,169,110,.2);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.ge-toggle.on{background:rgba(201,169,110,.35);}
+.ge-knob{width:14px;height:14px;border-radius:50%;background:var(--gold);position:absolute;top:1px;left:1px;transition:left .2s;opacity:.5;}
+.ge-toggle.on .ge-knob{left:19px;opacity:1;}
+#ge-start,#ge-end{width:32px;height:28px;border:2px solid rgba(201,169,110,.3);border-radius:3px;cursor:pointer;background:none;}
+#ge-blend{font-family:'Cinzel',serif;font-size:9px;background:rgba(0,0,0,.5);border:1px solid rgba(201,169,110,.2);color:var(--gold);padding:4px 8px;border-radius:2px;cursor:pointer;}
+#ge-opacity-wrap{display:flex;align-items:center;gap:5px;}
+#ge-opacity{width:70px;accent-color:var(--gold);}
+#ge-preview{flex:1;height:20px;border-radius:3px;min-width:100px;background:linear-gradient(to right, #c9a96e, #c9a96e);}
+
+/* ── KEYBOARD POPUP ── */
+#kb-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:center;justify-content:center;}
+#kb-overlay.show{display:flex;}
+#kb-box{background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.28);border-radius:8px;padding:22px 26px;max-width:680px;width:92vw;max-height:88vh;overflow-y:auto;}
+#kb-box h2{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.25em;color:var(--gold);margin-bottom:14px;font-weight:600;}
+#kb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:14px;}
+.kb-row{display:flex;align-items:center;gap:7px;padding:5px 8px;background:rgba(0,0,0,.3);border-radius:3px;border:1px solid rgba(201,169,110,.07);}
+.kb-key{font-family:'Cinzel',serif;font-size:11px;font-weight:700;color:var(--gold);min-width:20px;text-align:center;}
+.kb-card{font-size:10px;color:#6a6050;flex:1;}
+.kb-note{font-size:9px;color:#3a3028;font-style:italic;}
+.kb-suit-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.kb-suit-tab{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.15em;padding:4px 10px;border:1px solid rgba(201,169,110,.2);border-radius:2px;cursor:pointer;color:rgba(201,169,110,.5);transition:all .2s;}
+.kb-suit-tab.active{border-color:rgba(201,169,110,.55);color:var(--gold);background:rgba(201,169,110,.08);}
+
+/* ── COLOR PICKER MODAL ── */
+#cp-modal{position:fixed;z-index:300;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.3);border-radius:8px;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.9);display:none;min-width:220px;}
+#cp-modal.show{display:block;}
+#cp-title{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;color:var(--gold);margin-bottom:10px;}
+#cp-input{width:100%;height:50px;border:none;border-radius:4px;cursor:pointer;background:none;}
+.cp-row{display:flex;gap:8px;margin-top:10px;}
+#cp-preview{flex:1;height:36px;border-radius:4px;border:1px solid rgba(255,255,255,.1);}
+#cp-rgb{font-size:10px;color:#6a6050;margin-top:6px;letter-spacing:.08em;}
+.cp-btns{display:flex;gap:6px;margin-top:10px;}
+.cp-btn{flex:1;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.15em;padding:6px;border:1px solid rgba(201,169,110,.22);background:transparent;color:var(--gold);cursor:pointer;border-radius:2px;transition:all .2s;}
+.cp-btn:hover{background:rgba(201,169,110,.08);}
+
+/* ── CONTENT ── */
+#content{padding:16px 16px 60px;}
+
+/* ── SUIT ROW ── */
+.suit-row{margin-bottom:22px;position:relative;}
+.suit-row.dimmed{opacity:.3;pointer-events:none;}
+.suit-row.dimmed.grad-active{opacity:1;pointer-events:auto;}
+.suit-head{display:flex;align-items:center;gap:0;margin-bottom:10px;}
+.suit-trigger{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 10px;background:rgba(0,0,0,.4);border:1px solid rgba(201,169,110,.15);border-radius:4px;cursor:pointer;transition:all .2s;flex-shrink:0;margin-right:12px;}
+.suit-trigger:hover{border-color:rgba(201,169,110,.4);background:rgba(201,169,110,.06);}
+.suit-trigger.grad-open{border-color:rgba(201,169,110,.55);background:rgba(201,169,110,.1);}
+.suit-pip{font-size:16px;}
+.suit-title{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.2em;color:var(--gold);font-weight:600;}
+.suit-kb{font-size:8px;letter-spacing:.15em;color:#3a3028;margin-left:4px;}
+.suit-kb.active-kb{color:rgba(201,169,110,.5);}
+
+/* Cards row */
+.cards-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;}
+.cards-row::-webkit-scrollbar{height:3px;}
+.cards-row::-webkit-scrollbar-track{background:transparent;}
+.cards-row::-webkit-scrollbar-thumb{background:rgba(201,169,110,.2);border-radius:2px;}
+
+/* ── CARD ── */
+.card-key{
+  width:var(--cw);min-width:var(--cw);height:var(--ch);
+  border-radius:6px;position:relative;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:6px 5px 5px;
+  border:2px solid rgba(255,255,255,.1);
+  transition:transform .08s,box-shadow .08s,border-color .15s;
+  overflow:hidden;
+  user-select:none;
+}
+.card-key:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.25);}
+.card-key.playing{transform:translateY(-5px)!important;box-shadow:0 0 24px currentColor!important;border-color:rgba(255,255,255,.8)!important;z-index:10;}
+.card-key.kb-active{border-color:rgba(255,255,255,.6)!important;}
+
+/* Gradient overlay */
+.grad-overlay{position:absolute;inset:0;pointer-events:none;border-radius:5px;}
+
+/* Card image layer */
+.card-img{position:absolute;inset:0;object-fit:cover;width:100%;height:100%;border-radius:5px;pointer-events:none;}
+
+/* Card text */
+.ck-top{position:relative;z-index:2;}
+.ck-num{font-family:'Cinzel',serif;font-size:7px;letter-spacing:.12em;opacity:.8;display:block;}
+.ck-suit{font-size:6px;letter-spacing:.1em;opacity:.55;display:block;}
+.ck-bot{position:relative;z-index:2;text-align:center;}
+.ck-name{font-family:'Cinzel',serif;font-size:7.5px;letter-spacing:.04em;font-weight:600;line-height:1.2;display:block;}
+.ck-words{font-size:6px;font-style:italic;opacity:.65;display:block;line-height:1.3;margin-top:1px;}
+.ck-key-badge{position:absolute;top:4px;right:4px;z-index:3;font-family:'Cinzel',serif;font-size:7px;font-weight:700;background:rgba(0,0,0,.5);padding:1px 4px;border-radius:2px;opacity:.7;}
+
+/* ── MISC MODAL ── */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;display:none;align-items:center;justify-content:center;}
+#modal-overlay.show{display:flex;}
+#modal-box{background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.28);border-radius:8px;width:min(400px,90vw);padding:22px 24px;box-shadow:0 24px 70px rgba(0,0,0,.9);}
+#modal-box h2{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.25em;color:var(--gold);margin-bottom:14px;font-weight:600;}
+.m-input{width:100%;font-family:'Cinzel',serif;font-size:12px;background:rgba(0,0,0,.5);border:1px solid rgba(201,169,110,.2);color:#ccc8b8;padding:8px 12px;border-radius:3px;outline:none;margin-bottom:14px;}
+.m-input:focus{border-color:rgba(201,169,110,.45);}
+.m-btns{display:flex;gap:8px;justify-content:flex-end;}
+.m-btn{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.15em;background:transparent;border:1px solid rgba(201,169,110,.22);color:var(--gold);padding:7px 16px;cursor:pointer;border-radius:2px;transition:all .2s;}
+.m-btn:hover{background:rgba(201,169,110,.08);}
+.m-btn.go{border-color:rgba(201,169,110,.5);background:rgba(201,169,110,.07);}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="bar">
+  <h1>TRICKNOLOGIC · CARD PIANO</h1>
+  <div id="set-nav">
+    <button class="arr" id="prev-set">&#8249;</button>
+    <span id="set-name">Default</span>
+    <button class="arr" id="next-set">&#8250;</button>
+  </div>
+  <button class="tb" id="dup-set-btn">+ Duplicate Set</button>
+  <button class="tb" id="rename-set-btn">✎ Rename</button>
+  <button class="tb" id="kb-btn">⌨ Key Map</button>
+  <div id="bar-right">
+    <span id="active-suit-label">TAB to switch suit</span>
+  </div>
+</div>
+
+<!-- GRADIENT EDITOR (shown above active suit) -->
+<div id="grad-editor">
+  <span class="ge-label" id="ge-suit-label">MAJOR ARCANA</span>
+  <div class="ge-toggle" id="ge-toggle"><div class="ge-knob"></div></div>
+  <span class="ge-label">OFF/ON</span>
+  <input type="color" id="ge-start" value="#ffffff" title="Start color"/>
+  <div id="ge-preview"></div>
+  <input type="color" id="ge-end" value="#c9a96e" title="End color"/>
+  <select id="ge-blend" title="Blend mode">
+    <option value="normal">Normal</option>
+    <option value="multiply">Multiply</option>
+    <option value="screen">Screen</option>
+    <option value="overlay">Overlay</option>
+    <option value="hard-light">Hard Light</option>
+    <option value="color-dodge">Color Dodge</option>
+  </select>
+  <div id="ge-opacity-wrap">
+    <span class="ge-label">OPACITY</span>
+    <input type="range" id="ge-opacity" min="0" max="100" value="30"/>
+    <span id="ge-opacity-val" class="ge-label">30%</span>
+  </div>
+  <button class="tb" id="ge-close">Close</button>
+</div>
+
+<!-- KEYBOARD POPUP -->
+<div id="kb-overlay">
+  <div id="kb-box">
+    <h2>KEYBOARD MAP</h2>
+    <div class="kb-suit-tabs" id="kb-suit-tabs"></div>
+    <div id="kb-grid"></div>
+    <button class="tb" onclick="document.getElementById('kb-overlay').classList.remove('show')">Close</button>
+  </div>
+</div>
+
+<!-- COLOR PICKER -->
+<div id="cp-modal">
+  <div id="cp-title">CARD COLOR</div>
+  <input type="color" id="cp-input"/>
+  <div id="cp-rgb"></div>
+  <div id="cp-preview"></div>
+  <div class="cp-btns">
+    <button class="cp-btn" id="cp-reset">↺ Reset</button>
+    <button class="cp-btn" id="cp-apply">Apply</button>
+    <button class="cp-btn" id="cp-cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- GENERIC MODAL -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h2 id="modal-title"></h2>
+    <input type="text" class="m-input" id="modal-input" placeholder=""/>
+    <div class="m-btns" id="modal-btns"></div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div id="content"></div>
+
+<script>
+// ═══════════════════════════════════════
+// CARD DATA
+// ═══════════════════════════════════════
+const BASE_CARDS=[
+  {n:0,name:"The Fool",adj:"Curious",noun:"Endeavor",r:255,g:255,b:55,suit:"major",idx:0},
+  {n:1,name:"The Magus",adj:"Inward",noun:"Vigor",r:255,g:255,b:0,suit:"major",idx:1},
+  {n:2,name:"The Priestess",adj:"Hidden",noun:"Intelligence",r:42,g:42,b:255,suit:"major",idx:2},
+  {n:3,name:"The Empress",adj:"Pregnant",noun:"Devotion",r:0,g:170,b:0,suit:"major",idx:3},
+  {n:4,name:"The Emperor",adj:"Just",noun:"Absolution",r:255,g:0,b:0,suit:"major",idx:4},
+  {n:5,name:"The Hierophant",adj:"Illuminated",noun:"Truth",r:255,g:102,b:0,suit:"major",idx:5},
+  {n:6,name:"The Lovers",adj:"Brave",noun:"Decision",r:255,g:138,b:13,suit:"major",idx:6},
+  {n:7,name:"The Chariot",adj:"Conquered",noun:"Ego",r:255,g:193,b:3,suit:"major",idx:7},
+  {n:8,name:"The Adjustment",adj:"Balanced",noun:"Law",r:0,g:170,b:68,suit:"major",idx:8},
+  {n:9,name:"The Hermit",adj:"Deep",noun:"Disillusionment",r:85,g:212,b:0,suit:"major",idx:9},
+  {n:10,name:"The Fortune",adj:"Projected",noun:"Wealth",r:178,g:0,b:109,suit:"major",idx:10},
+  {n:11,name:"The Lust",adj:"Passionate",noun:"Energy",r:182,g:234,b:0,suit:"major",idx:11},
+  {n:12,name:"The Hanged Man",adj:"Sacrificial",noun:"Solution",r:0,g:102,b:255,suit:"major",idx:12},
+  {n:13,name:"Death",adj:"Cyclical",noun:"Rebirth",r:0,g:136,b:131,suit:"major",idx:13},
+  {n:14,name:"Art",adj:"Appropriate",noun:"Measurement",r:42,g:42,b:255,suit:"major",idx:14},
+  {n:15,name:"The Devil",adj:"Illuminating",noun:"Darkness",r:145,g:0,b:178,suit:"major",idx:15},
+  {n:16,name:"The Tower",adj:"Productive",noun:"Destruction",r:255,g:0,b:0,suit:"major",idx:16},
+  {n:17,name:"The Star",adj:"Reckless",noun:"Progress",r:178,g:0,b:109,suit:"major",idx:17},
+  {n:18,name:"The Moon",adj:"Intuitive",noun:"Knowledge",r:206,g:0,b:82,suit:"major",idx:18},
+  {n:19,name:"The Sun",adj:"Confident",noun:"Illumination",r:255,g:138,b:13,suit:"major",idx:19},
+  {n:20,name:"The Aeon",adj:"Liberating",noun:"Power",r:255,g:69,b:69,suit:"major",idx:20},
+  {n:21,name:"The Universe",adj:"Karmic",noun:"Conclusion",r:145,g:0,b:178,suit:"major",idx:21},
+  {n:22,name:"Ace of Wands",adj:"Pioneering",noun:"Spirit",r:255,g:255,b:255,suit:"wands",idx:1},
+  {n:23,name:"2·Dominion",adj:"Assertive",noun:"Will",r:0,g:148,b:214,suit:"wands",idx:2},
+  {n:24,name:"3·Virtue",adj:"Creative",noun:"Harmony",r:206,g:0,b:82,suit:"wands",idx:3},
+  {n:25,name:"4·Completion",adj:"Inner",noun:"Order",r:142,g:0,b:100,suit:"wands",idx:4},
+  {n:26,name:"5·Strife",adj:"Challenging",noun:"Impulse",r:255,g:138,b:13,suit:"wands",idx:5},
+  {n:27,name:"6·Victory",adj:"Bright",noun:"Personality",r:255,g:168,b:168,suit:"wands",idx:6},
+  {n:28,name:"7·Valour",adj:"Renewable",noun:"Capacity",r:255,g:193,b:3,suit:"wands",idx:7},
+  {n:29,name:"8·Swiftness",adj:"Unexpected",noun:"Motivation",r:178,g:0,b:109,suit:"wands",idx:8},
+  {n:30,name:"9·Strength",adj:"Spiritual",noun:"Wholeness",r:145,g:0,b:178,suit:"wands",idx:9},
+  {n:31,name:"10·Oppression",adj:"Self",noun:"Determination",r:255,g:255,b:0,suit:"wands",idx:10},
+  {n:32,name:"Prince of Wands",adj:"Attractive",noun:"Arrogance",r:243,g:111,b:12,suit:"wands",idx:11},
+  {n:33,name:"Princess of Wands",adj:"Enthusiastic",noun:"Love",r:170,g:106,b:0,suit:"wands",idx:12},
+  {n:34,name:"Queen of Wands",adj:"Righteous",noun:"Vision",r:128,g:51,b:128,suit:"wands",idx:13},
+  {n:35,name:"Knight of Wands",adj:"Personal",noun:"Potential",r:244,g:31,b:33,suit:"wands",idx:14},
+  {n:36,name:"Ace of Cups",adj:"Experiencing",noun:"Grace",r:250,g:250,b:250,suit:"cups",idx:1},
+  {n:37,name:"2·Love",adj:"Dissolving",noun:"Boundaries",r:174,g:177,b:178,suit:"cups",idx:2},
+  {n:38,name:"3·Abundance",adj:"Overflowing",noun:"Value",r:0,g:0,b:0,suit:"cups",idx:3},
+  {n:39,name:"4·Luxury",adj:"Emotional",noun:"Prosperity",r:42,g:42,b:255,suit:"cups",idx:4},
+  {n:40,name:"5·Disappointment",adj:"Painful",noun:"Birth",r:255,g:39,b:0,suit:"cups",idx:5},
+  {n:41,name:"6·Pleasure",adj:"Sensual",noun:"Desire",r:251,g:180,b:2,suit:"cups",idx:6},
+  {n:42,name:"7·Debauch",adj:"Ephemeral",noun:"Pleasure",r:0,g:170,b:0,suit:"cups",idx:7},
+  {n:43,name:"8·Indolence",adj:"Abandoned",noun:"Values",r:255,g:138,b:13,suit:"cups",idx:8},
+  {n:44,name:"9·Happiness",adj:"Optimistic",noun:"Future",r:178,g:0,b:109,suit:"cups",idx:9},
+  {n:45,name:"10·Satiety",adj:"Satisfied",noun:"Being",r:100,g:79,b:14,suit:"cups",idx:10},
+  {n:46,name:"Prince of Cups",adj:"Sincere",noun:"Emotion",r:117,g:112,b:139,suit:"cups",idx:11},
+  {n:47,name:"Princess of Cups",adj:"Esoteric",noun:"Intuition",r:117,g:112,b:139,suit:"cups",idx:12},
+  {n:48,name:"Queen of Cups",adj:"Feminine",noun:"Wisdom",r:1,g:52,b:255,suit:"cups",idx:13},
+  {n:49,name:"Knight of Cups",adj:"Renouncing",noun:"Instincts",r:117,g:32,b:161,suit:"cups",idx:14},
+  {n:50,name:"Ace of Swords",adj:"Mindful",noun:"Activities",r:242,g:242,b:242,suit:"swords",idx:1},
+  {n:51,name:"2·Peace",adj:"Seeking",noun:"Balance",r:146,g:161,b:188,suit:"swords",idx:2},
+  {n:52,name:"3·Sorrow",adj:"Growing",noun:"Pains",r:117,g:66,b:0,suit:"swords",idx:3},
+  {n:53,name:"4·Truce",adj:"Arranging",noun:"Peace",r:84,g:11,b:85,suit:"swords",idx:4},
+  {n:54,name:"5·Defeat",adj:"Passive",noun:"Suffering",r:255,g:111,b:99,suit:"swords",idx:5},
+  {n:55,name:"6·Science",adj:"Objective",noun:"Understanding",r:255,g:95,b:93,suit:"swords",idx:6},
+  {n:56,name:"7·Futility",adj:"Stupid",noun:"Trust",r:231,g:221,b:23,suit:"swords",idx:7},
+  {n:57,name:"8·Interference",adj:"Total",noun:"Correlation",r:133,g:27,b:28,suit:"swords",idx:8},
+  {n:58,name:"9·Cruelty",adj:"Psychopathic",noun:"Extremes",r:51,g:0,b:68,suit:"swords",idx:9},
+  {n:59,name:"10·Ruin",adj:"Disruptive",noun:"Ending",r:65,g:60,b:5,suit:"swords",idx:10},
+  {n:60,name:"Prince of Swords",adj:"Breaking",noun:"Chains",r:243,g:238,b:12,suit:"swords",idx:11},
+  {n:61,name:"Princess of Swords",adj:"Intellectual",noun:"Revolution",r:170,g:234,b:0,suit:"swords",idx:12},
+  {n:62,name:"Queen of Swords",adj:"Independent",noun:"Resourcefulness",r:128,g:179,b:128,suit:"swords",idx:13},
+  {n:63,name:"Knight of Swords",adj:"Mental",noun:"Strength",r:244,g:158,b:33,suit:"swords",idx:14},
+  {n:64,name:"Ace of Disks",adj:"Tangible",noun:"Matter",r:255,g:246,b:205,suit:"disks",idx:1},
+  {n:65,name:"2·Change",adj:"Mirrored",noun:"Reality",r:166,g:153,b:142,suit:"disks",idx:2},
+  {n:66,name:"3·Works",adj:"Crystalized",noun:"Force",r:202,g:184,b:184,suit:"disks",idx:3},
+  {n:67,name:"4·Power",adj:"Reinforced",noun:"Stability",r:67,g:136,b:146,suit:"disks",idx:4},
+  {n:68,name:"5·Worry",adj:"Unfortunate",noun:"Thought",r:132,g:56,b:56,suit:"disks",idx:5},
+  {n:69,name:"6·Success",adj:"Heavenly",noun:"Conditions",r:163,g:121,b:15,suit:"disks",idx:6},
+  {n:70,name:"7·Failure",adj:"Prolonged",noun:"Emptiness",r:158,g:163,b:15,suit:"disks",idx:7},
+  {n:71,name:"8·Prudence",adj:"Comprehensive",noun:"View",r:174,g:145,b:98,suit:"disks",idx:8},
+  {n:72,name:"9·Gain",adj:"Material",noun:"Adequacy",r:67,g:146,b:130,suit:"disks",idx:9},
+  {n:73,name:"10·Wealth",adj:"Prosperous",noun:"Foundation",r:57,g:57,b:13,suit:"disks",idx:10},
+  {n:74,name:"Prince of Disks",adj:"Industrious",noun:"Temperament",r:116,g:238,b:12,suit:"disks",idx:11},
+  {n:75,name:"Princess of Disks",adj:"Physical",noun:"Connection",r:43,g:234,b:0,suit:"disks",idx:12},
+  {n:76,name:"Queen of Disks",adj:"Luxurious",noun:"Matriarchy",r:0,g:179,b:128,suit:"disks",idx:13},
+  {n:77,name:"Knight of Disks",adj:"Masculine",noun:"Influence",r:116,g:158,b:33,suit:"disks",idx:14},
+];
+
+const SUIT_ORDER=['major','wands','cups','swords','disks'];
+const SUIT_INFO={
+  major:{label:'Major Arcana',pip:'✦',color:'#c9a96e',size:22,defStart:'#c9a96e',defEnd:'#ffffff'},
+  wands:{label:'Wands · Fire',pip:'🔥',color:'#e63946',size:14,defStart:'#e63946',defEnd:'#ff9900'},
+  cups:{label:'Cups · Water',pip:'🌊',color:'#457b9d',size:14,defStart:'#457b9d',defEnd:'#00ccff'},
+  swords:{label:'Swords · Air',pip:'💨',color:'#a8dadc',size:14,defStart:'#a8dadc',defEnd:'#ffffff'},
+  disks:{label:'Disks · Earth',pip:'🌿',color:'#6a994e',size:14,defStart:'#6a994e',defEnd:'#aacc44'},
+};
+
+// Piano preset colors — chromatic scale mapped to each suit's notes
+const PIANO_CHROMO=[
+  [255,0,0],[255,64,0],[255,128,0],[255,192,0],[255,255,0],
+  [128,255,0],[0,255,0],[0,255,128],[0,128,255],[0,0,255],
+  [64,0,255],[128,0,255],[192,0,255],[255,0,255],[255,0,128],
+];
+
+// Keyboard key order
+const KEYS_22=['1','2','3','4','5','6','7','8','9','0','q','w','e','r','t','y','u','i','o','p','a','s'];
+const KEYS_14=['1','2','3','4','5','6','7','8','9','0','q','w','e','r'];
+function suitKeys(suit){return suit==='major'?KEYS_22:KEYS_14;}
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let sets=[
+  {id:'default',name:'Default',locked:true,colors:{}},
+  {id:'piano',name:'Piano Scale',locked:true,colors:buildPianoColors()},
+];
+let activeSetIdx=0;
+let gradients={
+  major:{on:false,start:'#c9a96e',end:'#ffffff',blend:'normal',opacity:30},
+  wands:{on:false,start:'#e63946',end:'#ff9900',blend:'normal',opacity:30},
+  cups:{on:false,start:'#457b9d',end:'#00ccff',blend:'normal',opacity:30},
+  swords:{on:false,start:'#a8dadc',end:'#ffffff',blend:'normal',opacity:30},
+  disks:{on:false,start:'#6a994e',end:'#aacc44',blend:'normal',opacity:30},
+};
+let activeGradSuit=null;
+let activeSuit='major'; // for keyboard
+let cardImages={}; // from IndexedDB
+
+function buildPianoColors(){
+  const cols={};
+  BASE_CARDS.forEach((card,i)=>{
+    const [r,g,b]=PIANO_CHROMO[i%PIANO_CHROMO.length];
+    cols[card.n]={r,g,b};
+  });
+  return cols;
+}
+
+function getCardColor(n){
+  const set=sets[activeSetIdx];
+  if(set.colors[n]) return set.colors[n];
+  const base=BASE_CARDS.find(c=>c.n===n);
+  return {r:base.r,g:base.g,b:base.b};
+}
+
+// ═══════════════════════════════════════
+// INDEXEDDB — load card images
+// ═══════════════════════════════════════
+async function loadImages(){
+  try{
+    const db=await new Promise((res,rej)=>{
+      const req=indexedDB.open('tricknologic',2);
+      req.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('cards'))d.createObjectStore('cards',{keyPath:'n'});};
+      req.onsuccess=e=>res(e.target.result);
+      req.onerror=e=>rej(e);
+    });
+    const tx=db.transaction('cards','readonly');
+    const all=await new Promise(res=>{const r=tx.objectStore('cards').getAll();r.onsuccess=e=>res(e.target.result);r.onerror=()=>res([]);});
+    cardImages={};
+    all.forEach(row=>{if(row.dataUrl)cardImages[row.n]=row.dataUrl;});
+    render();
+  }catch(e){render();}
+}
+
+// ═══════════════════════════════════════
+// AUDIO ENGINE
+// ═══════════════════════════════════════
+let ctx=null;
+const active=new Map(); // n → {osc,gain,osc2,gain2,cmyk,sVol}
+
+function getCtx(){
+  if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();
+  if(ctx.state==='suspended')ctx.resume();
+  return ctx;
+}
+
+function rgbToFreq(r,g,b){
+  const rr=r/255,gg=g/255,bb=b/255;
+  const mx=Math.max(rr,gg,bb),mn=Math.min(rr,gg,bb),d=mx-mn;
+  let h=0,s=mx===0?0:d/mx,v=mx;
+  if(d){if(mx===rr)h=((gg-bb)/d+6)%6;else if(mx===gg)h=(bb-rr)/d+2;else h=(rr-gg)/d+4;h*=60;}
+  if(v<.04)return 174.6;if(s<.12)return 400+v*200;
+  const ref=[[0,355],[23,415],[38,453],[55,466],[84,494],[120,512],[174,554],[180,523],[210,587],[241,622],[256,659],[273,698],[300,349],[360,355]];
+  for(let i=0;i<ref.length-1;i++){const[h0,f0]=ref[i],[h1,f1]=ref[i+1];if(h>=h0&&h<=h1)return f0+(h-h0)/(h1-h0)*(f1-f0);}
+  return 440;
+}
+
+function toCMYK(r,g,b){
+  const rr=r/255,gg=g/255,bb=b/255,k=1-Math.max(rr,gg,bb);
+  if(k>=1)return{c:0,m:0,y:0,k:1};
+  return{c:(1-rr-k)/(1-k),m:(1-gg-k)/(1-k),y:(1-bb-k)/(1-k),k};
+}
+
+function playCard(n){
+  if(active.has(n))return;
+  const col=getCardColor(n);
+  const card=BASE_CARDS.find(c=>c.n===n);
+  const a=getCtx();
+  const freq=rgbToFreq(col.r,col.g,col.b);
+  const cmyk=toCMYK(col.r,col.g,col.b);
+
+  const waves={major:'sine',wands:'triangle',cups:'sine',swords:'sawtooth',disks:'square'};
+  const A=.05+cmyk.c*.4, D=.05+cmyk.m*.3;
+  const sVol=.3+cmyk.y*.5, peak=.32;
+  const now=a.currentTime;
+
+  const osc=a.createOscillator(),gain=a.createGain();
+  osc.type=waves[card.suit]||'sine';
+  osc.frequency.value=freq;
+  gain.gain.setValueAtTime(0,now);
+  gain.gain.linearRampToValueAtTime(peak,now+A);
+  gain.gain.linearRampToValueAtTime(peak*sVol,now+A+D);
+  osc.connect(gain);gain.connect(a.destination);osc.start(now);
+
+  let osc2=null,gain2=null;
+  if(card.suit==='major'){
+    osc2=a.createOscillator();gain2=a.createGain();
+    osc2.type='triangle';osc2.frequency.value=freq*2;
+    gain2.gain.setValueAtTime(0,now);
+    gain2.gain.linearRampToValueAtTime(peak*.2,now+A);
+    gain2.gain.linearRampToValueAtTime(peak*.1,now+A+D);
+    osc2.connect(gain2);gain2.connect(a.destination);osc2.start(now);
+  }
+
+  active.set(n,{osc,gain,osc2,gain2,cmyk,sVol:peak*sVol});
+  // Visual
+  document.querySelector(`.card-key[data-n="${n}"]`)?.classList.add('playing');
+}
+
+function stopCard(n){
+  const e=active.get(n);if(!e)return;
+  const a=getCtx();
+  const R=.08+e.cmyk.k*.5;
+  const now=a.currentTime;
+  e.gain.gain.cancelScheduledValues(now);
+  e.gain.gain.setValueAtTime(e.gain.gain.value,now);
+  e.gain.gain.linearRampToValueAtTime(0,now+R);
+  try{e.osc.stop(now+R+.05);}catch(err){}
+  if(e.osc2){
+    e.gain2.gain.cancelScheduledValues(now);
+    e.gain2.gain.setValueAtTime(e.gain2.gain.value,now);
+    e.gain2.gain.linearRampToValueAtTime(0,now+R);
+    try{e.osc2.stop(now+R+.05);}catch(err){}
+  }
+  active.delete(n);
+  document.querySelector(`.card-key[data-n="${n}"]`)?.classList.remove('playing');
+}
+
+function stopAll(){active.forEach((_,n)=>stopCard(n));}
+
+// ═══════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════
+function render(){
+  const content=document.getElementById('content');
+  content.innerHTML='';
+  SUIT_ORDER.forEach(suit=>{
+    const info=SUIT_INFO[suit];
+    const cards=BASE_CARDS.filter(c=>c.suit===suit);
+    const grad=gradients[suit];
+    const isActiveSuit=suit===activeSuit;
+    const isGradOpen=suit===activeGradSuit;
+
+    const row=document.createElement('div');
+    row.className='suit-row'+(activeGradSuit&&!isGradOpen?' dimmed':'')+(isGradOpen?' grad-active':'');
+
+    // Suit head
+    const head=document.createElement('div');
+    head.className='suit-head';
+    const trigger=document.createElement('div');
+    trigger.className='suit-trigger'+(isGradOpen?' grad-open':'');
+    trigger.innerHTML=`
+      <span class="suit-pip">${info.pip}</span>
+      <div>
+        <div class="suit-title" style="color:${info.color}">${info.label}</div>
+        <div class="suit-kb ${isActiveSuit?'active-kb':''}">${isActiveSuit?'KEYBOARD ACTIVE — TAB to change':''}</div>
+      </div>
+    `;
+    trigger.addEventListener('click',()=>toggleGrad(suit));
+    head.appendChild(trigger);
+    row.appendChild(head);
+
+    // Cards
+    const cardsRow=document.createElement('div');
+    cardsRow.className='cards-row';
+    const keys=suitKeys(suit);
+
+    cards.forEach((card,ci)=>{
+      const col=getCardColor(card.n);
+      const fg=`rgb(${255-col.r},${255-col.g},${255-col.b})`;
+      const bg=`rgb(${col.r},${col.g},${col.b})`;
+      const keyLabel=keys[ci]||'';
+
+      // Gradient step color
+      let gradOverlayStyle='';
+      if(grad.on){
+        const t=cards.length>1?ci/(cards.length-1):0;
+        const sc=hexToRgb(grad.start),ec=hexToRgb(grad.end);
+        const ir=Math.round(sc.r+(ec.r-sc.r)*t);
+        const ig=Math.round(sc.g+(ec.g-sc.g)*t);
+        const ib=Math.round(sc.b+(ec.b-sc.b)*t);
+        gradOverlayStyle=`background:rgb(${ir},${ig},${ib});opacity:${grad.opacity/100};mix-blend-mode:${grad.blend};`;
+      }
+
+      const el=document.createElement('div');
+      el.className='card-key';
+      el.dataset.n=card.n;
+      el.style.background=bg;
+      el.style.color=fg;
+      el.style.boxShadow=`0 3px 12px rgba(${col.r},${col.g},${col.b},.25)`;
+      el.style.borderColor=`rgba(${col.r},${col.g},${col.b},.4)`;
+
+      const imgSrc=cardImages[card.n];
+      el.innerHTML=`
+        ${imgSrc?`<img class="card-img" src="${imgSrc}" alt="" draggable="false"/>`:''}
+        <div class="grad-overlay" style="${gradOverlayStyle}"></div>
+        <div class="ck-top">
+          <span class="ck-num" style="color:${fg}">${suit==='major'?card.idx:card.idx}</span>
+          <span class="ck-suit" style="color:${fg}">${info.label.split('·')[0].trim()}</span>
+        </div>
+        <div class="ck-bot">
+          <span class="ck-name" style="color:${fg}">${card.name}</span>
+          <span class="ck-words" style="color:${fg}">${card.adj}·${card.noun}</span>
+        </div>
+        ${keyLabel?`<div class="ck-key-badge" style="color:${fg}">${keyLabel.toUpperCase()}</div>`:''}
+      `;
+
+      // Events
+      el.addEventListener('mousedown',e=>{
+        e.preventDefault();
+        playCard(card.n);
+        isDragging=true;lastDragN=card.n;
+      });
+      el.addEventListener('mouseup',()=>stopCard(card.n));
+      el.addEventListener('mouseleave',()=>{if(isDragging)stopCard(card.n);});
+      el.addEventListener('mouseenter',()=>{
+        if(isDragging&&lastDragN!==card.n){
+          playCard(card.n);lastDragN=card.n;
+        }
+      });
+
+      // Right-click → color picker
+      el.addEventListener('contextmenu',e=>{e.preventDefault();openColorPicker(card.n,e.clientX,e.clientY);});
+
+      cardsRow.appendChild(el);
+    });
+
+    row.appendChild(cardsRow);
+    content.appendChild(row);
+  });
+
+  updateSetUI();
+  updateActiveSuitLabel();
+}
+
+// ═══════════════════════════════════════
+// DRAG PLAY
+// ═══════════════════════════════════════
+let isDragging=false,lastDragN=null;
+window.addEventListener('mouseup',()=>{isDragging=false;lastDragN=null;stopAll();});
+
+// ═══════════════════════════════════════
+// KEYBOARD PLAY
+// ═══════════════════════════════════════
+const pressedKeys=new Set();
+const keyToCard=new Map();
+
+function buildKeyMap(){
+  keyToCard.clear();
+  const cards=BASE_CARDS.filter(c=>c.suit===activeSuit);
+  const keys=suitKeys(activeSuit);
+  cards.forEach((card,i)=>{if(keys[i])keyToCard.set(keys[i],card.n);});
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  const k=e.key.toLowerCase();
+  if(k==='tab'){e.preventDefault();cycleSuit();return;}
+  if(pressedKeys.has(k))return;
+  pressedKeys.add(k);
+  const n=keyToCard.get(k);
+  if(n!==undefined)playCard(n);
+});
+document.addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  pressedKeys.delete(k);
+  const n=keyToCard.get(k);
+  if(n!==undefined)stopCard(n);
+});
+
+function cycleSuit(){
+  const idx=SUIT_ORDER.indexOf(activeSuit);
+  activeSuit=SUIT_ORDER[(idx+1)%SUIT_ORDER.length];
+  buildKeyMap();
+  render();
+  renderKbPopup();
+}
+
+function updateActiveSuitLabel(){
+  const info=SUIT_INFO[activeSuit];
+  document.getElementById('active-suit-label').textContent=
+    `${info.pip} ${info.label} active · TAB to switch`;
+}
+
+// ═══════════════════════════════════════
+// GRADIENT SYSTEM
+// ═══════════════════════════════════════
+function toggleGrad(suit){
+  activeGradSuit=activeGradSuit===suit?null:suit;
+  if(activeGradSuit){
+    const g=gradients[suit];
+    const info=SUIT_INFO[suit];
+    document.getElementById('ge-suit-label').textContent=info.label.toUpperCase();
+    document.getElementById('ge-start').value=g.start;
+    document.getElementById('ge-end').value=g.end;
+    document.getElementById('ge-blend').value=g.blend;
+    document.getElementById('ge-opacity').value=g.opacity;
+    document.getElementById('ge-opacity-val').textContent=g.opacity+'%';
+    document.getElementById('ge-toggle').className='ge-toggle'+(g.on?' on':'');
+    updateGradPreview(suit);
+    document.getElementById('grad-editor').classList.add('show');
+  } else {
+    document.getElementById('grad-editor').classList.remove('show');
+  }
+  render();
+}
+
+function updateGradPreview(suit){
+  const g=gradients[suit||activeGradSuit];
+  if(!g)return;
+  document.getElementById('ge-preview').style.background=`linear-gradient(to right, ${g.start}, ${g.end})`;
+}
+
+document.getElementById('ge-toggle').addEventListener('click',()=>{
+  if(!activeGradSuit)return;
+  gradients[activeGradSuit].on=!gradients[activeGradSuit].on;
+  document.getElementById('ge-toggle').className='ge-toggle'+(gradients[activeGradSuit].on?' on':'');
+  render();
+});
+
+['ge-start','ge-end'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',e=>{
+    if(!activeGradSuit)return;
+    if(id==='ge-start')gradients[activeGradSuit].start=e.target.value;
+    else gradients[activeGradSuit].end=e.target.value;
+    updateGradPreview(activeGradSuit);
+    render();
+  });
+});
+
+document.getElementById('ge-blend').addEventListener('change',e=>{
+  if(activeGradSuit)gradients[activeGradSuit].blend=e.target.value;render();
+});
+document.getElementById('ge-opacity').addEventListener('input',e=>{
+  if(!activeGradSuit)return;
+  gradients[activeGradSuit].opacity=parseInt(e.target.value);
+  document.getElementById('ge-opacity-val').textContent=e.target.value+'%';
+  render();
+});
+document.getElementById('ge-close').addEventListener('click',()=>{activeGradSuit=null;document.getElementById('grad-editor').classList.remove('show');render();});
+
+// ═══════════════════════════════════════
+// COLOR PICKER
+// ═══════════════════════════════════════
+let cpCardN=null,cpOrigColor=null;
+const cpModal=document.getElementById('cp-modal');
+
+function openColorPicker(n,mx,my){
+  cpCardN=n;
+  const col=getCardColor(n);
+  cpOrigColor={...col};
+  const hex=rgbToHex(col.r,col.g,col.b);
+  const inp=document.getElementById('cp-input');
+  inp.value=hex;
+  document.getElementById('cp-preview').style.background=hex;
+  document.getElementById('cp-rgb').textContent=`R${col.r} G${col.g} B${col.b}`;
+  document.getElementById('cp-title').textContent=BASE_CARDS.find(c=>c.n===n)?.name||'Card';
+  // Position near click
+  const left=Math.min(mx,window.innerWidth-240);
+  const top=Math.min(my,window.innerHeight-200);
+  cpModal.style.left=left+'px';cpModal.style.top=top+'px';
+  cpModal.classList.add('show');
+}
+
+document.getElementById('cp-input').addEventListener('input',e=>{
+  const hex=e.target.value;
+  if(!/^#[0-9a-f]{6}$/i.test(hex))return;
+  const {r,g,b}=hexToRgb(hex);
+  document.getElementById('cp-preview').style.background=hex;
+  document.getElementById('cp-rgb').textContent=`R${r} G${g} B${b}`;
+  // Live tone preview
+  const osc_id='cp_preview';
+  stopCard(osc_id);
+  // Quick play then stop
+  const a=getCtx();
+  const freq=rgbToFreq(r,g,b);
+  const osc=a.createOscillator(),gain=a.createGain();
+  osc.type='sine';osc.frequency.value=freq;
+  gain.gain.setValueAtTime(0,a.currentTime);
+  gain.gain.linearRampToValueAtTime(.2,a.currentTime+.05);
+  gain.gain.linearRampToValueAtTime(0,a.currentTime+.3);
+  osc.connect(gain);gain.connect(a.destination);
+  osc.start();osc.stop(a.currentTime+.35);
+});
+
+document.getElementById('cp-apply').addEventListener('click',()=>{
+  if(cpCardN===null)return;
+  const hex=document.getElementById('cp-input').value;
+  const {r,g,b}=hexToRgb(hex);
+  const set=sets[activeSetIdx];
+  if(set.locked){alert('Cannot edit a locked set. Duplicate it first.');return;}
+  if(!set.colors[cpCardN])set.colors[cpCardN]={};
+  set.colors[cpCardN]={r,g,b};
+  cpModal.classList.remove('show');
+  saveState();render();
+});
+
+document.getElementById('cp-reset').addEventListener('click',()=>{
+  if(cpCardN===null)return;
+  const set=sets[activeSetIdx];
+  if(set.locked){alert('Cannot edit a locked set.');return;}
+  delete set.colors[cpCardN];
+  const base=BASE_CARDS.find(c=>c.n===cpCardN);
+  document.getElementById('cp-input').value=rgbToHex(base.r,base.g,base.b);
+  document.getElementById('cp-preview').style.background=rgbToHex(base.r,base.g,base.b);
+  saveState();render();
+  cpModal.classList.remove('show');
+});
+
+document.getElementById('cp-cancel').addEventListener('click',()=>{cpModal.classList.remove('show');});
+document.addEventListener('mousedown',e=>{if(!cpModal.contains(e.target))cpModal.classList.remove('show');});
+
+// ═══════════════════════════════════════
+// CARD SETS
+// ═══════════════════════════════════════
+function updateSetUI(){
+  const set=sets[activeSetIdx];
+  document.getElementById('set-name').textContent=set.name+(set.locked?' 🔒':'');
+  document.getElementById('rename-set-btn').disabled=set.locked;
+  document.getElementById('rename-set-btn').style.opacity=set.locked?.4:1;
+}
+
+document.getElementById('prev-set').addEventListener('click',()=>{
+  activeSetIdx=(activeSetIdx-1+sets.length)%sets.length;render();
+});
+document.getElementById('next-set').addEventListener('click',()=>{
+  activeSetIdx=(activeSetIdx+1)%sets.length;render();
+});
+
+document.getElementById('dup-set-btn').addEventListener('click',()=>{
+  const src=sets[activeSetIdx];
+  const newSet={id:'set_'+Date.now(),name:src.name+' Copy',locked:false,colors:JSON.parse(JSON.stringify(src.colors))};
+  sets.push(newSet);
+  activeSetIdx=sets.length-1;
+  saveState();render();
+});
+
+document.getElementById('rename-set-btn').addEventListener('click',()=>{
+  const set=sets[activeSetIdx];
+  if(set.locked)return;
+  openModal('Rename Set',set.name,(val)=>{set.name=val;saveState();render();});
+});
+
+// ═══════════════════════════════════════
+// KEYBOARD POPUP
+// ═══════════════════════════════════════
+document.getElementById('kb-btn').addEventListener('click',()=>{
+  renderKbPopup();
+  document.getElementById('kb-overlay').classList.add('show');
+});
+
+function renderKbPopup(){
+  // Suit tabs
+  const tabs=document.getElementById('kb-suit-tabs');
+  tabs.innerHTML='';
+  SUIT_ORDER.forEach(suit=>{
+    const info=SUIT_INFO[suit];
+    const btn=document.createElement('div');
+    btn.className='kb-suit-tab'+(suit===activeSuit?' active':'');
+    btn.textContent=`${info.pip} ${info.label}`;
+    btn.addEventListener('click',()=>{activeSuit=suit;buildKeyMap();renderKbPopup();render();});
+    tabs.appendChild(btn);
+  });
+
+  // Key grid
+  const grid=document.getElementById('kb-grid');
+  grid.innerHTML='';
+  const cards=BASE_CARDS.filter(c=>c.suit===activeSuit);
+  const keys=suitKeys(activeSuit);
+  cards.forEach((card,i)=>{
+    const k=keys[i];if(!k)return;
+    const col=getCardColor(card.n);
+    const row=document.createElement('div');
+    row.className='kb-row';
+    row.style.borderColor=`rgba(${col.r},${col.g},${col.b},.25)`;
+    const freq=rgbToFreq(col.r,col.g,col.b);
+    row.innerHTML=`
+      <div class="kb-key" style="color:rgb(${col.r},${col.g},${col.b})">${k.toUpperCase()}</div>
+      <div class="kb-card">${card.name}</div>
+      <div class="kb-note">${freq.toFixed(0)}hz</div>
+    `;
+    grid.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════
+// GENERIC MODAL
+// ═══════════════════════════════════════
+function openModal(title,defaultVal,onConfirm){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-input').value=defaultVal||'';
+  const btns=document.getElementById('modal-btns');
+  btns.innerHTML='';
+  const cancel=document.createElement('button');cancel.className='m-btn';cancel.textContent='Cancel';
+  cancel.addEventListener('click',()=>document.getElementById('modal-overlay').classList.remove('show'));
+  const ok=document.createElement('button');ok.className='m-btn go';ok.textContent='Confirm';
+  ok.addEventListener('click',()=>{
+    onConfirm(document.getElementById('modal-input').value.trim());
+    document.getElementById('modal-overlay').classList.remove('show');
+  });
+  btns.appendChild(cancel);btns.appendChild(ok);
+  document.getElementById('modal-overlay').classList.add('show');
+  setTimeout(()=>document.getElementById('modal-input').focus(),50);
+}
+document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))document.getElementById('modal-overlay').classList.remove('show');});
+
+// ═══════════════════════════════════════
+// SAVE / LOAD (IndexedDB for sets)
+// ═══════════════════════════════════════
+function saveState(){
+  try{
+    // Don't save locked sets (they're built-in)
+    const toSave=sets.filter(s=>!s.locked);
+    localStorage.setItem('trico_piano_sets',JSON.stringify({sets:toSave,activeSetIdx}));
+  }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem('trico_piano_sets');
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    // Merge custom sets with built-ins
+    const builtIn=sets.filter(s=>s.locked);
+    const custom=(d.sets||[]).filter(s=>!s.locked);
+    sets=[...builtIn,...custom];
+    activeSetIdx=Math.min(d.activeSetIdx||0,sets.length-1);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function hexToRgb(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return{r,g,b};
+}
+function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+loadState();
+buildKeyMap();
+loadImages(); // also calls render() when done
+</script>
+</body>
+</html>
