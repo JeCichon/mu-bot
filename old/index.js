@@ -26,6 +26,22 @@ async function loadCards() {
   console.log(`✓ ${CARDS.length} cards loaded from the library`);
 }
 
+// ─── Card Display ─────────────────────────────────────────────────────────────
+const SUIT_EMOJI = { major:'☉', wands:'🔥', cups:'🌊', swords:'⚔️', disks:'🌍' };
+const SUIT_LABEL = { major:'Major Arcana', wands:'Wands', cups:'Cups', swords:'Swords', disks:'Disks' };
+
+// "2 · Wands · Dominion" or "The Fool" for major arcana
+function cardDisplayName(card) {
+  if (card.suit === 'major') return card.name;
+  return `${card.suit_number} · ${SUIT_LABEL[card.suit]} · ${card.name}`;
+}
+
+// Searchable label for autocomplete — combines suit_number, suit name, and card name
+function cardSearchLabel(card) {
+  if (card.suit === 'major') return card.name.toLowerCase();
+  return `${card.suit_number} ${SUIT_LABEL[card.suit].toLowerCase()} ${card.name.toLowerCase()}`;
+}
+
 // ─── Library ──────────────────────────────────────────────────────────────────
 const ENTRY_COLORS = { item:0x8B6914, character:0x6B4FA0, session:0x1A6B5A, concept:0x1A3F6B, place:0x2D6B1A };
 const ENTRY_EMOJI  = { item:'📖', character:'🧙', session:'🎭', concept:'🌀', place:'🗺️' };
@@ -101,7 +117,6 @@ const MU_INTROS = [
   "*Something shifts in the archive. Mu smiles at nothing in particular.*",
 ];
 
-const SUIT_EMOJI = { major:"☉", wands:"🔥", cups:"🌊", swords:"⚔️", disks:"🌍" };
 const SUIT_CHOICES = [
   { name:'Major Arcana', value:'major'  },
   { name:'Wands',        value:'wands'  },
@@ -115,8 +130,8 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function drawCards(n, suit) {
   const pool = suit ? CARDS.filter(c => c.suit === suit) : CARDS;
-  if (pool.length === 0) return CARDS.sort(() => Math.random() - 0.5).slice(0, n);
-  return [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(n, pool.length));
+  const safe = pool.length > 0 ? pool : CARDS;
+  return [...safe].sort(() => Math.random() - 0.5).slice(0, Math.min(n, safe.length));
 }
 
 function randBetween(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
@@ -126,6 +141,7 @@ function rgbToHex(r,g,b) {
   if (lum < 20) { r=30; g=20; b=40; }
   return (r << 16) + (g << 8) + b;
 }
+
 function imageUrl(card) {
   return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(card.card_id).padStart(2,'0')}.png`;
 }
@@ -156,7 +172,7 @@ function buildSingleDrawEmbed(card) {
   return new EmbedBuilder()
     .setColor(rgbToHex(card.r, card.g, card.b))
     .setAuthor({ name: "Mu · The Great Librarian" })
-    .setTitle(card.name)
+    .setTitle(cardDisplayName(card))
     .setDescription(clean(`${SUIT_EMOJI[card.suit]}  *${card.adj} ${card.noun}*\n\n${card.subject} ${card.verb} ${card.adv}.`))
     .setImage(imageUrl(card))
     .setFooter({ text: pick(CARD_QUESTIONS) });
@@ -170,9 +186,9 @@ function buildThreeCardEmbed(cards) {
     .setTitle("The cards are drawn.")
     .setDescription(`*${focus.adj} ${focus.noun}* — sit with this.\n*${ctxA.adj} ${ctxA.noun}* and *${ctxB.adj} ${ctxB.noun}* give it shape.`)
     .addFields(
-      { name:`${SUIT_EMOJI[focus.suit]} Focus`,      value:`**${focus.name}**\n*${focus.adj} ${focus.noun}*`, inline:true },
-      { name:`${SUIT_EMOJI[ctxA.suit]}  Context I`,  value:`**${ctxA.name}**\n*${ctxA.adj} ${ctxA.noun}*`,   inline:true },
-      { name:`${SUIT_EMOJI[ctxB.suit]}  Context II`, value:`**${ctxB.name}**\n*${ctxB.adj} ${ctxB.noun}*`,   inline:true },
+      { name:`${SUIT_EMOJI[focus.suit]} Focus`,      value:`**${cardDisplayName(focus)}**\n*${focus.adj} ${focus.noun}*`, inline:true },
+      { name:`${SUIT_EMOJI[ctxA.suit]}  Context I`,  value:`**${cardDisplayName(ctxA)}**\n*${ctxA.adj} ${ctxA.noun}*`,   inline:true },
+      { name:`${SUIT_EMOJI[ctxB.suit]}  Context II`, value:`**${cardDisplayName(ctxB)}**\n*${ctxB.adj} ${ctxB.noun}*`,   inline:true },
     )
     .setThumbnail(imageUrl(focus))
     .setFooter({ text: "Three cards. One story. Yours to tell." });
@@ -183,7 +199,7 @@ function buildMuSpeaksEmbed(cards) {
     .setColor(rgbToHex(cards[0].r, cards[0].g, cards[0].b))
     .setAuthor({ name: "Mu · The Great Librarian" })
     .setDescription(`*${buildSentence(cards)}*`)
-    .setFooter({ text: cards.map(c => c.name).join('  ·  ') });
+    .setFooter({ text: cards.map(c => cardDisplayName(c)).join('  ·  ') });
 }
 
 function buildAskMuEmbed(cards, question) {
@@ -204,12 +220,12 @@ function buildAskMuEmbed(cards, question) {
     .setAuthor({ name: "Mu · The Great Librarian" })
     .addFields({ name: 'You asked:', value: `*"${question}"*` })
     .setDescription(`\n${sentence}`)
-    .setFooter({ text: cards.map(c => c.name).join('  ·  ') });
+    .setFooter({ text: cards.map(c => cardDisplayName(c)).join('  ·  ') });
 }
 
 function buildFortuneEmbed(cards, member) {
   const fortune  = buildFortune(cards);
-  const cardLine = cards.map(c => c.name).join(' · ');
+  const cardLine = cards.map(c => cardDisplayName(c)).join(' · ');
   return new EmbedBuilder()
     .setColor(rgbToHex(cards[0].r, cards[0].g, cards[0].b))
     .setAuthor({ name: `Mu · reaches out to ${member.displayName}` })
@@ -280,7 +296,6 @@ client.once('clientReady', async () => {
 
   const rest = new REST({ version:'10' }).setToken(process.env.BOT_TOKEN);
   const commands = [
-    // ── Card draws ──
     new SlashCommandBuilder()
       .setName('draw')
       .setDescription('Draw a single card — optionally filtered by suit.')
@@ -294,10 +309,8 @@ client.once('clientReady', async () => {
     new SlashCommandBuilder()
       .setName('card')
       .setDescription('Choose a specific card from the deck.')
-      .addStringOption(opt => opt.setName('name').setDescription('Card name').setRequired(true).setAutocomplete(true))
-      .addStringOption(opt => opt.setName('suit').setDescription('Filter the list by suit (optional)').setRequired(false).addChoices(...SUIT_CHOICES))
+      .addStringOption(opt => opt.setName('name').setDescription('Type a name, suit, or number').setRequired(true).setAutocomplete(true))
       .toJSON(),
-    // ── Mu speaks ──
     new SlashCommandBuilder()
       .setName('askmu')
       .setDescription('Ask Mu a question and receive an answer from the cards.')
@@ -308,7 +321,6 @@ client.once('clientReady', async () => {
       .setDescription('Mu delivers a personal fortune to someone.')
       .addUserOption(opt => opt.setName('recipient').setDescription('Who receives the fortune?').setRequired(true))
       .toJSON(),
-    // ── Library ──
     new SlashCommandBuilder()
       .setName('remember')
       .setDescription('Save something to the Great Library.')
@@ -390,32 +402,31 @@ client.on('messageCreate', async (message) => {
 // ─── Interactions ─────────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
 
-  // Autocomplete
   if (interaction.isAutocomplete()) {
     const focused = interaction.options.getFocused(true);
     const typed   = focused.value.toLowerCase();
     try {
-      // /card name — filtered by suit if provided
       if (interaction.commandName === 'card' && focused.name === 'name') {
-        const suit = interaction.options.getString('suit');
-        let pool = CARDS.filter(c => c.name.toLowerCase().includes(typed));
-        if (suit) pool = pool.filter(c => c.suit === suit);
-        await interaction.respond(pool.slice(0,25).map(c => ({ name:`${SUIT_EMOJI[c.suit]} ${c.name}`, value:c.name })));
+        // Search across suit_number, suit name, and card name
+        const matches = CARDS.filter(c => cardSearchLabel(c).includes(typed));
+        await interaction.respond(
+          matches.slice(0,25).map(c => ({
+            name: `${SUIT_EMOJI[c.suit]} ${cardDisplayName(c)}`,
+            value: String(c.card_id),
+          }))
+        );
 
-      // /remember subtype
       } else if (interaction.commandName === 'remember' && focused.name === 'subtype') {
         const { data } = await supabase.from('library_entries').select('subtype').not('subtype','is',null).ilike('subtype',`%${typed}%`);
         const unique = [...new Set((data||[]).map(r=>r.subtype).filter(Boolean))].slice(0,25);
         await interaction.respond(unique.map(s=>({name:s,value:s})));
 
-      // /remember tags
       } else if (interaction.commandName === 'remember' && focused.name === 'tags') {
         const { data } = await supabase.from('library_entries').select('tags').not('tags','is',null);
         const allTags = (data||[]).flatMap(r=>r.tags.split(',').map(t=>t.trim().toLowerCase())).filter(t=>t&&t.includes(typed));
         const unique = [...new Set(allTags)].slice(0,25);
         await interaction.respond(unique.map(s=>({name:s,value:s})));
 
-      // /recall title
       } else if (interaction.commandName === 'recall' && focused.name === 'title') {
         const { data } = await supabase.from('library_entries').select('title').ilike('title',`%${typed}%`).limit(25);
         const titles = (data||[]).map(r=>r.title).filter(Boolean);
@@ -432,7 +443,6 @@ client.on('interactionCreate', async (interaction) => {
 
   if (!interaction.isChatInputCommand()) return;
   try {
-    // ── Card draws ──
     if (interaction.commandName === 'draw') {
       const suit = interaction.options.getString('suit');
       const [card] = drawCards(1, suit);
@@ -446,16 +456,15 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.commandName === 'card') {
-      const name = interaction.options.getString('name');
-      const card = CARDS.find(c => c.name.toLowerCase() === name.toLowerCase());
+      const cardId = parseInt(interaction.options.getString('name'));
+      const card   = CARDS.find(c => c.card_id === cardId);
       if (!card) {
-        await interaction.reply({ content:`*Mu searches the archive.* No card found named "${name}".`, ephemeral:true });
+        await interaction.reply({ content:`*Mu searches the archive.* No card found.`, ephemeral:true });
       } else {
         await interaction.reply({ embeds: [buildSingleDrawEmbed(card)] });
       }
     }
 
-    // ── Mu speaks ──
     if (interaction.commandName === 'askmu') {
       const question = interaction.options.getString('question');
       await interaction.reply({ embeds: [buildAskMuEmbed(drawCards(randBetween(3,5)), question)] });
@@ -467,7 +476,6 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.reply({ content:`<@${user.id}>`, embeds:[buildFortuneEmbed(drawCards(3), member)] });
     }
 
-    // ── Library ──
     if (interaction.commandName === 'remember') {
       await interaction.deferReply();
       const entry = {
