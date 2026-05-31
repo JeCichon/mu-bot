@@ -18,25 +18,30 @@ async function loadCards() {
     .from('cards')
     .select('*')
     .order('card_id', { ascending: true });
-  if (error) {
-    console.error('Failed to load cards from Supabase:', error.message);
-    process.exit(1);
-  }
+  if (error) { console.error('Failed to load cards:', error.message); process.exit(1); }
   CARDS = data;
   console.log(`✓ ${CARDS.length} cards loaded from the library`);
 }
 
-// ─── Card Display ─────────────────────────────────────────────────────────────
-const SUIT_EMOJI = { major:'☉', wands:'🔥', cups:'🌊', swords:'⚔️', disks:'🌍' };
-const SUIT_LABEL = { major:'Major Arcana', wands:'Wands', cups:'Cups', swords:'Swords', disks:'Disks' };
+// ─── RGB helpers ──────────────────────────────────────────────────────────────
+// Average RGB across an array of card objects
+function averageRGB(cards) {
+  if (!cards || cards.length === 0) return { r: 80, g: 60, b: 100 };
+  const r = Math.round(cards.reduce((s, c) => s + c.r, 0) / cards.length);
+  const g = Math.round(cards.reduce((s, c) => s + c.g, 0) / cards.length);
+  const b = Math.round(cards.reduce((s, c) => s + c.b, 0) / cards.length);
+  return { r, g, b };
+}
 
-// "2 · Wands · Dominion" or "The Fool" for major arcana
+// ─── Card Display ─────────────────────────────────────────────────────────────
+const SUIT_EMOJI  = { major:'☉', wands:'🔥', cups:'🌊', swords:'⚔️', disks:'🌍' };
+const SUIT_LABEL  = { major:'Major Arcana', wands:'Wands', cups:'Cups', swords:'Swords', disks:'Disks' };
+
 function cardDisplayName(card) {
   if (card.suit === 'major') return card.name;
   return `${card.suit_number} · ${SUIT_LABEL[card.suit]} · ${card.name}`;
 }
 
-// Searchable label for autocomplete — combines suit_number, suit name, and card name
 function cardSearchLabel(card) {
   if (card.suit === 'major') return card.name.toLowerCase();
   return `${card.suit_number} ${SUIT_LABEL[card.suit].toLowerCase()} ${card.name.toLowerCase()}`;
@@ -136,7 +141,7 @@ function drawCards(n, suit) {
 
 function randBetween(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-function rgbToHex(r,g,b) {
+function rgbToHex(r, g, b) {
   const lum = (r*299 + g*587 + b*114) / 1000;
   if (lum < 20) { r=30; g=20; b=40; }
   return (r << 16) + (g << 8) + b;
@@ -233,16 +238,23 @@ function buildFortuneEmbed(cards, member) {
     .setFooter({ text: cardLine });
 }
 
-function buildRememberEmbed(entry) {
+function buildRememberEmbed(entry, assignedCards) {
+  const rgb    = assignedCards.length > 0 ? averageRGB(assignedCards) : null;
+  const color  = rgb ? rgbToHex(rgb.r, rgb.g, rgb.b) : (ENTRY_COLORS[entry.entry_type] || 0x4A3560);
   const fields = [
     { name: 'Type',        value: entry.entry_type, inline: true },
     { name: 'Recorded by', value: entry.author,     inline: true },
   ];
   if (entry.subtype) fields.push({ name: 'Subtype', value: entry.subtype, inline: true });
-  if (entry.cards)   fields.push({ name: 'Cards',   value: entry.cards,   inline: false });
-  if (entry.tags)    fields.push({ name: 'Tags',    value: entry.tags,    inline: false });
+  if (assignedCards.length > 0) fields.push({
+    name:  'Cards',
+    value: assignedCards.map(c => `${SUIT_EMOJI[c.suit]} ${cardDisplayName(c)}`).join('\n'),
+    inline: false,
+  });
+  if (rgb) fields.push({ name: 'RGB', value: `${rgb.r} · ${rgb.g} · ${rgb.b}`, inline: true });
+  if (entry.tags) fields.push({ name: 'Tags', value: entry.tags, inline: false });
   return new EmbedBuilder()
-    .setColor(ENTRY_COLORS[entry.entry_type] || 0x4A3560)
+    .setColor(color)
     .setAuthor({ name: 'Mu · The Great Library' })
     .setTitle(`${ENTRY_EMOJI[entry.entry_type] || '📜'} ${entry.title}`)
     .setDescription(`*Mu places it carefully on the shelf.*\n\n${entry.content}`)
@@ -250,16 +262,23 @@ function buildRememberEmbed(entry) {
     .setFooter({ text: 'Saved to the library.' });
 }
 
-function buildRecallEmbed(entry) {
+function buildRecallEmbed(entry, assignedCards) {
+  const rgb   = (entry.r != null) ? { r: entry.r, g: entry.g, b: entry.b } : null;
+  const color = rgb ? rgbToHex(rgb.r, rgb.g, rgb.b) : (ENTRY_COLORS[entry.entry_type] || 0x4A3560);
   const fields = [
     { name: 'Type',        value: entry.entry_type,          inline: true },
     { name: 'Recorded by', value: entry.author || 'unknown', inline: true },
   ];
   if (entry.subtype) fields.push({ name: 'Subtype', value: entry.subtype, inline: true });
-  if (entry.cards)   fields.push({ name: 'Cards',   value: entry.cards,   inline: false });
-  if (entry.tags)    fields.push({ name: 'Tags',    value: entry.tags,    inline: false });
+  if (assignedCards && assignedCards.length > 0) fields.push({
+    name:  'Cards',
+    value: assignedCards.map(c => `${SUIT_EMOJI[c.suit]} ${cardDisplayName(c)}`).join('\n'),
+    inline: false,
+  });
+  if (rgb) fields.push({ name: 'RGB', value: `${rgb.r} · ${rgb.g} · ${rgb.b}`, inline: true });
+  if (entry.tags) fields.push({ name: 'Tags', value: entry.tags, inline: false });
   return new EmbedBuilder()
-    .setColor(ENTRY_COLORS[entry.entry_type] || 0x4A3560)
+    .setColor(color)
     .setAuthor({ name: 'Mu · The Great Library' })
     .setTitle(`${ENTRY_EMOJI[entry.entry_type] || '📜'} ${entry.title}`)
     .setDescription(entry.content)
@@ -295,30 +314,30 @@ client.once('clientReady', async () => {
   console.log(`✓ Mu is awake as ${client.user.tag}`);
 
   const rest = new REST({ version:'10' }).setToken(process.env.BOT_TOKEN);
+
+  // Card slot helper — 4 optional card autocomplete fields
+  const cardSlot = (n) => new SlashCommandBuilder()
+    .addStringOption(opt =>
+      opt.setName(`card_${n}`)
+         .setDescription(`Card ${n}`)
+         .setRequired(false)
+         .setAutocomplete(true)
+    );
+
   const commands = [
-    new SlashCommandBuilder()
-      .setName('draw')
-      .setDescription('Draw a single card — optionally filtered by suit.')
+    new SlashCommandBuilder().setName('draw').setDescription('Draw a single card — optionally filtered by suit.')
       .addStringOption(opt => opt.setName('suit').setDescription('Draw only from this suit (optional)').setRequired(false).addChoices(...SUIT_CHOICES))
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('draw3')
-      .setDescription('Draw three cards — optionally filtered by suit.')
+    new SlashCommandBuilder().setName('draw3').setDescription('Draw three cards — optionally filtered by suit.')
       .addStringOption(opt => opt.setName('suit').setDescription('Draw only from this suit (optional)').setRequired(false).addChoices(...SUIT_CHOICES))
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('card')
-      .setDescription('Choose a specific card from the deck.')
+    new SlashCommandBuilder().setName('card').setDescription('Choose a specific card from the deck.')
       .addStringOption(opt => opt.setName('name').setDescription('Type a name, suit, or number').setRequired(true).setAutocomplete(true))
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('askmu')
-      .setDescription('Ask Mu a question and receive an answer from the cards.')
+    new SlashCommandBuilder().setName('askmu').setDescription('Ask Mu a question and receive an answer from the cards.')
       .addStringOption(opt => opt.setName('question').setDescription('What would you like to ask?').setRequired(true))
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('fortune')
-      .setDescription('Mu delivers a personal fortune to someone.')
+    new SlashCommandBuilder().setName('fortune').setDescription('Mu delivers a personal fortune to someone.')
       .addUserOption(opt => opt.setName('recipient').setDescription('Who receives the fortune?').setRequired(true))
       .toJSON(),
     new SlashCommandBuilder()
@@ -335,17 +354,16 @@ client.once('clientReady', async () => {
         ))
       .addStringOption(opt => opt.setName('content').setDescription('What do you want to record?').setRequired(true))
       .addStringOption(opt => opt.setName('subtype').setDescription('Subtype (e.g. book, weapon, god)').setRequired(false).setAutocomplete(true))
-      .addStringOption(opt => opt.setName('cards').setDescription('Cards involved (optional)').setRequired(false))
+      .addStringOption(opt => opt.setName('card_1').setDescription('Card 1').setRequired(false).setAutocomplete(true))
+      .addStringOption(opt => opt.setName('card_2').setDescription('Card 2').setRequired(false).setAutocomplete(true))
+      .addStringOption(opt => opt.setName('card_3').setDescription('Card 3').setRequired(false).setAutocomplete(true))
+      .addStringOption(opt => opt.setName('card_4').setDescription('Card 4').setRequired(false).setAutocomplete(true))
       .addStringOption(opt => opt.setName('tags').setDescription('Tags for searching (optional)').setRequired(false).setAutocomplete(true))
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('recall')
-      .setDescription('Retrieve an entry from the Great Library.')
+    new SlashCommandBuilder().setName('recall').setDescription('Retrieve an entry from the Great Library.')
       .addStringOption(opt => opt.setName('title').setDescription('What are you looking for?').setRequired(true).setAutocomplete(true))
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('library')
-      .setDescription('Browse recent entries in the Great Library.')
+    new SlashCommandBuilder().setName('library').setDescription('Browse recent entries in the Great Library.')
       .addStringOption(opt => opt.setName('type').setDescription('Filter by type (optional)').setRequired(false)
         .addChoices(
           { name:'Item',      value:'item'      },
@@ -402,16 +420,17 @@ client.on('messageCreate', async (message) => {
 // ─── Interactions ─────────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
 
+  // ── Autocomplete ──
   if (interaction.isAutocomplete()) {
     const focused = interaction.options.getFocused(true);
     const typed   = focused.value.toLowerCase();
     try {
-      if (interaction.commandName === 'card' && focused.name === 'name') {
-        // Search across suit_number, suit name, and card name
+      // Card name autocomplete — used by /card and /remember card_1-4
+      if (focused.name === 'name' || focused.name.startsWith('card_')) {
         const matches = CARDS.filter(c => cardSearchLabel(c).includes(typed));
         await interaction.respond(
           matches.slice(0,25).map(c => ({
-            name: `${SUIT_EMOJI[c.suit]} ${cardDisplayName(c)}`,
+            name:  `${SUIT_EMOJI[c.suit]} ${cardDisplayName(c)}`,
             value: String(c.card_id),
           }))
         );
@@ -443,6 +462,8 @@ client.on('interactionCreate', async (interaction) => {
 
   if (!interaction.isChatInputCommand()) return;
   try {
+
+    // ── Card draws ──
     if (interaction.commandName === 'draw') {
       const suit = interaction.options.getString('suit');
       const [card] = drawCards(1, suit);
@@ -476,34 +497,80 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.reply({ content:`<@${user.id}>`, embeds:[buildFortuneEmbed(drawCards(3), member)] });
     }
 
+    // ── Library ──
     if (interaction.commandName === 'remember') {
       await interaction.deferReply();
+
+      // Collect card slots
+      const cardIds = ['card_1','card_2','card_3','card_4']
+        .map(slot => interaction.options.getString(slot))
+        .filter(Boolean)
+        .map(v => parseInt(v))
+        .filter(v => !isNaN(v));
+
+      const assignedCards = cardIds.map(id => CARDS.find(c => c.card_id === id)).filter(Boolean);
+      const rgb           = averageRGB(assignedCards);
+
       const entry = {
         title:      interaction.options.getString('title'),
         entry_type: interaction.options.getString('type'),
         content:    interaction.options.getString('content'),
         subtype:    interaction.options.getString('subtype') || null,
-        cards:      interaction.options.getString('cards')   || null,
         tags:       interaction.options.getString('tags')    || null,
         author:     interaction.user.username,
+        r:          assignedCards.length > 0 ? rgb.r : null,
+        g:          assignedCards.length > 0 ? rgb.g : null,
+        b:          assignedCards.length > 0 ? rgb.b : null,
       };
-      const { error } = await supabase.from('library_entries').insert(entry);
-      if (error) {
-        await interaction.editReply(`*Mu frowns at the archive.* Something went wrong: ${error.message}`);
-      } else {
-        await interaction.editReply({ embeds: [buildRememberEmbed(entry)] });
+
+      const { data: inserted, error } = await supabase
+        .from('library_entries')
+        .insert(entry)
+        .select()
+        .single();
+
+      if (error || !inserted) {
+        await interaction.editReply(`*Mu frowns at the archive.* Something went wrong: ${error?.message}`);
+        return;
       }
+
+      // Save card assignments
+      if (assignedCards.length > 0) {
+        const assignments = assignedCards.map(c => ({ entry_id: inserted.id, card_id: c.card_id }));
+        await supabase.from('library_card_assignments').insert(assignments);
+      }
+
+      await interaction.editReply({ embeds: [buildRememberEmbed(inserted, assignedCards)] });
     }
 
     if (interaction.commandName === 'recall') {
       await interaction.deferReply();
       const title = interaction.options.getString('title');
-      const { data, error } = await supabase.from('library_entries').select('*').ilike('title',`%${title}%`).order('created_at',{ascending:false}).limit(1);
+      const { data, error } = await supabase
+        .from('library_entries')
+        .select('*')
+        .ilike('title',`%${title}%`)
+        .order('created_at',{ascending:false})
+        .limit(1);
+
       if (error || !data || data.length === 0) {
         await interaction.editReply(`*Mu searches the stacks.* Nothing found for "${title}".`);
-      } else {
-        await interaction.editReply({ embeds: [buildRecallEmbed(data[0])] });
+        return;
       }
+
+      const entry = data[0];
+
+      // Fetch assigned cards
+      const { data: assignments } = await supabase
+        .from('library_card_assignments')
+        .select('card_id')
+        .eq('entry_id', entry.id);
+
+      const assignedCards = (assignments || [])
+        .map(a => CARDS.find(c => c.card_id === a.card_id))
+        .filter(Boolean);
+
+      await interaction.editReply({ embeds: [buildRecallEmbed(entry, assignedCards)] });
     }
 
     if (interaction.commandName === 'library') {
