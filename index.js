@@ -402,10 +402,10 @@ client.once('clientReady', async () => {
     } catch(err){console.error('Daily fortune error:',err);}
   });
 
-  // Daily fun post — noon UTC
-  cron.schedule('0 12 * * *', async () => {
+  // Daily fun post — noon Eastern (4pm UTC)
+  cron.schedule('0 16 * * *', async () => {
     try {
-      const channel = await client.channels.fetch(process.env.CHANNEL_ID);
+      const channel = await client.channels.fetch(process.env.FUN_CHANNEL_ID);
       const embed   = await buildFunPost();
       if(!embed){console.log('No images available for fun post');return;}
       await channel.send({embeds:[embed]});
