@@ -263,8 +263,14 @@ function buildRememberEmbed(entry, assignedCards) {
 }
 
 function buildRecallEmbed(entry, assignedCards) {
-  const rgb   = (entry.r != null) ? { r: entry.r, g: entry.g, b: entry.b } : null;
-  const color = rgb ? rgbToHex(rgb.r, rgb.g, rgb.b) : (ENTRY_COLORS[entry.entry_type] || 0x4A3560);
+  // Always calculate RGB live from currently assigned cards
+  // Falls back to stored snapshot, then to type color
+  const liveRgb = assignedCards && assignedCards.length > 0
+    ? averageRGB(assignedCards)
+    : (entry.r != null ? { r: entry.r, g: entry.g, b: entry.b } : null);
+  const color = liveRgb
+    ? rgbToHex(liveRgb.r, liveRgb.g, liveRgb.b)
+    : (ENTRY_COLORS[entry.entry_type] || 0x4A3560);
   const fields = [
     { name: 'Type',        value: entry.entry_type,          inline: true },
     { name: 'Recorded by', value: entry.author || 'unknown', inline: true },
@@ -275,7 +281,7 @@ function buildRecallEmbed(entry, assignedCards) {
     value: assignedCards.map(c => `${SUIT_EMOJI[c.suit]} ${cardDisplayName(c)}`).join('\n'),
     inline: false,
   });
-  if (rgb) fields.push({ name: 'RGB', value: `${rgb.r} · ${rgb.g} · ${rgb.b}`, inline: true });
+  if (liveRgb) fields.push({ name: 'RGB', value: `${liveRgb.r} · ${liveRgb.g} · ${liveRgb.b}`, inline: true });
   if (entry.tags) fields.push({ name: 'Tags', value: entry.tags, inline: false });
   return new EmbedBuilder()
     .setColor(color)
