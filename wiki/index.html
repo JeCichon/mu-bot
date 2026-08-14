@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TricknoLodge</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green:   rgb(144,171,153);
+    --green2:  rgb(110,135,118);
+    --green3:  rgb(80,105,90);
+    --brown:   rgb(43,28,16);
+    --brown2:  rgb(60,42,26);
+    --brown3:  rgb(80,58,36);
+    --purple:  rgb(76,46,87);
+    --purple2: rgb(100,65,112);
+    --ink:     rgb(28,23,24);
+    --parchment: rgb(220,210,190);
+    --parchment2: rgb(200,188,168);
+    --dim: rgb(120,100,80);
+    --mono: 'Courier New', Courier, monospace;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  html, body { height: 100%; }
+  body {
+    background: var(--brown);
+    color: var(--parchment);
+    font-family: var(--serif);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--brown2);
+    border-bottom: 2px solid var(--purple);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1.5px solid var(--purple);
+    object-fit: cover;
+    background: var(--brown3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .logo-text {
+    font-size: 20px;
+    letter-spacing: 0.12em;
+    color: var(--green);
+    font-family: var(--serif);
+    font-weight: normal;
+  }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    font-family: var(--mono);
+  }
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .user-name {
+    font-size: 13px;
+    color: var(--green);
+    font-family: var(--mono);
+  }
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--green3);
+    object-fit: cover;
+  }
+  button {
+    background: var(--brown3);
+    border: 1px solid var(--green3);
+    color: var(--parchment);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  button:hover { border-color: var(--green); }
+  .btn-discord {
+    background: #404eed;
+    border-color: #5865f2;
+    color: #fff;
+    font-size: 13px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-discord:hover { background: #5865f2; border-color: #fff; }
+  .btn-logout { background: var(--brown); border-color: var(--brown3); color: var(--dim); }
+  .btn-logout:hover { border-color: var(--purple); color: var(--parchment); }
+
+  /* ── Layout ── */
+  .main-wrap {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--brown2);
+    border-right: 1px solid var(--brown3);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--brown3);
+  }
+  .sidebar-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    font-family: var(--mono);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .sidebar-link {
+    display: block;
+    color: var(--green);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 0;
+    font-family: var(--mono);
+    letter-spacing: 0.04em;
+    transition: color 0.1s;
+  }
+  .sidebar-link:hover { color: var(--parchment); }
+  .sidebar-entry {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--brown3);
+  }
+  .sidebar-entry:last-child { border-bottom: none; }
+  .sidebar-entry-title {
+    font-size: 12px;
+    color: var(--parchment2);
+    font-family: var(--mono);
+    display: block;
+    cursor: pointer;
+    transition: color 0.1s;
+    text-decoration: none;
+  }
+  .sidebar-entry-title:hover { color: var(--green); }
+  .sidebar-entry-type {
+    font-size: 11px;
+    color: var(--dim);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+  .entry-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    border: 0.5px solid rgba(255,255,255,0.15);
+  }
+  .sidebar-mu {
+    padding: 14px 16px;
+  }
+  .mu-avatar {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 10px;
+    display: block;
+    opacity: 0.85;
+    filter: sepia(30%);
+  }
+  .mu-status {
+    font-size: 11px;
+    color: var(--dim);
+    font-family: var(--mono);
+    text-align: center;
+    font-style: italic;
+  }
+  .mu-status.online { color: var(--green3); }
+
+  /* ── Chat Area ── */
+  .chat-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .msg {
+    display: flex;
+    gap: 12px;
+    max-width: 680px;
+  }
+  .msg.mu { align-self: flex-start; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid var(--brown3);
+    background: var(--brown3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    object-fit: cover;
+  }
+  .msg-body { max-width: 520px; }
+  .msg-author {
+    font-size: 11px;
+    color: var(--dim);
+    font-family: var(--mono);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .msg.user .msg-author { flex-direction: row-reverse; }
+  .msg-author-name { color: var(--green); }
+  .msg.user .msg-author-name { color: var(--purple2); }
+  .msg-bubble {
+    background: var(--brown2);
+    border: 1px solid var(--brown3);
+    border-radius: 4px 12px 12px 12px;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--parchment);
+  }
+  .msg.user .msg-bubble {
+    background: var(--brown3);
+    border-color: var(--purple);
+    border-radius: 12px 4px 12px 12px;
+    color: var(--parchment2);
+  }
+  .msg-bubble em { color: var(--green2); font-style: italic; }
+  .msg-cards {
+    font-size: 11px;
+    color: var(--dim);
+    font-family: var(--mono);
+    margin-top: 6px;
+  }
+
+  /* Login screen */
+  .login-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px;
+    text-align: center;
+  }
+  .login-title {
+    font-size: 28px;
+    color: var(--green);
+    letter-spacing: 0.1em;
+    font-weight: normal;
+  }
+  .login-sub {
+    font-size: 14px;
+    color: var(--dim);
+    font-family: var(--mono);
+    max-width: 360px;
+    line-height: 1.6;
+  }
+  .login-mu {
+    font-size: 60px;
+    line-height: 1;
+    margin: 10px 0;
+  }
+
+  /* Input */
+  .chat-input-wrap {
+    border-top: 1px solid var(--brown3);
+    padding: 12px 20px;
+    background: var(--brown2);
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--brown);
+    border: 1px solid var(--brown3);
+    color: var(--parchment);
+    font-family: var(--serif);
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    outline: none;
+    resize: none;
+    min-height: 40px;
+    max-height: 120px;
+  }
+  .chat-input:focus { border-color: var(--green3); }
+  .chat-input::placeholder { color: var(--dim); }
+
+  /* Entry modal */
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(20,12,8,0.85); z-index:300; align-items:center; justify-content:center; }
+  .modal-bg.open { display:flex; }
+  .modal {
+    background: var(--brown2);
+    border: 1px solid var(--purple);
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal-title { font-size: 16px; color: var(--green); margin-bottom: 6px; }
+  .modal-meta { font-size: 11px; color: var(--dim); font-family: var(--mono); margin-bottom: 14px; }
+  .modal-content { font-size: 14px; line-height: 1.65; color: var(--parchment2); }
+  .modal-rgb { display:inline-block; width:24px; height:12px; border-radius:2px; vertical-align:middle; margin-right:6px; border: 0.5px solid rgba(255,255,255,0.15); }
+  .modal-close { position:absolute; top:12px; right:16px; background:none; border:none; color:var(--dim); font-size:18px; cursor:pointer; padding:0; }
+
+  /* Loading */
+  .loading { color: var(--dim); font-family: var(--mono); font-size: 12px; font-style: italic; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--brown); }
+  ::-webkit-scrollbar-thumb { background: var(--brown3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--green3); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo-wrap">
+    <!-- Replace with: <img src="logo.png" class="logo-img" alt="Tricknologic"> -->
+    <div class="logo-img">🌀</div>
+    <div>
+      <div class="logo-text">TricknoLodge</div>
+      <div class="logo-sub">the great library · dream access point</div>
+    </div>
+  </div>
+  <div class="header-right" id="header-right">
+    <button class="btn-discord" onclick="signIn()">
+      <svg width="18" height="14" viewBox="0 0 127.14 96.36" fill="white"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>
+      Sign in with Discord
+    </button>
+  </div>
+</header>
+
+<!-- Main -->
+<div class="main-wrap" id="main-wrap">
+
+  <!-- Login screen (shown before auth) -->
+  <div class="login-screen" id="login-screen">
+    <div class="login-mu">🌀</div>
+    <div class="login-title">TricknoLodge</div>
+    <div class="login-sub">*Mu waits at the door. The archive hums quietly behind him.*<br><br>Sign in with Discord to enter.</div>
+  </div>
+
+  <!-- Sidebar (hidden until auth) -->
+  <aside id="sidebar" style="display:none">
+    <div class="sidebar-mu">
+      <div style="text-align:center;font-size:36px;margin-bottom:8px">📦</div>
+      <div class="mu-status online" id="mu-status">· Mu is present ·</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">navigate</div>
+      <a class="sidebar-link" href="#">☰ Lodge</a>
+      <a class="sidebar-link" href="#" onclick="openLibrary(); return false;">📚 Library</a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">recent entries</div>
+      <div id="sidebar-entries"><div class="loading">loading...</div></div>
+    </div>
+  </aside>
+
+  <!-- Chat (hidden until auth) -->
+  <div class="chat-wrap" id="chat-wrap" style="display:none">
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-wrap">
+      <textarea class="chat-input" id="chat-input" placeholder="Say something to Mu… or ask him anything." rows="1"
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button onclick="sendMessage()">send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Entry Modal -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-content" id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ── Config — paste your values here ─────────────────────────────────────────
+const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Card data (trimmed for browser use) ──────────────────────────────────────
+const W={iam:"Courage",ifeel:"Passion",iact:"Determination",ilove:"Ambition",ispeak:"Communication",isee:"Vision",iknow:"Inspiration",iunder:"Manifestation"};
+const C={iam:"Trust",ifeel:"Creativity",iact:"Empathy",ilove:"Compassion",ispeak:"Emotion",isee:"Intuition",iknow:"Connection",iunder:"Enlightenment"};
+const So={iam:"Grounding",ifeel:"Clarity",iact:"Focus",ilove:"Balance",ispeak:"Analysis",isee:"Insight",iknow:"Wisdom",iunder:"Liberation"};
+const D={iam:"Stability",ifeel:"Vitality",iact:"Nourishment",ilove:"Health",ispeak:"Expression",isee:"Awareness",iknow:"Connection",iunder:"Wholeness"};
+const CARDS=[
+  {id:0,name:"The Fool",suit:"major",sn:0,r:255,g:255,b:55,adj:"Curious",noun:"Endeavor",subject:"It is I that",verb:"embarks on quest",adv:"without looking",timeframe:"Just for today",command:"Begin"},
+  {id:1,name:"The Magus",suit:"major",sn:1,r:255,g:255,b:0,adj:"Inward",noun:"Vigor",subject:"My resolution",verb:"wills itself",adv:"dynamically",timeframe:"For this moment",command:"Manifest"},
+  {id:2,name:"The Priestess",suit:"major",sn:2,r:42,g:42,b:255,adj:"Hidden",noun:"Intelligence",subject:"My mind",verb:"perceives",adv:"intuitively",timeframe:"For the next few breaths",command:"Divine"},
+  {id:3,name:"The Empress",suit:"major",sn:3,r:0,g:170,b:0,adj:"Pregnant",noun:"Devotion",subject:"A mother's love",verb:"bridges",adv:"safely",timeframe:"For this turning of the wheel",command:"Nurture"},
+  {id:4,name:"The Emperor",suit:"major",sn:4,r:255,g:0,b:0,adj:"Just",noun:"Absolution",subject:"Justice and Order",verb:"dominates",adv:"objectively",timeframe:"Within this cycle",command:"Command"},
+  {id:5,name:"The Hierophant",suit:"major",sn:5,r:255,g:102,b:0,adj:"Illuminated",noun:"Truth",subject:"Knowledge and Understanding",verb:"discovers",adv:"faithfully",timeframe:"An experiment for today",command:"Teach"},
+  {id:6,name:"The Lovers",suit:"major",sn:6,r:255,g:138,b:13,adj:"Brave",noun:"Decision",subject:"Opposites",verb:"consecrate",adv:"whole heartedly",timeframe:"Only for now",command:"Unite"},
+  {id:7,name:"The Chariot",suit:"major",sn:7,r:255,g:193,b:3,adj:"Conquered",noun:"Ego",subject:"The spirit of adventure",verb:"overcomes",adv:"bravely",timeframe:"As the worm turns",command:"Conquer"},
+  {id:8,name:"The Adjustment",suit:"major",sn:8,r:0,g:170,b:68,adj:"Balanced",noun:"Law",subject:"Harmony",verb:"seeks",adv:"responsibly",timeframe:"Think for a moment",command:"Balance"},
+  {id:9,name:"The Hermit",suit:"major",sn:9,r:85,g:212,b:0,adj:"Deep",noun:"Disillusionment",subject:"That which is within",verb:"embraces",adv:"seriously",timeframe:"When you choose to",command:"Reflect"},
+  {id:10,name:"Fortune",suit:"major",sn:10,r:178,g:0,b:109,adj:"Projected",noun:"Wealth",subject:"A calmness of spirit",verb:"rises",adv:"in time",timeframe:"Today is awesome",command:"Prosper"},
+  {id:11,name:"Lust",suit:"major",sn:11,r:182,g:234,b:0,adj:"Passionate",noun:"Energy",subject:"Your animal nature",verb:"transforms",adv:"lovingly",timeframe:"*Kool-Aid Man bursts in* Oh yeah!",command:"Passion"},
+  {id:12,name:"The Hanged Man",suit:"major",sn:12,r:0,g:102,b:255,adj:"Sacrificial",noun:"Solution",subject:"Acceptance",verb:"matures",adv:"wisely",timeframe:"This may surprise you",command:"Surrender"},
+  {id:13,name:"Death",suit:"major",sn:13,r:0,g:136,b:131,adj:"Cyclical",noun:"Rebirth",subject:"Death",verb:"returns",adv:"consistently",timeframe:"Ahh yes, a reset — try to",command:"Transform"},
+  {id:14,name:"Art",suit:"major",sn:14,r:42,g:42,b:255,adj:"Appropriate",noun:"Measurement",subject:"The philosopher's stone",verb:"dissolves and bonds",adv:"completely",timeframe:"Your barriers are thinning",command:"Synthesize"},
+  {id:15,name:"The Devil",suit:"major",sn:15,r:145,g:0,b:178,adj:"Illuminating",noun:"Darkness",subject:"Dark magic",verb:"opens awareness",adv:"ritually",timeframe:"Stand in this moment",command:"Tempt"},
+  {id:16,name:"The Tower",suit:"major",sn:16,r:255,g:0,b:0,adj:"Productive",noun:"Destruction",subject:"Old systems",verb:"are leveled and replaced",adv:"in the blink of an eye",timeframe:"Through your pain, you hear",command:"Reconstruct"},
+  {id:17,name:"The Star",suit:"major",sn:17,r:178,g:0,b:109,adj:"Reckless",noun:"Progress",subject:"A creative moment",verb:"innovates",adv:"faithfully",timeframe:"Your light speaks",command:"Innovate"},
+  {id:18,name:"The Moon",suit:"major",sn:18,r:206,g:0,b:82,adj:"Intuitive",noun:"Knowledge",subject:"The depths of my soul",verb:"confronts",adv:"profoundly",timeframe:"A feeling rushes over you",command:"Illusion"},
+  {id:19,name:"The Sun",suit:"major",sn:19,r:255,g:138,b:13,adj:"Confident",noun:"Illumination",subject:"That which is beyond me",verb:"fuels",adv:"boundlessly",timeframe:"With great warmth",command:"Illuminate"},
+  {id:20,name:"The Aeon",suit:"major",sn:20,r:255,g:69,b:69,adj:"Liberating",noun:"Power",subject:"A great correlation",verb:"awakens",adv:"endlessly",timeframe:"Upon waking",command:"Awaken"},
+  {id:21,name:"The Universe",suit:"major",sn:21,r:145,g:0,b:178,adj:"Karmic",noun:"Conclusion",subject:"All that is",verb:"spins together",adv:"freely",timeframe:"As this cycle ends",command:"Complete"},
+  {id:22,name:"Ace",suit:"wands",sn:1,r:255,g:255,b:255,adj:"Pioneering",noun:"Spirit",subject:"Your talents",verb:"ignite",adv:"energetically",timeframe:"The journey begins today",command:"Initiate",...W},
+  {id:23,name:"Dominion",suit:"wands",sn:2,r:0,g:148,b:214,adj:"Assertive",noun:"Will",subject:"My Will",verb:"dominates",adv:"assertively",timeframe:"A world of possibility awaits",command:"Govern",...W},
+  {id:24,name:"Virtue",suit:"wands",sn:3,r:206,g:0,b:82,adj:"Creative",noun:"Harmony",subject:"Creative strength",verb:"reinforces",adv:"brilliantly",timeframe:"Through your creation",command:"Establish",...W},
+  {id:25,name:"Completion",suit:"wands",sn:4,r:142,g:0,b:100,adj:"Inner",noun:"Order",subject:"A perfected work",verb:"aligns with intention",adv:"",timeframe:"In this moment of order",command:"Perfect",...W},
+  {id:26,name:"Strife",suit:"wands",sn:5,r:255,g:138,b:13,adj:"Challenging",noun:"Impulse",subject:"Competition",verb:"burns away",adv:"individually",timeframe:"While competing for progress",command:"Challenge",...W},
+  {id:27,name:"Victory",suit:"wands",sn:6,r:255,g:168,b:168,adj:"Bright",noun:"Personality",subject:"My fire",verb:"expands",adv:"joyfully",timeframe:"Tomorrow's in my eyes",command:"Succeed",...W},
+  {id:28,name:"Valour",suit:"wands",sn:7,r:255,g:193,b:3,adj:"Renewable",noun:"Capacity",subject:"Resistance",verb:"fights on",adv:"courageously",timeframe:"Against the odds",command:"Endure",...W},
+  {id:29,name:"Swiftness",suit:"wands",sn:8,r:178,g:0,b:109,adj:"Unexpected",noun:"Motivation",subject:"Your knowledge",verb:"implements",adv:"straightaway",timeframe:"No time to waste",command:"Communicate",...W},
+  {id:30,name:"Strength",suit:"wands",sn:9,r:145,g:0,b:178,adj:"Spiritual",noun:"Wholeness",subject:"Emotion",verb:"becomes whole",adv:"powerfully",timeframe:"When you find your power within",command:"Strengthen",...W},
+  {id:31,name:"Oppression",suit:"wands",sn:10,r:255,g:255,b:0,adj:"Self",noun:"Determination",subject:"My structure",verb:"grows",adv:"responsibly",timeframe:"When the weight of expectation is heavy",command:"Subjugate",...W},
+  {id:36,name:"Ace",suit:"cups",sn:1,r:250,g:250,b:250,adj:"Experiencing",noun:"Grace",subject:"The secret of love",verb:"enlightens",adv:"together",timeframe:"Love at first sip",command:"Embody",...C},
+  {id:37,name:"Love",suit:"cups",sn:2,r:174,g:177,b:178,adj:"Dissolving",noun:"Boundaries",subject:"The happiness of love",verb:"balances",adv:"harmoniously",timeframe:"In this moment",command:"Exchange",...C},
+  {id:38,name:"Abundance",suit:"cups",sn:3,r:0,g:0,b:0,adj:"Overflowing",noun:"Value",subject:"All that is needed",verb:"flows",adv:"bountifully",timeframe:"For this turning of the wheel",command:"Flow",...C},
+  {id:44,name:"Happiness",suit:"cups",sn:9,r:178,g:0,b:109,adj:"Optimistic",noun:"Future",subject:"Love",verb:"opens everything",adv:"profoundly",timeframe:"A state of mind",command:"Fulfill",...C},
+  {id:50,name:"Ace",suit:"swords",sn:1,r:242,g:242,b:242,adj:"Mindful",noun:"Activities",subject:"Your mind",verb:"cuts through the noise",adv:"objectively",timeframe:"To find your path",command:"Discern",...So},
+  {id:51,name:"Peace",suit:"swords",sn:2,r:146,g:161,b:188,adj:"Seeking",noun:"Balance",subject:"Stillness",verb:"holds",adv:"without incident",timeframe:"Find the quiet center",command:"Harmonize",...So},
+  {id:53,name:"Truce",suit:"swords",sn:4,r:84,g:11,b:85,adj:"Arranging",noun:"Peace",subject:"Stability",verb:"maintains",adv:"temporarily",timeframe:"While finding stillness",command:"Perfect",...So},
+  {id:64,name:"Ace",suit:"disks",sn:1,r:255,g:246,b:205,adj:"Tangible",noun:"Matter",subject:"Great happiness",verb:"shines",adv:"within and without",timeframe:"Experience this moment",command:"Materialize",...D},
+  {id:66,name:"Works",suit:"disks",sn:3,r:202,g:184,b:184,adj:"Crystallized",noun:"Force",subject:"Self-development",verb:"grows",adv:"constructively",timeframe:"For this labor of love",command:"Construct",...D},
+  {id:69,name:"Success",suit:"disks",sn:6,r:163,g:121,b:15,adj:"Heavenly",noun:"Conditions",subject:"Prosperity",verb:"overcomes",adv:"abundantly",timeframe:"Enjoy the fruit of your labor",command:"Succeed",...D},
+];
+
+const SUIT_LABEL={major:"Major Arcana",wands:"Wands",cups:"Cups",swords:"Swords",disks:"Disks"};
+const ENTRY_EMOJI={item:"📖",character:"🧙",session:"🎭",concept:"🌀",place:"🗺️"};
+
+// ── Sentence engine ───────────────────────────────────────────────────────────
+const clean=s=>s.replace(/\s{2,}/g," ").replace(/ \./g,".").replace(/ ,/g,",").trim();
+const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+
+const MU_INTROS=[
+  "*Mu sets something on the table. He does not say what it is.*",
+  "*The library is quiet. Mu places a card face-down and walks away.*",
+  "*From somewhere deep in the archive, Mu draws two threads together.*",
+  "*Mu looks at you the way water looks at a stone.*",
+  "*Without ceremony, Mu arrives. Without announcement, he leaves.*",
+  "*The great librarian opens a door you didn't know was there.*",
+  "*He draws. He does not interpret. He offers.*",
+  "*The card chose itself. Mu only held the deck.*",
+];
+
+const SENTENCE_TEMPLATES=[
+  c=>`${c[0].subject} ${c[1].verb} ${c[0].adv}.`,
+  c=>`${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.`,
+  c=>`${c[0].subject} ${c[1].verb} — ${c[1].adj} ${c[1].noun} ${c[0].adv}.`,
+  c=>`${c[0].adj} ${c[1].noun} ${c[0].verb} ${c[1].adv}. ${c[1].subject} listens.`,
+];
+
+const GREET_TEMPLATES=[
+  c=>`${c[0].timeframe} — ${c[1].command} your ${c[0].adj} ${c[1].noun}.`,
+  c=>`${c[0].adj} ${c[0].noun} does not explain itself to ${c[1].adj} ${c[1].noun}.`,
+  c=>`You are looking for ${c[1].noun}. ${c[0].adj} is the door.`,
+  c=>`Before ${c[0].adj} ${c[0].noun} — what were you?`,
+];
+
+function drawCards(n){
+  return [...CARDS].sort(()=>Math.random()-0.5).slice(0,n);
+}
+
+function cardName(c){
+  if(c.suit==="major")return c.name;
+  const s={wands:"W",cups:"C",swords:"S",disks:"D"};
+  return`${c.sn}·${s[c.suit]}·${c.name}`;
+}
+
+function buildMuReply(userText){
+  const cards=drawCards(2+Math.floor(Math.random()*2));
+  let sentence;
+  if(!userText||userText.trim()===""){
+    sentence=clean(pick(GREET_TEMPLATES)(cards));
+  } else {
+    const intro=Math.random()>0.5?pick(MU_INTROS)+"\n\n":"";
+    sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
+    const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","their"].includes(w));
+    if(kw.length>0&&Math.random()>0.5){
+      const word=pick(kw);
+      sentence=pick([`*${word}* — ${sentence}`,`${sentence} What of *${word}*?`,`Before *${word}* — ${sentence}`]);
+    }
+  }
+  return{sentence,cards};
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+let currentUser=null;
+
+async function signIn(){
+  await db.auth.signInWithOAuth({
+    provider:"discord",
+    options:{redirectTo:window.location.origin+window.location.pathname}
+  });
+}
+
+async function signOut(){
+  await db.auth.signOut();
+  currentUser=null;
+  showLoginScreen();
+}
+
+db.auth.onAuthStateChange((_event,session)=>{
+  if(session?.user){
+    currentUser=session.user;
+    showApp(session.user);
+  } else {
+    currentUser=null;
+    showLoginScreen();
+  }
+});
+
+function showLoginScreen(){
+  document.getElementById("login-screen").style.display="flex";
+  document.getElementById("sidebar").style.display="none";
+  document.getElementById("chat-wrap").style.display="none";
+  document.getElementById("header-right").innerHTML=`
+    <button class="btn-discord" onclick="signIn()">
+      <svg width="16" height="12" viewBox="0 0 127.14 96.36" fill="white"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>
+      Sign in with Discord
+    </button>`;
+}
+
+function showApp(user){
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("sidebar").style.display="flex";
+  document.getElementById("chat-wrap").style.display="flex";
+  const avatar=user.user_metadata?.avatar_url;
+  const name=user.user_metadata?.full_name||user.user_metadata?.name||"traveler";
+  document.getElementById("header-right").innerHTML=`
+    ${avatar?`<img src="${avatar}" class="user-avatar" alt="">`:""}
+    <span class="user-name">${name}</span>
+    <button class="btn-logout" onclick="signOut()">leave</button>`;
+  loadSidebarEntries();
+  sendGreeting(name);
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+function addMsg(role,html,cardLine){
+  const msgs=document.getElementById("chat-messages");
+  const isUser=role==="user";
+  const avatarHtml=isUser?"👤":"📦";
+  const authorName=isUser?(currentUser?.user_metadata?.full_name||"you"):"Mu";
+  const div=document.createElement("div");
+  div.className=`msg ${isUser?"user":"mu"}`;
+  div.innerHTML=`
+    <div class="msg-avatar">${avatarHtml}</div>
+    <div class="msg-body">
+      <div class="msg-author"><span class="msg-author-name">${authorName}</span></div>
+      <div class="msg-bubble">${html}</div>
+      ${cardLine?`<div class="msg-cards">${cardLine}</div>`:""}
+    </div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function sendGreeting(){
+  const{sentence,cards}=buildMuReply("");
+  const cardLine=cards.map(c=>cardName(c)).join(" · ");
+  addMsg("mu",sentence.replace(/\*(.*?)\*/g,"<em>$1</em>"),cardLine);
+}
+
+function sendMessage(){
+  const inp=document.getElementById("chat-input");
+  const text=inp.value.trim();
+  if(!text)return;
+  addMsg("user",text,"");
+  inp.value="";
+  inp.style.height="auto";
+  setTimeout(()=>{
+    const{sentence,cards}=buildMuReply(text);
+    const cardLine=cards.map(c=>cardName(c)).join(" · ");
+    addMsg("mu",sentence.replace(/\*(.*?)\*/g,"<em>$1</em>"),cardLine);
+  },400+Math.random()*600);
+}
+
+function handleKey(e){
+  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}
+}
+
+function autoResize(el){
+  el.style.height="auto";
+  el.style.height=Math.min(el.scrollHeight,120)+"px";
+}
+
+// ── Library sidebar ───────────────────────────────────────────────────────────
+async function loadSidebarEntries(){
+  const el=document.getElementById("sidebar-entries");
+  const{data}=await db.from("library_entries").select("*").order("created_at",{ascending:false}).limit(3);
+  if(!data||data.length===0){el.innerHTML=`<div class="loading">nothing filed yet</div>`;return;}
+  el.innerHTML=data.map(e=>{
+    const rgb=e.r!=null?`rgb(${e.r},${e.g},${e.b})`:"#4C2E57";
+    const emoji=ENTRY_EMOJI[e.entry_type]||"📜";
+    return`<div class="sidebar-entry">
+      <a class="sidebar-entry-title" href="#" onclick="openEntry(${e.id});return false;">
+        <span class="entry-dot" style="background:${rgb}"></span>${emoji} ${e.title}
+      </a>
+      <div class="sidebar-entry-type">${e.entry_type}${e.subtype?" · "+e.subtype:""}</div>
+    </div>`;
+  }).join("");
+}
+
+async function openEntry(id){
+  const{data}=await db.from("library_entries").select("*").eq("id",id).single();
+  if(!data)return;
+  const emoji=ENTRY_EMOJI[data.entry_type]||"📜";
+  const rgb=data.r!=null?`rgb(${data.r},${data.g},${data.b})`:null;
+  document.getElementById("modal-title").innerHTML=`${emoji} ${data.title}`;
+  document.getElementById("modal-meta").innerHTML=
+    `${data.entry_type}${data.subtype?" · "+data.subtype:""} · by ${data.author||"unknown"} · ${new Date(data.created_at).toLocaleDateString()}`+
+    (rgb?` <span class="modal-rgb" style="background:${rgb}"></span>`:"");
+  document.getElementById("modal-content").textContent=data.content||"—";
+  document.getElementById("modal-bg").classList.add("open");
+}
+
+function openLibrary(){
+  alert("Library list view coming soon!");
+}
+
+function closeModal(){
+  document.getElementById("modal-bg").classList.remove("open");
+}
+
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+</script>
+</body>
+</html>
