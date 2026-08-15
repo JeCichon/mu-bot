@@ -425,7 +425,7 @@ async function sendMessage(){
     is_mu:false,
     card_line:null,
   }).select().single();
-  if(inserted){ shownIds.add(inserted.id); renderMessage(inserted); }
+  if(inserted){ renderMessage(inserted); } // renderMessage adds to shownIds itself
 
   // Mu responds if mentioned or asked a question
   const mentionsMu=text.toLowerCase().includes("mu");
@@ -447,7 +447,7 @@ async function saveMuMessage(sentence,cardLine){
     is_mu:true,
     card_line:cardLine,
   }).select().single();
-  if(data){ shownIds.add(data.id); renderMessage(data); }
+  if(data){ renderMessage(data); } // renderMessage adds to shownIds itself
 }
 
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
