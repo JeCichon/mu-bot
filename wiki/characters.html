@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Characters · TricknoLodge</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green:    rgb(144,171,153);
+    --green2:   rgb(110,135,118);
+    --green3:   rgb(80,105,90);
+    --brown:    rgb(43,28,16);
+    --brown2:   rgb(60,42,26);
+    --brown3:   rgb(80,58,36);
+    --purple:   rgb(76,46,87);
+    --purple2:  rgb(100,65,112);
+    --parchment: rgb(220,210,190);
+    --parchment2:rgb(200,188,168);
+    --dim:      rgb(120,100,80);
+    --will:     #cc3333;
+    --body:     #33aa55;
+    --belief:   #4477dd;
+    --mind:     #ccaa22;
+    --mono: 'Courier New', Courier, monospace;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  body { background:var(--brown); color:var(--parchment); font-family:var(--serif); font-size:14px; min-height:100vh; }
+
+  header { background:var(--brown2); border-bottom:2px solid var(--purple); padding:12px 24px; display:flex; align-items:center; gap:16px; }
+  .back-link { color:var(--green); text-decoration:none; font-family:var(--mono); font-size:12px; letter-spacing:0.06em; }
+  .back-link:hover { color:var(--parchment); }
+  .page-title { font-size:18px; color:var(--green); font-weight:normal; letter-spacing:0.08em; }
+  .page-sub { font-size:11px; color:var(--dim); font-family:var(--mono); }
+
+  .wrap { max-width:1000px; margin:0 auto; padding:24px 20px; }
+
+  /* Filters / search */
+  .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .char-count { font-size:11px; color:var(--dim); font-family:var(--mono); }
+  .search-input { background:var(--brown2); border:1px solid var(--brown3); color:var(--parchment); font-family:var(--mono); font-size:12px; padding:5px 12px; border-radius:4px; outline:none; width:200px; margin-left:auto; }
+  .search-input:focus { border-color:var(--green3); }
+  .search-input::placeholder { color:var(--dim); }
+
+  /* Character grid */
+  .char-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:14px; }
+  .char-card { background:var(--brown2); border:1px solid var(--brown3); border-radius:8px; cursor:pointer; transition:border-color 0.15s; overflow:hidden; }
+  .char-card:hover { border-color:var(--green3); }
+  .char-portrait { width:100%; aspect-ratio:1; object-fit:cover; background:var(--brown3); display:block; }
+  .char-portrait-placeholder { width:100%; aspect-ratio:1; background:var(--brown3); display:flex; align-items:center; justify-content:center; font-size:48px; }
+  .char-tokens { display:flex; height:5px; }
+  .char-token-bar { flex:1; }
+  .char-body { padding:12px; }
+  .char-name { font-size:15px; font-weight:bold; color:var(--parchment); margin-bottom:3px; }
+  .char-author { font-size:11px; color:var(--dim); font-family:var(--mono); margin-bottom:8px; }
+  .char-iam { font-size:12px; color:var(--parchment2); font-family:var(--mono); font-style:italic; }
+  .char-token-dots { display:flex; gap:6px; margin-top:8px; }
+  .token-dot { width:12px; height:12px; border-radius:50%; border:0.5px solid rgba(255,255,255,0.15); }
+
+  /* Modal */
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(20,12,8,0.92); z-index:200; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+  .modal-bg.open { display:flex; }
+  .modal { background:var(--brown2); border:1px solid var(--purple); border-radius:8px; padding:0; max-width:680px; width:100%; margin:auto; position:relative; overflow:hidden; }
+  .modal-close { position:absolute; top:14px; right:16px; background:rgba(43,28,16,0.8); border:none; color:var(--parchment); font-size:20px; cursor:pointer; padding:0 6px; line-height:1.4; border-radius:3px; z-index:10; }
+  .modal-close:hover { color:var(--green); }
+
+  /* Modal portrait area */
+  .modal-portrait-wrap { position:relative; }
+  .modal-portrait { width:100%; max-height:320px; object-fit:cover; display:block; background:var(--brown3); }
+  .modal-portrait-placeholder { width:100%; height:180px; background:var(--brown3); display:flex; align-items:center; justify-content:center; font-size:72px; }
+  .upload-btn-wrap { position:absolute; bottom:10px; right:10px; }
+  .upload-btn { background:rgba(43,28,16,0.85); border:1px solid var(--green3); color:var(--green); font-family:var(--mono); font-size:11px; padding:5px 12px; border-radius:4px; cursor:pointer; }
+  .upload-btn:hover { border-color:var(--green); color:var(--parchment); }
+  #file-input { display:none; }
+  .upload-status { font-size:11px; font-family:var(--mono); margin-top:4px; text-align:right; min-height:16px; }
+  .upload-ok  { color:var(--green); }
+  .upload-err { color:#e06060; }
+
+  /* Token bar */
+  .modal-tokens { display:flex; height:6px; }
+  .modal-token-bar { flex:1; }
+
+  /* Modal content */
+  .modal-content { padding:20px 24px; }
+  .modal-name { font-size:22px; font-weight:bold; color:var(--parchment); margin-bottom:3px; }
+  .modal-meta { font-size:11px; color:var(--dim); font-family:var(--mono); margin-bottom:20px; }
+
+  /* Section */
+  .section { margin-bottom:20px; }
+  .section-label { font-size:11px; color:var(--dim); font-family:var(--mono); letter-spacing:0.08em; text-transform:uppercase; border-bottom:1px solid var(--brown3); padding-bottom:4px; margin-bottom:10px; }
+
+  /* Triad tokens */
+  .triad-tokens { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .triad-token { text-align:center; }
+  .triad-swatch { height:18px; border-radius:3px; border:0.5px solid rgba(255,255,255,0.12); margin-bottom:4px; }
+  .triad-label { font-size:10px; font-family:var(--mono); font-weight:bold; }
+  .triad-rgb { font-size:10px; font-family:var(--mono); color:var(--dim); }
+
+  /* Identity */
+  .identity-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 20px; }
+  .identity-row { display:flex; gap:8px; align-items:baseline; }
+  .identity-key { font-size:10px; font-family:var(--mono); color:var(--dim); font-weight:bold; width:80px; flex-shrink:0; }
+  .identity-val { font-size:13px; color:var(--parchment2); font-style:italic; }
+
+  /* Expressions */
+  .expressions { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .expr-triad { }
+  .expr-triad-name { font-size:11px; font-weight:bold; font-family:var(--mono); margin-bottom:6px; }
+  .expr-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:0.5px solid var(--brown3); }
+  .expr-name { color:var(--parchment2); font-family:var(--mono); }
+  .expr-val { font-family:var(--mono); font-weight:bold; }
+
+  /* Cards */
+  .card-triads { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card-triad { }
+  .card-triad-name { font-size:11px; font-weight:bold; font-family:var(--mono); margin-bottom:6px; }
+  .card-row { display:flex; align-items:center; gap:7px; padding:4px 0; font-size:12px; }
+  .card-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; border:0.5px solid rgba(255,255,255,0.15); }
+  .card-pos { font-size:10px; color:var(--dim); font-family:var(--mono); width:18px; flex-shrink:0; }
+  .card-role { font-size:10px; color:var(--dim); font-family:var(--mono); width:72px; flex-shrink:0; }
+  .card-name { color:var(--parchment2); font-family:var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .loading { color:var(--dim); font-family:var(--mono); font-size:13px; font-style:italic; padding:40px; text-align:center; }
+
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:var(--brown); }
+  ::-webkit-scrollbar-thumb { background:var(--brown3); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-link" href="index.html">← Lodge</a>
+  <div>
+    <div class="page-title">🧙 Characters</div>
+    <div class="page-sub">dream world · all characters</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <span class="char-count" id="char-count"></span>
+    <input class="search-input" type="text" id="search" placeholder="search…" oninput="applySearch(this.value)">
+  </div>
+  <div class="char-grid" id="char-grid"><div class="loading">*Mu retrieves the records…*</div></div>
+</div>
+
+<!-- Character Detail Modal -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal-inner">
+    <button class="modal-close" onclick="closeModal()">×</button>
+
+    <!-- Portrait -->
+    <div class="modal-portrait-wrap" id="portrait-wrap">
+      <div class="modal-portrait-placeholder" id="portrait-placeholder">🧙</div>
+    </div>
+    <div class="upload-btn-wrap">
+      <button class="upload-btn" onclick="document.getElementById('file-input').click()">⬆ upload image</button>
+      <input type="file" id="file-input" accept="image/*" onchange="handleUpload(event)">
+      <div class="upload-status" id="upload-status"></div>
+    </div>
+
+    <!-- Token bar -->
+    <div class="modal-tokens" id="modal-tokens"></div>
+
+    <!-- Content -->
+    <div class="modal-content">
+      <div class="modal-name" id="modal-name"></div>
+      <div class="modal-meta" id="modal-meta"></div>
+
+      <div class="section">
+        <div class="section-label">triad tokens</div>
+        <div class="triad-tokens" id="modal-triad-tokens"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">identity</div>
+        <div class="identity-grid" id="modal-identity"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">expressions</div>
+        <div class="expressions" id="modal-expressions"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">cards</div>
+        <div class="card-triads" id="modal-cards"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SUIT_LABEL={major:"Major Arcana",wands:"Wands",cups:"Cups",swords:"Swords",disks:"Disks"};
+const TRIAD_COLORS={will:"#cc3333",body:"#33aa55",belief:"#4477dd",mind:"#ccaa22"};
+const TRIAD_NAMES=["WILL","BODY","BELIEF","MIND"];
+const POS_ROLE=["anchor","I AM","I FEEL","anchor","I ACT","I LOVE","anchor","I SPEAK","I SEE","anchor","I KNOW","I UNDERSTAND"];
+const POS_TRIAD=[0,0,0,1,1,1,2,2,2,3,3,3]; // which triad each position belongs to
+
+let allChars=[];
+let activeSearch="";
+let currentCharId=null;
+
+function cardDisplayName(c){
+  if(!c) return "—";
+  if(c.suit==="major") return c.name;
+  return `${c.suit_number}·${SUIT_LABEL[c.suit][0]}·${c.name}`;
+}
+
+async function loadCharacters(){
+  const{data,error}=await db.from("characters").select("*").order("created_at",{ascending:false});
+  if(error){ document.getElementById("char-grid").innerHTML=`<div class="loading">error: ${error.message}</div>`; return; }
+  if(!data||data.length===0){ document.getElementById("char-grid").innerHTML=`<div class="loading">*No characters in the archive yet.*</div>`; return; }
+  allChars=data;
+  render();
+}
+
+function applySearch(q){ activeSearch=q.toLowerCase(); render(); }
+
+function render(){
+  let chars=allChars;
+  if(activeSearch) chars=chars.filter(c=>
+    c.name?.toLowerCase().includes(activeSearch)||
+    c.author?.toLowerCase().includes(activeSearch)||
+    c.i_am?.toLowerCase().includes(activeSearch)
+  );
+  document.getElementById("char-count").textContent=`${chars.length} character${chars.length===1?"":"s"}`;
+  if(chars.length===0){ document.getElementById("char-grid").innerHTML=`<div class="loading">*Mu searches. Nothing matches.*</div>`; return; }
+
+  document.getElementById("char-grid").innerHTML=chars.map(c=>{
+    const tokens=[
+      {r:c.will_r,g:c.will_g,b:c.will_b,color:TRIAD_COLORS.will},
+      {r:c.body_r,g:c.body_g,b:c.body_b,color:TRIAD_COLORS.body},
+      {r:c.belief_r,g:c.belief_g,b:c.belief_b,color:TRIAD_COLORS.belief},
+      {r:c.mind_r,g:c.mind_g,b:c.mind_b,color:TRIAD_COLORS.mind},
+    ];
+    const tokenBars=tokens.map(t=>`<div class="char-token-bar" style="background:rgb(${t.r||0},${t.g||0},${t.b||0})"></div>`).join("");
+    const tokenDots=tokens.map(t=>`<span class="token-dot" style="background:rgb(${t.r||0},${t.g||0},${t.b||0})"></span>`).join("");
+    const portrait=c.image_url
+      ?`<img class="char-portrait" src="${c.image_url}" alt="${c.name}">`
+      :`<div class="char-portrait-placeholder">🧙</div>`;
+    return`<div class="char-card" onclick="openCharacter(${c.id})">
+      ${portrait}
+      <div class="char-tokens">${tokenBars}</div>
+      <div class="char-body">
+        <div class="char-name">${c.name}</div>
+        <div class="char-author">by ${c.author||"unknown"}</div>
+        ${c.i_am?`<div class="char-iam">I AM ${c.i_am}</div>`:""}
+        <div class="char-token-dots">${tokenDots}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function openCharacter(id){
+  currentCharId=id;
+  const char=allChars.find(c=>c.id===id);
+  if(!char)return;
+
+  // Portrait
+  const pw=document.getElementById("portrait-wrap");
+  if(char.image_url){
+    pw.innerHTML=`<img class="modal-portrait" src="${char.image_url}" alt="${char.name}">`;
+  } else {
+    pw.innerHTML=`<div class="modal-portrait-placeholder">🧙</div>`;
+  }
+  document.getElementById("upload-status").textContent="";
+
+  // Token bar
+  const tokens=[
+    {r:char.will_r,g:char.will_g,b:char.will_b},
+    {r:char.body_r,g:char.body_g,b:char.body_b},
+    {r:char.belief_r,g:char.belief_g,b:char.belief_b},
+    {r:char.mind_r,g:char.mind_g,b:char.mind_b},
+  ];
+  document.getElementById("modal-tokens").innerHTML=tokens.map(t=>
+    `<div class="modal-token-bar" style="background:rgb(${t.r||0},${t.g||0},${t.b||0})"></div>`
+  ).join("");
+
+  // Name / meta
+  document.getElementById("modal-name").textContent=char.name;
+  document.getElementById("modal-meta").textContent=`by ${char.author||"unknown"} · ${new Date(char.created_at).toLocaleDateString()}`;
+
+  // Triad tokens
+  const triads=[
+    {name:"WILL",  color:TRIAD_COLORS.will,  r:char.will_r,  g:char.will_g,  b:char.will_b},
+    {name:"BODY",  color:TRIAD_COLORS.body,  r:char.body_r,  g:char.body_g,  b:char.body_b},
+    {name:"BELIEF",color:TRIAD_COLORS.belief,r:char.belief_r,g:char.belief_g,b:char.belief_b},
+    {name:"MIND",  color:TRIAD_COLORS.mind,  r:char.mind_r,  g:char.mind_g,  b:char.mind_b},
+  ];
+  document.getElementById("modal-triad-tokens").innerHTML=triads.map(t=>`
+    <div class="triad-token">
+      <div class="triad-swatch" style="background:rgb(${t.r||0},${t.g||0},${t.b||0})"></div>
+      <div class="triad-label" style="color:${t.color}">${t.name}</div>
+      <div class="triad-rgb">${t.r||0}·${t.g||0}·${t.b||0}</div>
+    </div>`).join("");
+
+  // Identity
+  const stmts=[
+    ["I AM",char.i_am],["I FEEL",char.i_feel],["I ACT",char.i_act],["I LOVE",char.i_love],
+    ["I SPEAK",char.i_speak],["I SEE",char.i_see],["I KNOW",char.i_know],["I UNDERSTAND",char.i_understand],
+  ];
+  document.getElementById("modal-identity").innerHTML=stmts.map(([k,v])=>`
+    <div class="identity-row">
+      <span class="identity-key">${k}</span>
+      <span class="identity-val">${v||"—"}</span>
+    </div>`).join("");
+
+  // Expressions
+  const exprTriads=[
+    {name:"WILL",  color:TRIAD_COLORS.will,  stats:[
+      {name:"Life Force",val:char.life_force},{name:"Dexterity",val:char.dexterity},
+      {name:"I AM",val:char.chakra_1},{name:"I FEEL",val:char.chakra_2},
+    ]},
+    {name:"BODY",  color:TRIAD_COLORS.body,  stats:[
+      {name:"Strength",val:char.strength},{name:"Constitution",val:char.constitution},
+      {name:"I ACT",val:char.chakra_3},{name:"I LOVE",val:char.chakra_4},
+    ]},
+    {name:"BELIEF",color:TRIAD_COLORS.belief,stats:[
+      {name:"Charisma",val:char.charisma},{name:"Perception",val:char.perception},
+      {name:"I SPEAK",val:char.chakra_5},{name:"I SEE",val:char.chakra_6},
+    ]},
+    {name:"MIND",  color:TRIAD_COLORS.mind,  stats:[
+      {name:"Intellect",val:char.intellect},{name:"Wisdom",val:char.wisdom},
+      {name:"I KNOW",val:char.chakra_7},{name:"I UNDERSTAND",val:char.chakra_8},
+    ]},
+  ];
+  document.getElementById("modal-expressions").innerHTML=exprTriads.map(t=>`
+    <div class="expr-triad">
+      <div class="expr-triad-name" style="color:${t.color}">${t.name}</div>
+      ${t.stats.map(s=>`<div class="expr-row">
+        <span class="expr-name">${s.name}</span>
+        <span class="expr-val" style="color:${t.color}">${s.val??'—'}</span>
+      </div>`).join("")}
+    </div>`).join("");
+
+  // Cards
+  document.getElementById("modal-cards").innerHTML=`<div class="loading" style="padding:12px">loading cards…</div>`;
+  document.getElementById("modal-bg").classList.add("open");
+
+  // Fetch assigned cards
+  const{data:assignments}=await db.from("character_card_assignments")
+    .select("card_id,triad_position").eq("character_id",id).order("triad_position");
+  const cardIds=(assignments||[]).map(a=>a.card_id);
+  let cardMap={};
+  if(cardIds.length>0){
+    const{data:cards}=await db.from("cards").select("card_id,name,suit,suit_number,r,g,b").in("card_id",cardIds);
+    (cards||[]).forEach(c=>{ cardMap[c.card_id]=c; });
+  }
+
+  // Map positions to cards
+  const posCards=new Array(12).fill(null);
+  (assignments||[]).forEach(a=>{ posCards[a.triad_position-1]=cardMap[a.card_id]||null; });
+
+  // Render 4 triads × 3 cards
+  const triadDefs=[
+    {name:"WILL",  color:TRIAD_COLORS.will,  positions:[0,1,2]},
+    {name:"BODY",  color:TRIAD_COLORS.body,  positions:[3,4,5]},
+    {name:"BELIEF",color:TRIAD_COLORS.belief,positions:[6,7,8]},
+    {name:"MIND",  color:TRIAD_COLORS.mind,  positions:[9,10,11]},
+  ];
+  document.getElementById("modal-cards").innerHTML=triadDefs.map(t=>`
+    <div class="card-triad">
+      <div class="card-triad-name" style="color:${t.color}">${t.name}</div>
+      ${t.positions.map(pi=>{
+        const card=posCards[pi];
+        const dotColor=card?`rgb(${card.r},${card.g},${card.b})`:"#333";
+        return`<div class="card-row">
+          <span class="card-pos">C${pi+1}</span>
+          <span class="card-dot" style="background:${dotColor}"></span>
+          <span class="card-role">${POS_ROLE[pi]}</span>
+          <span class="card-name">${card?cardDisplayName(card):"—"}</span>
+        </div>`;
+      }).join("")}
+    </div>`).join("");
+}
+
+// ── Image Upload ──────────────────────────────────────────────────────────────
+async function handleUpload(event){
+  const file=event.target.files[0];
+  if(!file||!currentCharId) return;
+  const statusEl=document.getElementById("upload-status");
+  statusEl.textContent="uploading…";
+  statusEl.className="upload-status";
+  try {
+    const ext=file.name.split('.').pop().toLowerCase();
+    const path=`characters/${currentCharId}_${Date.now()}.${ext}`;
+    const{error:upErr}=await db.storage.from("library-images").upload(path,file,{upsert:true});
+    if(upErr) throw upErr;
+    const{data:urlData}=db.storage.from("library-images").getPublicUrl(path);
+    const publicUrl=urlData.publicUrl;
+    const{error:updateErr}=await db.from("characters").update({image_url:publicUrl}).eq("id",currentCharId);
+    if(updateErr) throw updateErr;
+    // Update local data and portrait
+    const char=allChars.find(c=>c.id===currentCharId);
+    if(char) char.image_url=publicUrl;
+    document.getElementById("portrait-wrap").innerHTML=`<img class="modal-portrait" src="${publicUrl}" alt="">`;
+    statusEl.textContent="✓ saved";
+    statusEl.className="upload-status upload-ok";
+    render(); // refresh grid
+  } catch(err){
+    statusEl.textContent=`error: ${err.message}`;
+    statusEl.className="upload-status upload-err";
+  }
+  event.target.value="";
+}
+
+function closeModal(){ document.getElementById("modal-bg").classList.remove("open"); currentCharId=null; }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeModal(); });
+loadCharacters();
+</script>
+</body>
+</html>
