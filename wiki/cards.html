@@ -83,8 +83,9 @@
   .sentence-block { font-size:13px; color:var(--parchment2); line-height:1.6; font-style:italic; padding:10px 14px; background:var(--brown3); border-radius:4px; border-left:3px solid var(--purple); }
 
   .loading { color:var(--dim); font-family:var(--mono); font-size:13px; font-style:italic; padding:40px; text-align:center; }
-  .card-tile-img { width:100%; aspect-ratio:1; object-fit:cover; display:block; background:var(--brown3); }
-  .card-tile-img.err { display:none; }
+  .card-tile-img-wrap { width:100%; aspect-ratio:1; }
+  .card-tile-img { width:100%; height:100%; object-fit:cover; display:block; }
+  .card-tile-placeholder { width:100%; height:100%; align-items:center; justify-content:center; opacity:0.55; font-size:12px; font-family:var(--mono); color:#fff; text-align:center; padding:12px; }
   .modal-img { width:100%; max-width:220px; display:block; margin:0 auto 4px; border-radius:4px; border:1px solid var(--brown3); background:var(--brown3); }
 
   ::-webkit-scrollbar { width:5px; }
@@ -204,7 +205,15 @@ function render(){
 
   document.getElementById("card-grid").innerHTML=cards.map(c=>{
     const rgb=`rgb(${c.r},${c.g},${c.b})`;
+    const imgSrc=`https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(c.card_id).padStart(2,'0')}.png`;
     return`<div class="card-tile" onclick="openCard(${c.card_id})">
+      <div class="card-tile-img-wrap">
+        <img class="card-tile-img" src="${imgSrc}" alt="${c.name}"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="card-tile-placeholder" style="display:none;background:${rgb}">
+          <span>${c.adj||""}<br><em>${c.noun||""}</em></span>
+        </div>
+      </div>
       <div class="card-swatch" style="background:${rgb}"></div>
       <div class="card-tile-body">
         <div class="card-suit-label">${SUIT_EMOJI[c.suit]} ${c.suit==="major"?c.suit_number:SUIT_LABEL[c.suit]}</div>
