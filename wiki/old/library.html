@@ -192,7 +192,7 @@
 <div class="modal-bg" id="create-bg">
   <div class="create-modal">
     <div class="create-header">
-      <span class="create-header-title" id="create-header-title">📜 New Library Entry</span>
+      <span class="create-header-title">📜 New Library Entry</span>
       <div class="create-header-actions">
         <button class="btn-cancel" onclick="closeCreateModal()">cancel</button>
         <button class="btn-save" id="btn-save" onclick="saveEntry()">save to library</button>
@@ -479,10 +479,8 @@ function openCreateModal(entryData=null, cardGroups=null){
   document.getElementById('f-tags').value    = entryData?.tags || '';
   document.getElementById('create-status').textContent = '';
   document.getElementById('btn-save').disabled = false;
-  const saveBtn = document.getElementById('btn-save');
-  if(saveBtn) saveBtn.textContent = editingEntryId ? 'save changes' : 'save to library';
-  const headerTitle = document.getElementById('create-header-title');
-  if(headerTitle) headerTitle.textContent = editingEntryId ? '✏️ Edit Entry' : '📜 New Library Entry';
+  document.getElementById('btn-save').textContent = editingEntryId ? 'save changes' : 'save to library';
+  document.getElementById('create-header-title').textContent = editingEntryId ? '✏️ Edit Entry' : '📜 New Library Entry';
   renderCardGroups();
   document.getElementById('create-bg').classList.add('open');
 }

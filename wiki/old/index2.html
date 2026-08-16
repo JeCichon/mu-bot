@@ -155,7 +155,7 @@
 
   <aside id="sidebar" style="display:none">
     <div class="sidebar-mu">
-      <div id="mu-sidebar-avatar" style="font-size:34px;margin-bottom:6px;width:52px;height:52px;margin:0 auto 8px;border-radius:50%;overflow:hidden;border:1.5px solid var(--green3);display:flex;align-items:center;justify-content:center;background:var(--brown3)">📦</div>
+      <div style="font-size:34px;margin-bottom:6px">📦</div>
       <div class="mu-status">· Mu is present ·</div>
     </div>
     <div class="sidebar-section">
@@ -309,9 +309,6 @@ async function loadMuAvatar(){
     const chosen=imgs[Math.floor(Math.random()*imgs.length)];
     muAvatarUrl=`https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/mu/${chosen.name}`;
     console.log('Mu avatar loaded:', chosen.name);
-    // Update sidebar avatar
-    const sidebarAvatar=document.getElementById('mu-sidebar-avatar');
-    if(sidebarAvatar) sidebarAvatar.innerHTML=`<img src="${muAvatarUrl}" alt="Mu" style="width:100%;height:100%;object-fit:cover">`;
   } catch(err){ console.log('Mu avatar load failed (non-fatal):', err.message); }
 }
 const shownIds=new Set();
