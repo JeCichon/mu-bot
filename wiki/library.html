@@ -57,11 +57,15 @@
   .modal-bg.open { display:flex; }
   .modal { background:var(--brown2); border:1px solid var(--purple); border-radius:8px; padding:28px; max-width:580px; width:100%; max-height:85vh; overflow-y:auto; position:relative; margin:auto; }
   .modal-close { position:absolute; top:14px; right:18px; background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer; padding:0; }
+  .modal-edit { position:absolute; top:14px; right:44px; background:none; border:1px solid var(--brown3); color:var(--dim); font-family:var(--mono); font-size:11px; padding:3px 9px; border-radius:4px; cursor:pointer; }
+  .modal-edit:hover { border-color:var(--green3); color:var(--green); }
   .modal-close:hover { color:var(--parchment); }
   .modal-swatch { width:100%; height:5px; border-radius:2px; margin-bottom:16px; }
   .modal-title { font-size:20px; color:var(--green); margin-bottom:4px; font-weight:normal; }
   .modal-meta-line { font-size:12px; color:var(--dim); font-family:var(--mono); margin-bottom:16px; }
   .modal-body { font-size:14px; line-height:1.7; color:var(--parchment2); margin-bottom:16px; }
+  .modal-body p { margin-bottom:0.9em; }
+  .modal-body p:last-child { margin-bottom:0; }
   .modal-section-label { font-size:11px; color:var(--dim); font-family:var(--mono); letter-spacing:0.08em; margin-bottom:8px; margin-top:14px; text-transform:uppercase; border-bottom:1px solid var(--brown3); padding-bottom:4px; }
   .modal-card-list { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
   .card-chip { display:flex; align-items:center; gap:5px; background:var(--brown3); border-radius:12px; padding:3px 8px 3px 4px; font-size:11px; font-family:var(--mono); color:var(--parchment2); }
@@ -175,6 +179,7 @@
 <div class="modal-bg" id="detail-bg" onclick="if(event.target===this)closeDetail()">
   <div class="modal">
     <button class="modal-close" onclick="closeDetail()">×</button>
+    <button class="modal-edit" id="detail-edit-btn" style="display:none" onclick="editCurrentEntry()">edit</button>
     <div class="modal-swatch" id="detail-swatch"></div>
     <div class="modal-title" id="detail-title"></div>
     <div class="modal-meta-line" id="detail-meta"></div>
@@ -273,6 +278,7 @@ function cardRgb(c){ return `rgb(${c.r},${c.g},${c.b})`; }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 let currentUser = null;
+let editingEntryId = null; // null = creating new, number = editing existing
 
 db.auth.onAuthStateChange((_e, session) => {
   currentUser = session?.user || null;
@@ -351,9 +357,17 @@ async function openDetail(id){
   const rgb = entry.r!=null ? `rgb(${entry.r},${entry.g},${entry.b})` : null;
   document.getElementById('detail-swatch').style.cssText = rgb?`background:${rgb};`:'display:none';
   document.getElementById('detail-title').innerHTML = `${emoji} ${entry.title}`;
+  document.getElementById('detail-title').dataset.entryId = entry.id;
   document.getElementById('detail-meta').innerHTML =
     `<strong>${entry.entry_type}${entry.subtype?' · '+entry.subtype:''}</strong> · by ${entry.author||'unknown'} · ${new Date(entry.created_at).toLocaleDateString()}${entry.tags?` · <em>${entry.tags}</em>`:''}`;
-  document.getElementById('detail-body').textContent = entry.content||'—';
+  // Format content preserving paragraph breaks and line breaks
+  const formatted = (entry.content||'—')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .split(/\n\n+/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+  document.getElementById('detail-body').innerHTML = formatted;
+  // Show edit button for creators
+  const editBtn = document.getElementById('detail-edit-btn');
+  if(editBtn) editBtn.style.display = CAN_CREATE.includes(userRole) ? 'block' : 'none';
 
   let extra = '';
   if(rgb) extra += `<div class="modal-section-label">color token</div>
@@ -417,15 +431,45 @@ function closeDetail(){ document.getElementById('detail-bg').classList.remove('o
 // ── Creation Modal ────────────────────────────────────────────────────────────
 let creationGroups = []; // array of [card|null, card|null, card|null]
 
-function openCreateModal(){
-  creationGroups = [[null,null,null]];
-  document.getElementById('f-title').value = '';
-  document.getElementById('f-type').value = '';
-  document.getElementById('f-subtype').value = '';
-  document.getElementById('f-content').value = '';
-  document.getElementById('f-tags').value = '';
+async function editCurrentEntry(){
+  const id = parseInt(document.getElementById('detail-title').dataset.entryId);
+  if(!id) return;
+  const entry = allEntries.find(e=>e.id===id);
+  if(!entry) return;
+  closeDetail();
+  // Load existing card assignments
+  const groups = await loadEntryCards(id);
+  openCreateModal(entry, groups);
+}
+
+async function loadEntryCards(entryId){
+  const{data}=await db.from('library_card_assignments')
+    .select('card_id,position').eq('entry_id',entryId).order('position');
+  if(!data||data.length===0) return [[null,null,null]];
+  const groups=[[null,null,null]];
+  data.forEach(a=>{
+    const pos=(a.position||1);
+    const gi=Math.floor((pos-1)/3);
+    const si=(pos-1)%3;
+    while(groups.length<=gi) groups.push([null,null,null]);
+    const card=CARDS_CACHE.find(c=>c.card_id===a.card_id);
+    if(card) groups[gi][si]=card;
+  });
+  return groups;
+}
+
+function openCreateModal(entryData=null, cardGroups=null){
+  editingEntryId = entryData?.id || null;
+  creationGroups = cardGroups || [[null,null,null]];
+  document.getElementById('f-title').value   = entryData?.title || '';
+  document.getElementById('f-type').value    = entryData?.entry_type || '';
+  document.getElementById('f-subtype').value = entryData?.subtype || '';
+  document.getElementById('f-content').value = entryData?.content || '';
+  document.getElementById('f-tags').value    = entryData?.tags || '';
   document.getElementById('create-status').textContent = '';
   document.getElementById('btn-save').disabled = false;
+  document.getElementById('btn-save').textContent = editingEntryId ? 'save changes' : 'save to library';
+  document.getElementById('create-header-title').textContent = editingEntryId ? '✏️ Edit Entry' : '📜 New Library Entry';
   renderCardGroups();
   document.getElementById('create-bg').classList.add('open');
 }
@@ -599,35 +643,55 @@ async function saveEntry(){
 
   const author = currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'unknown';
 
-  const{data:inserted, error}=await db.from('library_entries')
-    .insert({title, entry_type:type, content, subtype, tags, author, r, g, b})
-    .select().single();
+  let finalEntry;
 
-  if(error||!inserted){
-    statusEl.textContent = `Error: ${error?.message||'unknown error'}`;
-    statusEl.className = 'create-status err';
-    document.getElementById('btn-save').disabled = false;
-    return;
+  if(editingEntryId){
+    // UPDATE existing entry
+    const{data:updated,error}=await db.from('library_entries')
+      .update({title, entry_type:type, content, subtype, tags, r, g, b})
+      .eq('id', editingEntryId).select().single();
+    if(error||!updated){
+      statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
+      statusEl.className='create-status err';
+      document.getElementById('btn-save').disabled=false;
+      return;
+    }
+    // Replace card assignments
+    await db.from('library_card_assignments').delete().eq('entry_id', editingEntryId);
+    if(allCards.length>0){
+      await db.from('library_card_assignments').insert(
+        allCards.map(({card,position})=>({entry_id:editingEntryId,card_id:card.card_id,position}))
+      );
+    }
+    // Update local list
+    const idx=allEntries.findIndex(e=>e.id===editingEntryId);
+    if(idx>-1) allEntries[idx]=updated;
+    finalEntry=updated;
+    statusEl.textContent=`✓ "${title}" updated.`;
+  } else {
+    // INSERT new entry
+    const{data:inserted,error}=await db.from('library_entries')
+      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b})
+      .select().single();
+    if(error||!inserted){
+      statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
+      statusEl.className='create-status err';
+      document.getElementById('btn-save').disabled=false;
+      return;
+    }
+    if(allCards.length>0){
+      await db.from('library_card_assignments').insert(
+        allCards.map(({card,position})=>({entry_id:inserted.id,card_id:card.card_id,position}))
+      );
+    }
+    allEntries.unshift(inserted);
+    finalEntry=inserted;
+    statusEl.textContent=`✓ "${title}" saved to the library.`;
   }
 
-  // Save card assignments
-  if(allCards.length>0){
-    const rows = allCards.map(({card,position})=>({
-      entry_id: inserted.id,
-      card_id:  card.card_id,
-      position,
-    }));
-    await db.from('library_card_assignments').insert(rows);
-  }
-
-  // Add to local list and re-render
-  allEntries.unshift(inserted);
+  statusEl.className='create-status';
   render();
-
-  statusEl.textContent = `✓ "${title}" saved to the library.`;
-  statusEl.className = 'create-status';
-  document.getElementById('btn-save').textContent = '✓ saved';
-
+  document.getElementById('btn-save').textContent='✓ saved';
   setTimeout(()=>{ closeCreateModal(); document.getElementById('btn-save').textContent='save to library'; }, 1200);
 }
 
