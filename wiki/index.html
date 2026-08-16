@@ -504,6 +504,24 @@ async function saveMuMessage(sentence,cardLine){
 }
 
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
+
+// ── Realtime reconnection ─────────────────────────────────────────────────────
+function checkAndReconnect(){
+  if(!currentUser||!realtimeChannel) return;
+  if(realtimeChannel.state!=='joined'){
+    console.log('Realtime dropped — reconnecting…');
+    db.removeChannel(realtimeChannel);
+    subscribeToMessages();
+  }
+}
+
+// Check every 30 seconds
+setInterval(checkAndReconnect, 30000);
+
+// Reconnect when user returns to the tab
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden) checkAndReconnect();
+});
 function autoResize(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,120)+"px"; }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
