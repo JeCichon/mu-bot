@@ -296,6 +296,21 @@ function buildMuReply(userText){
 let currentUser=null;
 let appShown=false;
 let realtimeChannel=null;
+let muAvatarUrl=null;
+
+async function loadMuAvatar(){
+  try{
+    const res=await fetch('https://api.github.com/repos/JeCichon/mu-bot/contents/images/mu',{headers:{'User-Agent':'mu-bot'}});
+    const data=await res.json();
+    if(!Array.isArray(data)) return;
+    const exts=['.jpg','.jpeg','.png','.gif','.webp'];
+    const imgs=data.filter(f=>exts.some(e=>f.name.toLowerCase().endsWith(e)));
+    if(imgs.length===0) return;
+    const chosen=imgs[Math.floor(Math.random()*imgs.length)];
+    muAvatarUrl=`https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/mu/${chosen.name}`;
+    console.log('Mu avatar loaded:', chosen.name);
+  } catch(err){ console.log('Mu avatar load failed (non-fatal):', err.message); }
+}
 const shownIds=new Set();
 
 async function signIn(){
@@ -345,7 +360,7 @@ async function showApp(user){
   document.getElementById("chat-wrap").style.display="flex";
   updateHeader(user);
   loadSidebarEntries();
-  await loadRecentMessages();
+  await Promise.all([loadRecentMessages(), loadMuAvatar()]);
   subscribeToMessages();
   // Mu greets — save to DB so everyone sees it
   setTimeout(async()=>{
@@ -429,7 +444,7 @@ function renderMessage(msg){
   const isMine=currentUser&&msg.user_id===currentUser.id;
   const isMu=msg.is_mu;
   const cls=isMu?"mu-msg":isMine?"mine":"other";
-  const avatarHtml=isMu?"📦":(msg.user_avatar?`<img src="${msg.user_avatar}" alt="">`:"👤");
+  const avatarHtml=isMu?(msg.user_avatar?`<img src="${msg.user_avatar}" alt="Mu">`:"📦"):(msg.user_avatar?`<img src="${msg.user_avatar}" alt="">`:"👤");
   const time=new Date(msg.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
   const content=msg.content.replace(/\*(.*?)\*/g,"<em>$1</em>").replace(/\n/g,"<br>");
   const div=document.createElement("div");
@@ -497,7 +512,7 @@ async function saveMuMessage(sentence,cardLine){
   const{data}=await db.from("messages").insert({
     user_id:"mu",
     user_name:"Mu",
-    user_avatar:null,
+    user_avatar:muAvatarUrl||null,
     content:sentence,
     is_mu:true,
     card_line:cardLine,

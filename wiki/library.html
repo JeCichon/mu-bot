@@ -279,6 +279,7 @@ function cardRgb(c){ return `rgb(${c.r},${c.g},${c.b})`; }
 // ── Auth ──────────────────────────────────────────────────────────────────────
 let currentUser = null;
 let editingEntryId = null; // null = creating new, number = editing existing
+let currentDetailId = null;  // tracks which entry is open in detail modal
 
 db.auth.onAuthStateChange((_e, session) => {
   currentUser = session?.user || null;
@@ -358,6 +359,7 @@ async function openDetail(id){
   document.getElementById('detail-swatch').style.cssText = rgb?`background:${rgb};`:'display:none';
   document.getElementById('detail-title').innerHTML = `${emoji} ${entry.title}`;
   document.getElementById('detail-title').dataset.entryId = entry.id;
+  currentDetailId = entry.id;
   document.getElementById('detail-meta').innerHTML =
     `<strong>${entry.entry_type}${entry.subtype?' · '+entry.subtype:''}</strong> · by ${entry.author||'unknown'} · ${new Date(entry.created_at).toLocaleDateString()}${entry.tags?` · <em>${entry.tags}</em>`:''}`;
   // Format content preserving paragraph breaks and line breaks
@@ -426,20 +428,29 @@ async function openDetail(id){
   document.getElementById('detail-extra').innerHTML = extra;
   document.getElementById('detail-bg').classList.add('open');
 }
-function closeDetail(){ document.getElementById('detail-bg').classList.remove('open'); }
+function closeDetail(){ document.getElementById('detail-bg').classList.remove('open'); currentDetailId=null; }
 
 // ── Creation Modal ────────────────────────────────────────────────────────────
 let creationGroups = []; // array of [card|null, card|null, card|null]
 
 async function editCurrentEntry(){
-  const id = parseInt(document.getElementById('detail-title').dataset.entryId);
-  if(!id) return;
-  const entry = allEntries.find(e=>e.id===id);
-  if(!entry) return;
+  const id = currentDetailId;
+  if(!id){ console.error('No entry ID for edit'); return; }
+  // Find in local cache or fetch from DB
+  let entry = allEntries.find(e=>e.id===id);
+  if(!entry){
+    const{data}=await db.from('library_entries').select('*').eq('id',id).single();
+    entry=data;
+  }
+  if(!entry){ console.error('Entry not found:', id); return; }
   closeDetail();
-  // Load existing card assignments
-  const groups = await loadEntryCards(id);
-  openCreateModal(entry, groups);
+  try{
+    const groups = await loadEntryCards(id);
+    openCreateModal(entry, groups);
+  } catch(err){
+    console.error('loadEntryCards failed:', err);
+    openCreateModal(entry, null);
+  }
 }
 
 async function loadEntryCards(entryId){
