@@ -8,52 +8,43 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --green:   rgb(144,171,153);
-    --green2:  rgb(110,135,118);
-    --green3:  rgb(80,105,90);
-    --brown:   rgb(43,28,16);
-    --brown2:  rgb(60,42,26);
-    --brown3:  rgb(80,58,36);
-    --purple:  rgb(76,46,87);
-    --purple2: rgb(100,65,112);
-    --parchment: rgb(220,210,190);
-    --parchment2: rgb(200,188,168);
-    --dim: rgb(120,100,80);
+    --green:    rgb(144,171,153); --green2: rgb(110,135,118); --green3: rgb(80,105,90);
+    --brown:    rgb(43,28,16);    --brown2: rgb(60,42,26);    --brown3: rgb(80,58,36);
+    --purple:   rgb(76,46,87);    --purple2:rgb(100,65,112);
+    --parchment:rgb(220,210,190); --parchment2:rgb(200,188,168);
+    --dim:      rgb(120,100,80);
     --mono: 'Courier New', Courier, monospace;
     --serif: Georgia, 'Times New Roman', serif;
   }
   body { background:var(--brown); color:var(--parchment); font-family:var(--serif); font-size:14px; min-height:100vh; }
-
   header { background:var(--brown2); border-bottom:2px solid var(--purple); padding:12px 24px; display:flex; align-items:center; gap:16px; }
-  .back-link { color:var(--green); text-decoration:none; font-family:var(--mono); font-size:12px; letter-spacing:0.06em; }
+  .back-link { color:var(--green); text-decoration:none; font-family:var(--mono); font-size:12px; }
   .back-link:hover { color:var(--parchment); }
   .page-title { font-size:18px; color:var(--green); font-weight:normal; letter-spacing:0.08em; }
   .page-sub { font-size:11px; color:var(--dim); font-family:var(--mono); }
+  .header-right { margin-left:auto; }
+  .btn-new { background:var(--purple); border:1px solid var(--purple2); color:var(--parchment); font-family:var(--mono); font-size:12px; padding:7px 16px; border-radius:4px; cursor:pointer; letter-spacing:0.04em; }
+  .btn-new:hover { background:var(--purple2); }
 
-  .library-wrap { max-width:900px; margin:0 auto; padding:24px 20px; }
-
-  /* Filters */
+  .wrap { max-width:900px; margin:0 auto; padding:24px 20px; }
   .filters { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
-  .filter-btn { background:var(--brown2); border:1px solid var(--brown3); color:var(--dim); font-family:var(--mono); font-size:11px; padding:5px 12px; border-radius:20px; cursor:pointer; letter-spacing:0.05em; transition:all 0.15s; }
+  .filter-btn { background:var(--brown2); border:1px solid var(--brown3); color:var(--dim); font-family:var(--mono); font-size:11px; padding:5px 12px; border-radius:20px; cursor:pointer; transition:all 0.15s; }
   .filter-btn:hover, .filter-btn.active { border-color:var(--green); color:var(--green); background:var(--brown3); }
   .search-wrap { margin-left:auto; }
   .search-input { background:var(--brown2); border:1px solid var(--brown3); color:var(--parchment); font-family:var(--mono); font-size:12px; padding:5px 12px; border-radius:4px; outline:none; width:200px; }
   .search-input:focus { border-color:var(--green3); }
   .search-input::placeholder { color:var(--dim); }
-
-  /* Entry count */
   .entry-count { font-size:11px; color:var(--dim); font-family:var(--mono); margin-bottom:14px; }
 
-  /* Entry grid */
   .entries { display:grid; gap:10px; }
   .entry-card { background:var(--brown2); border:1px solid var(--brown3); border-radius:6px; padding:14px 16px; cursor:pointer; transition:border-color 0.15s; display:flex; gap:14px; align-items:flex-start; }
   .entry-card:hover { border-color:var(--green3); }
   .entry-swatch { width:6px; border-radius:3px; flex-shrink:0; align-self:stretch; min-height:40px; background:var(--purple); }
   .entry-body { flex:1; min-width:0; }
   .entry-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
-  .entry-emoji { font-size:16px; flex-shrink:0; }
-  .entry-title { font-size:15px; color:var(--parchment); }
-  .entry-badge { font-size:10px; font-family:var(--mono); color:var(--dim); background:var(--brown3); padding:2px 7px; border-radius:10px; letter-spacing:0.04em; }
+  .entry-emoji { font-size:16px; }
+  .entry-title { font-size:15px; }
+  .entry-badge { font-size:10px; font-family:var(--mono); color:var(--dim); background:var(--brown3); padding:2px 7px; border-radius:10px; }
   .entry-content { font-size:12px; color:var(--parchment2); line-height:1.5; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .entry-footer { display:flex; gap:12px; margin-top:8px; align-items:center; flex-wrap:wrap; }
   .entry-meta { font-size:11px; color:var(--dim); font-family:var(--mono); }
@@ -61,27 +52,91 @@
   .rgb-dot { width:10px; height:10px; border-radius:50%; border:0.5px solid rgba(255,255,255,0.15); }
   .entry-tags { font-size:11px; color:var(--purple2); font-family:var(--mono); }
 
-  /* Modal */
-  .modal-bg { display:none; position:fixed; inset:0; background:rgba(20,12,8,0.88); z-index:200; align-items:center; justify-content:center; padding:20px; }
+  /* ── Detail Modal ── */
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(20,12,8,0.9); z-index:200; align-items:center; justify-content:center; padding:20px; overflow-y:auto; }
   .modal-bg.open { display:flex; }
-  .modal { background:var(--brown2); border:1px solid var(--purple); border-radius:8px; padding:28px; max-width:580px; width:100%; max-height:85vh; overflow-y:auto; position:relative; }
-  .modal-close { position:absolute; top:14px; right:18px; background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer; padding:0; line-height:1; }
+  .modal { background:var(--brown2); border:1px solid var(--purple); border-radius:8px; padding:28px; max-width:580px; width:100%; max-height:85vh; overflow-y:auto; position:relative; margin:auto; }
+  .modal-close { position:absolute; top:14px; right:18px; background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer; padding:0; }
   .modal-close:hover { color:var(--parchment); }
   .modal-swatch { width:100%; height:5px; border-radius:2px; margin-bottom:16px; }
-  .modal-title { font-size:20px; color:var(--green); margin-bottom:6px; font-weight:normal; }
-  .modal-meta { font-size:12px; color:var(--dim); font-family:var(--mono); margin-bottom:16px; }
-  .modal-content { font-size:14px; line-height:1.7; color:var(--parchment2); margin-bottom:16px; }
-  .modal-section-label { font-size:11px; color:var(--dim); font-family:var(--mono); letter-spacing:0.08em; margin-bottom:8px; margin-top:14px; text-transform:uppercase; }
-  .modal-cards { display:flex; flex-wrap:wrap; gap:6px; }
-  .modal-card-chip { display:flex; align-items:center; gap:5px; background:var(--brown3); border:0.5px solid var(--brown3); border-radius:12px; padding:3px 10px; font-size:11px; font-family:var(--mono); color:var(--parchment2); }
+  .modal-title { font-size:20px; color:var(--green); margin-bottom:4px; font-weight:normal; }
+  .modal-meta-line { font-size:12px; color:var(--dim); font-family:var(--mono); margin-bottom:16px; }
+  .modal-body { font-size:14px; line-height:1.7; color:var(--parchment2); margin-bottom:16px; }
+  .modal-section-label { font-size:11px; color:var(--dim); font-family:var(--mono); letter-spacing:0.08em; margin-bottom:8px; margin-top:14px; text-transform:uppercase; border-bottom:1px solid var(--brown3); padding-bottom:4px; }
+  .modal-card-list { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+  .card-chip { display:flex; align-items:center; gap:5px; background:var(--brown3); border-radius:12px; padding:3px 8px 3px 4px; font-size:11px; font-family:var(--mono); color:var(--parchment2); }
+  .card-chip-img { width:22px; height:22px; border-radius:50%; object-fit:cover; background:var(--brown3); flex-shrink:0; border:0.5px solid rgba(255,255,255,0.1); }
   .chip-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; border:0.5px solid rgba(255,255,255,0.1); }
+  .group-token { display:flex; align-items:center; gap:8px; font-size:11px; font-family:var(--mono); margin-bottom:6px; }
+  .group-token-swatch { width:32px; height:14px; border-radius:2px; border:0.5px solid rgba(255,255,255,0.1); }
   .modal-rgb-row { display:flex; align-items:center; gap:10px; }
   .modal-rgb-swatch { width:40px; height:20px; border-radius:3px; border:0.5px solid rgba(255,255,255,0.15); }
   .modal-rgb-val { font-size:12px; font-family:var(--mono); color:var(--green); }
 
-  .loading { color:var(--dim); font-family:var(--mono); font-size:13px; font-style:italic; padding:40px; text-align:center; }
-  .empty { color:var(--dim); font-family:var(--mono); font-size:13px; padding:40px; text-align:center; }
+  /* ── Creation Modal ── */
+  .create-modal { background:var(--brown2); border:1px solid var(--purple); border-radius:8px; max-width:720px; width:100%; max-height:92vh; overflow-y:auto; margin:auto; position:relative; }
+  .create-header { padding:18px 24px 14px; border-bottom:1px solid var(--brown3); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--brown2); z-index:10; }
+  .create-header-title { font-size:16px; color:var(--green); font-weight:normal; }
+  .create-header-actions { display:flex; gap:8px; }
+  .btn-cancel { background:var(--brown); border:1px solid var(--brown3); color:var(--dim); font-family:var(--mono); font-size:12px; padding:6px 14px; border-radius:4px; cursor:pointer; }
+  .btn-cancel:hover { border-color:var(--purple); color:var(--parchment); }
+  .btn-save { background:var(--purple); border:1px solid var(--purple2); color:var(--parchment); font-family:var(--mono); font-size:12px; padding:6px 16px; border-radius:4px; cursor:pointer; }
+  .btn-save:hover { background:var(--purple2); }
+  .btn-save:disabled { opacity:0.5; cursor:not-allowed; }
+  .create-body { padding:20px 24px; }
+  .create-status { font-size:12px; font-family:var(--mono); padding:8px 24px; min-height:24px; color:var(--green); }
+  .create-status.err { color:#e06060; }
 
+  /* Form fields */
+  .field { margin-bottom:14px; }
+  .field-label { font-size:11px; color:var(--dim); font-family:var(--mono); letter-spacing:0.06em; margin-bottom:5px; text-transform:uppercase; }
+  .field-required { color:var(--purple2); }
+  .field input, .field textarea, .field select {
+    width:100%; background:var(--brown); border:1px solid var(--brown3); color:var(--parchment);
+    font-family:var(--serif); font-size:13px; padding:7px 10px; border-radius:4px; outline:none;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color:var(--green3); }
+  .field input::placeholder, .field textarea::placeholder { color:var(--dim); }
+  .field select { font-family:var(--mono); font-size:12px; cursor:pointer; }
+  .field select option { background:var(--brown2); }
+  .field textarea { resize:vertical; min-height:80px; }
+  .fields-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+  /* Card groups */
+  .cards-section { margin-top:20px; border-top:1px solid var(--brown3); padding-top:16px; }
+  .cards-section-label { font-size:13px; color:var(--green); margin-bottom:12px; font-family:var(--mono); }
+  .card-group { background:var(--brown); border:1px solid var(--brown3); border-radius:6px; padding:12px; margin-bottom:10px; }
+  .card-group-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .card-group-label { font-size:11px; font-family:var(--mono); color:var(--dim); letter-spacing:0.08em; text-transform:uppercase; }
+  .card-group-token { width:28px; height:14px; border-radius:2px; border:0.5px solid rgba(255,255,255,0.1); background:var(--brown3); transition:background 0.3s; }
+  .card-group-rgb { font-size:11px; font-family:var(--mono); color:var(--dim); }
+  .card-group-remove { margin-left:auto; background:none; border:none; color:var(--dim); font-size:13px; cursor:pointer; padding:0; }
+  .card-group-remove:hover { color:#e06060; }
+  .card-slots { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .card-slot { position:relative; }
+  .slot-filled { display:flex; align-items:center; gap:6px; background:var(--brown2); border:1px solid var(--brown3); border-radius:4px; padding:5px 8px; min-height:34px; }
+  .slot-filled-img { width:24px; height:24px; border-radius:50%; object-fit:cover; flex-shrink:0; background:var(--brown3); border:0.5px solid rgba(255,255,255,0.1); }
+  .slot-filled-name { font-size:11px; font-family:var(--mono); color:var(--parchment2); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .slot-filled-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; border:0.5px solid rgba(255,255,255,0.1); }
+  .slot-clear { background:none; border:none; color:var(--dim); font-size:14px; cursor:pointer; flex-shrink:0; padding:0; line-height:1; }
+  .slot-clear:hover { color:#e06060; }
+  .slot-empty { }
+  .slot-search-wrap { display:flex; gap:4px; margin-bottom:4px; }
+  .slot-search { flex:1; background:var(--brown2); border:1px solid var(--brown3); color:var(--parchment); font-family:var(--mono); font-size:11px; padding:4px 7px; border-radius:4px; outline:none; min-width:0; }
+  .slot-search:focus { border-color:var(--green3); }
+  .slot-search::placeholder { color:var(--dim); }
+  .slot-random { background:var(--brown2); border:1px solid var(--brown3); color:var(--dim); font-size:13px; padding:0 7px; border-radius:4px; cursor:pointer; flex-shrink:0; line-height:2; }
+  .slot-random:hover { border-color:var(--green); color:var(--parchment); }
+  .slot-dropdown { position:absolute; top:100%; left:0; right:0; z-index:50; background:var(--brown2); border:0.5px solid var(--brown3); border-radius:4px; max-height:160px; overflow-y:auto; display:none; margin-top:2px; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+  .slot-dropdown.open { display:block; }
+  .dd-item { display:flex; align-items:center; gap:7px; padding:5px 9px; cursor:pointer; font-size:11px; font-family:var(--mono); }
+  .dd-item:hover { background:var(--brown3); }
+  .dd-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; border:0.5px solid rgba(255,255,255,0.1); }
+
+  .btn-add-group { background:none; border:1px dashed var(--brown3); color:var(--dim); font-family:var(--mono); font-size:12px; padding:8px; border-radius:4px; cursor:pointer; width:100%; margin-top:4px; transition:all 0.15s; }
+  .btn-add-group:hover { border-color:var(--green3); color:var(--green); }
+
+  .loading { color:var(--dim); font-family:var(--mono); font-size:13px; font-style:italic; padding:40px; text-align:center; }
   ::-webkit-scrollbar { width:5px; }
   ::-webkit-scrollbar-track { background:var(--brown); }
   ::-webkit-scrollbar-thumb { background:var(--brown3); border-radius:3px; }
@@ -95,9 +150,12 @@
     <div class="page-title">📚 The Library</div>
     <div class="page-sub">great library · all entries</div>
   </div>
+  <div class="header-right">
+    <button class="btn-new" id="btn-new" style="display:none" onclick="openCreateModal()">+ New Entry</button>
+  </div>
 </header>
 
-<div class="library-wrap">
+<div class="wrap">
   <div class="filters" id="filters">
     <button class="filter-btn active" onclick="setFilter('all',this)">all</button>
     <button class="filter-btn" onclick="setFilter('item',this)">📖 items</button>
@@ -109,141 +167,468 @@
       <input class="search-input" type="text" id="search" placeholder="search…" oninput="applySearch(this.value)">
     </div>
   </div>
-
   <div class="entry-count" id="entry-count"></div>
   <div class="entries" id="entries"><div class="loading">*Mu retrieves the records…*</div></div>
 </div>
 
-<!-- Entry Detail Modal -->
-<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+<!-- Detail Modal -->
+<div class="modal-bg" id="detail-bg" onclick="if(event.target===this)closeDetail()">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal()">×</button>
-    <div class="modal-swatch" id="modal-swatch"></div>
-    <div class="modal-title" id="modal-title"></div>
-    <div class="modal-meta" id="modal-meta"></div>
-    <div class="modal-content" id="modal-content"></div>
-    <div id="modal-extra"></div>
+    <button class="modal-close" onclick="closeDetail()">×</button>
+    <div class="modal-swatch" id="detail-swatch"></div>
+    <div class="modal-title" id="detail-title"></div>
+    <div class="modal-meta-line" id="detail-meta"></div>
+    <div class="modal-body" id="detail-body"></div>
+    <div id="detail-extra"></div>
+  </div>
+</div>
+
+<!-- Creation Modal -->
+<div class="modal-bg" id="create-bg" onclick="if(event.target===this)closeCreateModal()">
+  <div class="create-modal">
+    <div class="create-header">
+      <span class="create-header-title">📜 New Library Entry</span>
+      <div class="create-header-actions">
+        <button class="btn-cancel" onclick="closeCreateModal()">cancel</button>
+        <button class="btn-save" id="btn-save" onclick="saveEntry()">save to library</button>
+      </div>
+    </div>
+    <div class="create-body">
+      <div class="fields-row">
+        <div class="field">
+          <div class="field-label">Title <span class="field-required">*</span></div>
+          <input type="text" id="f-title" placeholder="Name this entry…">
+        </div>
+        <div class="field">
+          <div class="field-label">Type <span class="field-required">*</span></div>
+          <select id="f-type">
+            <option value="">— choose —</option>
+            <option value="item">📖 Item</option>
+            <option value="character">🧙 Character</option>
+            <option value="place">🗺️ Place</option>
+            <option value="concept">🌀 Concept</option>
+            <option value="session">🎭 Session</option>
+          </select>
+        </div>
+      </div>
+      <div class="fields-row">
+        <div class="field">
+          <div class="field-label">Subtype</div>
+          <input type="text" id="f-subtype" placeholder="e.g. book, weapon, god…">
+        </div>
+        <div class="field">
+          <div class="field-label">Tags</div>
+          <input type="text" id="f-tags" placeholder="comma, separated, tags">
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">Content <span class="field-required">*</span></div>
+        <textarea id="f-content" placeholder="Describe this entry…" rows="4"></textarea>
+      </div>
+
+      <!-- Card Groups -->
+      <div class="cards-section">
+        <div class="cards-section-label">cards — groups of 3</div>
+        <div id="card-groups"></div>
+        <button class="btn-add-group" id="btn-add-group" onclick="addGroup()" style="display:none">+ add card group</button>
+      </div>
+    </div>
+    <div class="create-status" id="create-status"></div>
   </div>
 </div>
 
 <script>
+// ── Config ────────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ── Allowed Creators ──────────────────────────────────────────────────────────
+// Find UUIDs in: Supabase → Authentication → Users
+// Add each user's UUID as a string in this Set
+const ALLOWED_CREATORS = new Set([
+  'YOUR_UUID_HERE', // replace with your UUID from Supabase → Auth → Users
+]);
+
+// ── Card cache (loaded on init) ───────────────────────────────────────────────
+let CARDS_CACHE = [];
+const SUIT_LABEL={major:"Major Arcana",wands:"Wands",cups:"Cups",swords:"Swords",disks:"Disks"};
 const ENTRY_EMOJI={item:"📖",character:"🧙",session:"🎭",concept:"🌀",place:"🗺️"};
-let allEntries=[];
-let activeFilter="all";
-let activeSearch="";
+const IMG_BASE = 'https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/';
 
-async function loadEntries(){
-  const el=document.getElementById("entries");
-  const{data,error}=await db.from("library_entries").select("*").order("created_at",{ascending:false});
-  if(error){ el.innerHTML=`<div class="loading">error: ${error.message}</div>`; return; }
-  if(!data||data.length===0){ el.innerHTML=`<div class="empty">*The archive is quiet. Nothing has been filed yet.*</div>`; return; }
-  allEntries=data;
+function cardDisplayName(c){
+  if(!c) return "—";
+  if(c.suit==="major") return c.name;
+  return `${c.suit_number}·${SUIT_LABEL[c.suit][0]}·${c.name}`;
+}
+function cardImgUrl(c){ return `${IMG_BASE}${String(c.card_id).padStart(2,'0')}.png`; }
+function cardRgb(c){ return `rgb(${c.r},${c.g},${c.b})`; }
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let currentUser = null;
+
+db.auth.onAuthStateChange((_e, session) => {
+  currentUser = session?.user || null;
+  if(currentUser && ALLOWED_CREATORS.has(currentUser.id)){
+    document.getElementById('btn-new').style.display = 'block';
+  }
+});
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function init(){
+  const[{data:cards},{data:entries,error}] = await Promise.all([
+    db.from('cards').select('*').order('card_id',{ascending:true}),
+    db.from('library_entries').select('*').order('created_at',{ascending:false}),
+  ]);
+  CARDS_CACHE = cards || [];
+  if(error){ document.getElementById('entries').innerHTML=`<div class="loading">error: ${error.message}</div>`; return; }
+  allEntries = entries || [];
   render();
 }
 
-function setFilter(type,btn){
-  activeFilter=type;
-  document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
-  btn.classList.add("active");
-  render();
-}
+// ── Library list ──────────────────────────────────────────────────────────────
+let allEntries = [];
+let activeFilter = 'all';
+let activeSearch = '';
 
-function applySearch(q){
-  activeSearch=q.toLowerCase();
+function setFilter(type, btn){
+  activeFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
   render();
 }
+function applySearch(q){ activeSearch = q.toLowerCase(); render(); }
 
 function render(){
-  let entries=allEntries;
-  if(activeFilter!=="all") entries=entries.filter(e=>e.entry_type===activeFilter);
-  if(activeSearch) entries=entries.filter(e=>
+  let entries = allEntries;
+  if(activeFilter !== 'all') entries = entries.filter(e=>e.entry_type===activeFilter);
+  if(activeSearch) entries = entries.filter(e=>
     e.title?.toLowerCase().includes(activeSearch)||
     e.content?.toLowerCase().includes(activeSearch)||
     e.tags?.toLowerCase().includes(activeSearch)||
     e.subtype?.toLowerCase().includes(activeSearch)
   );
-
-  document.getElementById("entry-count").textContent=`${entries.length} entr${entries.length===1?"y":"ies"}`;
-
+  document.getElementById('entry-count').textContent = `${entries.length} entr${entries.length===1?'y':'ies'}`;
   if(entries.length===0){
-    document.getElementById("entries").innerHTML=`<div class="empty">*Mu searches the stacks. Nothing matches.*</div>`;
+    document.getElementById('entries').innerHTML=`<div class="loading">*Mu searches the stacks. Nothing matches.*</div>`;
     return;
   }
-
-  document.getElementById("entries").innerHTML=entries.map(e=>{
-    const rgb=e.r!=null?`rgb(${e.r},${e.g},${e.b})`:null;
-    const swatch=rgb?`background:${rgb}`:`background:var(--purple)`;
-    const emoji=ENTRY_EMOJI[e.entry_type]||"📜";
-    const preview=(e.content||"").slice(0,120)+(e.content?.length>120?"…":"");
-    const date=new Date(e.created_at).toLocaleDateString();
-    const tags=e.tags?`<span class="entry-tags">${e.tags}</span>`:"";
-    return`<div class="entry-card" onclick="openEntry(${e.id})">
+  document.getElementById('entries').innerHTML = entries.map(e=>{
+    const rgb = e.r!=null ? `rgb(${e.r},${e.g},${e.b})` : null;
+    const swatch = rgb ? `background:${rgb}` : `background:var(--purple)`;
+    const emoji = ENTRY_EMOJI[e.entry_type]||'📜';
+    const preview = (e.content||'').slice(0,120)+(e.content?.length>120?'…':'');
+    const date = new Date(e.created_at).toLocaleDateString();
+    return`<div class="entry-card" onclick="openDetail(${e.id})">
       <div class="entry-swatch" style="${swatch}"></div>
       <div class="entry-body">
         <div class="entry-header">
           <span class="entry-emoji">${emoji}</span>
           <span class="entry-title">${e.title}</span>
-          <span class="entry-badge">${e.entry_type}${e.subtype?" · "+e.subtype:""}</span>
+          <span class="entry-badge">${e.entry_type}${e.subtype?' · '+e.subtype:''}</span>
         </div>
-        ${preview?`<div class="entry-content">${preview}</div>`:""}
+        ${preview?`<div class="entry-content">${preview}</div>`:''}
         <div class="entry-footer">
-          <span class="entry-meta">by ${e.author||"unknown"} · ${date}</span>
-          ${rgb?`<div class="entry-rgb"><span class="rgb-dot" style="background:${rgb}"></span><span class="entry-meta">RGB ${e.r}·${e.g}·${e.b}</span></div>`:""}
-          ${tags}
+          <span class="entry-meta">by ${e.author||'unknown'} · ${date}</span>
+          ${rgb?`<div class="entry-rgb"><span class="rgb-dot" style="background:${rgb}"></span><span class="entry-meta">RGB ${e.r}·${e.g}·${e.b}</span></div>`:''}
+          ${e.tags?`<span class="entry-tags">${e.tags}</span>`:''}
         </div>
       </div>
     </div>`;
-  }).join("");
+  }).join('');
 }
 
-async function openEntry(id){
-  const entry=allEntries.find(e=>e.id===id);
-  if(!entry)return;
-  const emoji=ENTRY_EMOJI[entry.entry_type]||"📜";
-  const rgb=entry.r!=null?`rgb(${entry.r},${entry.g},${entry.b})`:null;
+// ── Detail modal ──────────────────────────────────────────────────────────────
+async function openDetail(id){
+  const entry = allEntries.find(e=>e.id===id);
+  if(!entry) return;
+  const emoji = ENTRY_EMOJI[entry.entry_type]||'📜';
+  const rgb = entry.r!=null ? `rgb(${entry.r},${entry.g},${entry.b})` : null;
+  document.getElementById('detail-swatch').style.cssText = rgb?`background:${rgb};`:'display:none';
+  document.getElementById('detail-title').innerHTML = `${emoji} ${entry.title}`;
+  document.getElementById('detail-meta').innerHTML =
+    `<strong>${entry.entry_type}${entry.subtype?' · '+entry.subtype:''}</strong> · by ${entry.author||'unknown'} · ${new Date(entry.created_at).toLocaleDateString()}${entry.tags?` · <em>${entry.tags}</em>`:''}`;
+  document.getElementById('detail-body').textContent = entry.content||'—';
 
-  document.getElementById("modal-swatch").style.cssText=rgb?`background:${rgb};`:"display:none";
-  document.getElementById("modal-title").innerHTML=`${emoji} ${entry.title}`;
-  document.getElementById("modal-meta").innerHTML=
-    `<strong>${entry.entry_type}${entry.subtype?" · "+entry.subtype:""}</strong> · by ${entry.author||"unknown"} · ${new Date(entry.created_at).toLocaleDateString()}${entry.tags?` · <em>${entry.tags}</em>`:""}`;
-  document.getElementById("modal-content").textContent=entry.content||"—";
+  let extra = '';
+  if(rgb) extra += `<div class="modal-section-label">color token</div>
+    <div class="modal-rgb-row">
+      <div class="modal-rgb-swatch" style="background:${rgb}"></div>
+      <span class="modal-rgb-val">R:${entry.r} · G:${entry.g} · B:${entry.b}</span>
+    </div>`;
 
-  let extra="";
-  if(rgb){
-    extra+=`<div class="modal-section-label">color token</div>
-      <div class="modal-rgb-row">
-        <div class="modal-rgb-swatch" style="background:${rgb}"></div>
-        <span class="modal-rgb-val">R:${entry.r} · G:${entry.g} · B:${entry.b}</span>
-      </div>`;
-  }
-
-  // Fetch assigned cards
-  const{data:assignments}=await db.from("library_card_assignments").select("card_id").eq("entry_id",id);
+  // Fetch assigned cards with position
+  const{data:assignments}=await db.from('library_card_assignments')
+    .select('card_id,position').eq('entry_id',id).order('position');
   if(assignments&&assignments.length>0){
-    const ids=assignments.map(a=>a.card_id);
-    const{data:cards}=await db.from("cards").select("card_id,name,suit,suit_number,r,g,b").in("card_id",ids);
-    if(cards&&cards.length>0){
-      const chips=cards.map(c=>{
-        const cardRgb=`rgb(${c.r},${c.g},${c.b})`;
-        const label=c.suit==="major"?c.name:`${c.suit_number}·${c.suit[0].toUpperCase()}·${c.name}`;
-        return`<div class="modal-card-chip"><span class="chip-dot" style="background:${cardRgb}"></span>${label}</div>`;
-      }).join("");
-      extra+=`<div class="modal-section-label">cards</div><div class="modal-cards">${chips}</div>`;
-    }
+    const ids = assignments.map(a=>a.card_id);
+    const{data:cards}=await db.from('cards').select('card_id,name,suit,suit_number,r,g,b').in('card_id',ids);
+    const cardMap = {};
+    (cards||[]).forEach(c=>{ cardMap[c.card_id]=c; });
+
+    // Group by position into groups of 3
+    const groups = [];
+    assignments.forEach(a=>{
+      const gIdx = a.position!=null ? Math.floor((a.position-1)/3) : groups.length;
+      if(!groups[gIdx]) groups[gIdx] = [];
+      groups[gIdx].push(cardMap[a.card_id]);
+    });
+
+    extra += `<div class="modal-section-label">cards</div>`;
+    groups.forEach((grp,gi)=>{
+      if(!grp||!grp.length) return;
+      const filled = grp.filter(Boolean);
+      // Group token
+      if(filled.length===3){
+        const tr = Math.round(filled.reduce((s,c)=>s+c.r,0)/3);
+        const tg = Math.round(filled.reduce((s,c)=>s+c.g,0)/3);
+        const tb = Math.round(filled.reduce((s,c)=>s+c.b,0)/3);
+        extra += `<div class="group-token">
+          <span style="color:var(--dim);font-size:11px;font-family:var(--mono)">Group ${gi+1}</span>
+          <div class="group-token-swatch" style="background:rgb(${tr},${tg},${tb})"></div>
+          <span style="color:var(--green);font-size:11px;font-family:var(--mono)">R:${tr} G:${tg} B:${tb}</span>
+        </div>`;
+      }
+      extra += `<div class="modal-card-list">`;
+      filled.forEach(c=>{
+        if(!c) return;
+        const rgb = cardRgb(c);
+        const imgSrc = cardImgUrl(c);
+        extra += `<div class="card-chip">
+          <img class="card-chip-img" src="${imgSrc}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+          <span class="chip-dot" style="display:none;background:${rgb}"></span>
+          <span>${cardDisplayName(c)}</span>
+        </div>`;
+      });
+      extra += `</div>`;
+    });
   }
 
-  document.getElementById("modal-extra").innerHTML=extra;
-  document.getElementById("modal-bg").classList.add("open");
+  document.getElementById('detail-extra').innerHTML = extra;
+  document.getElementById('detail-bg').classList.add('open');
+}
+function closeDetail(){ document.getElementById('detail-bg').classList.remove('open'); }
+
+// ── Creation Modal ────────────────────────────────────────────────────────────
+let creationGroups = []; // array of [card|null, card|null, card|null]
+
+function openCreateModal(){
+  creationGroups = [[null,null,null]];
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-subtype').value = '';
+  document.getElementById('f-content').value = '';
+  document.getElementById('f-tags').value = '';
+  document.getElementById('create-status').textContent = '';
+  document.getElementById('btn-save').disabled = false;
+  renderCardGroups();
+  document.getElementById('create-bg').classList.add('open');
+}
+function closeCreateModal(){ document.getElementById('create-bg').classList.remove('open'); }
+
+function addGroup(){
+  if(creationGroups.length >= 4) return;
+  creationGroups.push([null,null,null]);
+  renderCardGroups();
 }
 
-function closeModal(){ document.getElementById("modal-bg").classList.remove("open"); }
-document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeModal(); });
+function renderCardGroups(){
+  const el = document.getElementById('card-groups');
+  el.innerHTML = creationGroups.map((grp,gi)=>{
+    const filled = grp.filter(Boolean);
+    let tokenHtml = '';
+    if(filled.length===3){
+      const tr=Math.round(filled.reduce((s,c)=>s+c.r,0)/3);
+      const tg=Math.round(filled.reduce((s,c)=>s+c.g,0)/3);
+      const tb=Math.round(filled.reduce((s,c)=>s+c.b,0)/3);
+      tokenHtml = `<div class="card-group-token" style="background:rgb(${tr},${tg},${tb})"></div>
+        <span class="card-group-rgb">R:${tr} G:${tg} B:${tb}</span>`;
+    } else {
+      tokenHtml = `<div class="card-group-token"></div>
+        <span class="card-group-rgb">${filled.length}/3 cards</span>`;
+    }
+    return`<div class="card-group" id="grp-${gi}">
+      <div class="card-group-header">
+        <span class="card-group-label">Group ${gi+1}</span>
+        ${tokenHtml}
+        ${gi>0?`<button class="card-group-remove" onclick="removeGroup(${gi})">✕</button>`:''}
+      </div>
+      <div class="card-slots">
+        ${grp.map((card,si)=>renderSlot(gi,si,card)).join('')}
+      </div>
+    </div>`;
+  }).join('');
 
-loadEntries();
+  // Add group button
+  const hasAnyCard = creationGroups.some(g=>g.some(Boolean));
+  const addBtn = document.getElementById('btn-add-group');
+  addBtn.style.display = (hasAnyCard && creationGroups.length<4) ? 'block' : 'none';
+
+  // Bind dropdowns
+  el.querySelectorAll('.slot-search').forEach(inp=>{
+    inp.addEventListener('input', function(){
+      const gi = parseInt(this.dataset.gi);
+      const si = parseInt(this.dataset.si);
+      showSlotDropdown(gi, si, this.value);
+    });
+    inp.addEventListener('blur', function(){
+      setTimeout(()=>{
+        const drop = document.getElementById(`drop-${this.dataset.gi}-${this.dataset.si}`);
+        if(drop) drop.classList.remove('open');
+      }, 150);
+    });
+  });
+}
+
+function renderSlot(gi, si, card){
+  if(card){
+    const rgb = cardRgb(card);
+    const img = cardImgUrl(card);
+    return`<div class="card-slot">
+      <div class="slot-filled">
+        <img class="slot-filled-img" src="${img}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <span class="slot-filled-dot" style="display:none;background:${rgb}"></span>
+        <span class="slot-filled-name">${cardDisplayName(card)}</span>
+        <button class="slot-clear" onclick="clearSlot(${gi},${si})">×</button>
+      </div>
+    </div>`;
+  }
+  return`<div class="card-slot" style="position:relative">
+    <div class="slot-empty">
+      <div class="slot-search-wrap">
+        <input class="slot-search" type="text" placeholder="search…" data-gi="${gi}" data-si="${si}">
+        <button class="slot-random" onclick="randomSlot(${gi},${si})" title="Random card">🎲</button>
+      </div>
+      <div class="slot-dropdown" id="drop-${gi}-${si}"></div>
+    </div>
+  </div>`;
+}
+
+function showSlotDropdown(gi, si, query){
+  const drop = document.getElementById(`drop-${gi}-${si}`);
+  if(!drop) return;
+  const q = query.toLowerCase().trim();
+  let results = q
+    ? CARDS_CACHE.filter(c=>
+        c.name?.toLowerCase().includes(q)||
+        c.suit?.toLowerCase().startsWith(q)||
+        String(c.suit_number).startsWith(q)
+      )
+    : CARDS_CACHE.slice(0, 15);
+  results = results.slice(0, 12);
+  if(results.length===0){ drop.classList.remove('open'); return; }
+  drop.innerHTML = results.map(c=>{
+    const rgb = cardRgb(c);
+    return`<div class="dd-item" onmousedown="selectCard(${gi},${si},${c.card_id})">
+      <span class="dd-dot" style="background:${rgb}"></span>
+      ${cardDisplayName(c)}
+    </div>`;
+  }).join('');
+  drop.classList.add('open');
+}
+
+function selectCard(gi, si, cardId){
+  const card = CARDS_CACHE.find(c=>c.card_id===cardId);
+  if(!card) return;
+  creationGroups[gi][si] = card;
+  renderCardGroups();
+}
+
+function clearSlot(gi, si){
+  creationGroups[gi][si] = null;
+  renderCardGroups();
+}
+
+function randomSlot(gi, si){
+  const used = new Set(creationGroups.flat().filter(Boolean).map(c=>c.card_id));
+  const pool = CARDS_CACHE.filter(c=>!used.has(c.card_id));
+  if(!pool.length) return;
+  creationGroups[gi][si] = pool[Math.floor(Math.random()*pool.length)];
+  renderCardGroups();
+}
+
+function removeGroup(gi){
+  creationGroups.splice(gi, 1);
+  renderCardGroups();
+}
+
+// ── Save Entry ─────────────────────────────────────────────────────────────────
+async function saveEntry(){
+  const title   = document.getElementById('f-title').value.trim();
+  const type    = document.getElementById('f-type').value;
+  const content = document.getElementById('f-content').value.trim();
+  const subtype = document.getElementById('f-subtype').value.trim()||null;
+  const tags    = document.getElementById('f-tags').value.trim()||null;
+  const statusEl = document.getElementById('create-status');
+
+  if(!title||!type||!content){
+    statusEl.textContent = 'Title, type, and content are required.';
+    statusEl.className = 'create-status err';
+    return;
+  }
+
+  document.getElementById('btn-save').disabled = true;
+  statusEl.textContent = 'saving…';
+  statusEl.className = 'create-status';
+
+  // Gather all assigned cards with positions
+  const allCards = [];
+  creationGroups.forEach((grp,gi)=>{
+    grp.forEach((card,si)=>{
+      if(card) allCards.push({card, position: gi*3+si+1});
+    });
+  });
+
+  // Average RGB from all cards
+  let r=null, g=null, b=null;
+  if(allCards.length>0){
+    r = Math.round(allCards.reduce((s,{card})=>s+card.r,0)/allCards.length);
+    g = Math.round(allCards.reduce((s,{card})=>s+card.g,0)/allCards.length);
+    b = Math.round(allCards.reduce((s,{card})=>s+card.b,0)/allCards.length);
+  }
+
+  const author = currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'unknown';
+
+  const{data:inserted, error}=await db.from('library_entries')
+    .insert({title, entry_type:type, content, subtype, tags, author, r, g, b})
+    .select().single();
+
+  if(error||!inserted){
+    statusEl.textContent = `Error: ${error?.message||'unknown error'}`;
+    statusEl.className = 'create-status err';
+    document.getElementById('btn-save').disabled = false;
+    return;
+  }
+
+  // Save card assignments
+  if(allCards.length>0){
+    const rows = allCards.map(({card,position})=>({
+      entry_id: inserted.id,
+      card_id:  card.card_id,
+      position,
+    }));
+    await db.from('library_card_assignments').insert(rows);
+  }
+
+  // Add to local list and re-render
+  allEntries.unshift(inserted);
+  render();
+
+  statusEl.textContent = `✓ "${title}" saved to the library.`;
+  statusEl.className = 'create-status';
+  document.getElementById('btn-save').textContent = '✓ saved';
+
+  setTimeout(()=>{ closeCreateModal(); document.getElementById('btn-save').textContent='save to library'; }, 1200);
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    closeDetail();
+    closeCreateModal();
+  }
+});
+
+init();
 </script>
 </body>
 </html>
