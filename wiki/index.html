@@ -407,8 +407,10 @@ function updateMembersList(state){
 }
 
 async function loadRecentMessages(){
-  const{data}=await db.from("messages").select("*").order("created_at",{ascending:true}).limit(60);
+  // Fetch newest 60, then reverse so oldest shows first in chat
+  const{data}=await db.from("messages").select("*").order("created_at",{ascending:false}).limit(60);
   if(!data||data.length===0) return;
+  data.reverse();
   let lastDate="";
   data.forEach(msg=>{
     const d=new Date(msg.created_at).toLocaleDateString();
