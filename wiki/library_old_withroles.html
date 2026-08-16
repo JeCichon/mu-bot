@@ -184,7 +184,7 @@
 </div>
 
 <!-- Creation Modal -->
-<div class="modal-bg" id="create-bg">
+<div class="modal-bg" id="create-bg" onclick="if(event.target===this)closeCreateModal()">
   <div class="create-modal">
     <div class="create-header">
       <span class="create-header-title">📜 New Library Entry</span>
@@ -243,19 +243,16 @@ const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── User Role (loaded from user_roles table) ─────────────────────────────────
-// Manage roles in: Supabase → Table Editor → user_roles
-// roles: apprentice (view), practitioner (create entries), archmage (full access)
-let userRole = null;
-const CAN_CREATE = ['practitioner','archmage'];
+// ── Allowed Creators ──────────────────────────────────────────────────────────
+// Find UUIDs in: Supabase → Authentication → Users
+// Add each user's UUID as a string in this Set
+const ALLOWED_CREATORS = new Set([
+  'YOUR_UUID_HERE', // replace with your UUID from Supabase → Auth → Users
+  'db5a6d61-4db3-4041-9514-0b04959493e4', 
+  'a07b318e-503d-4b42-9fa8-7947be781e44',
 
-async function loadUserRole(userId){
-  const{data}=await db.from('user_roles').select('role').eq('user_id',userId).maybeSingle();
-  userRole = data?.role || 'apprentice';
-  if(CAN_CREATE.includes(userRole)){
-    document.getElementById('btn-new').style.display='block';
-  }
-}
+
+]);
 
 // ── Card cache (loaded on init) ───────────────────────────────────────────────
 let CARDS_CACHE = [];
@@ -276,7 +273,9 @@ let currentUser = null;
 
 db.auth.onAuthStateChange((_e, session) => {
   currentUser = session?.user || null;
-  if(currentUser) loadUserRole(currentUser.id);
+  if(currentUser && ALLOWED_CREATORS.has(currentUser.id)){
+    document.getElementById('btn-new').style.display = 'block';
+  }
 });
 
 // ── Load data ─────────────────────────────────────────────────────────────────
@@ -566,11 +565,6 @@ async function saveEntry(){
   const tags    = document.getElementById('f-tags').value.trim()||null;
   const statusEl = document.getElementById('create-status');
 
-  if(!CAN_CREATE.includes(userRole)){
-    statusEl.textContent = 'You do not have permission to create entries.';
-    statusEl.className = 'create-status err';
-    return;
-  }
   if(!title||!type||!content){
     statusEl.textContent = 'Title, type, and content are required.';
     statusEl.className = 'create-status err';
