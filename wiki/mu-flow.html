@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mu · Flow Visualizer</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --green:rgb(144,171,153);--green2:rgb(110,135,118);--green3:rgb(80,105,90);
+    --brown:rgb(43,28,16);--brown2:rgb(60,42,26);--brown3:rgb(80,58,36);
+    --purple:rgb(76,46,87);--purple2:rgb(100,65,112);
+    --parchment:rgb(220,210,190);--parchment2:rgb(200,188,168);
+    --dim:rgb(120,100,80);
+    --will:#cc3333;--cups:#4477dd;--swords:#ccaa22;--disks:#33aa55;--major:#9955cc;
+    --mono:'Courier New',Courier,monospace;
+    --serif:Georgia,'Times New Roman',serif;
+  }
+  html,body{height:100%;overflow:hidden;}
+  body{background:var(--brown);color:var(--parchment);font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;}
+
+  /* Header */
+  header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:10px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;}
+  .back-link{color:var(--green);text-decoration:none;font-size:12px;}
+  .back-link:hover{color:var(--parchment);}
+  .page-title{font-size:15px;color:var(--green);letter-spacing:0.08em;}
+  .page-sub{font-size:11px;color:var(--dim);}
+  .access-badge{margin-left:auto;font-size:10px;color:var(--purple2);border:1px solid var(--purple);padding:2px 8px;border-radius:10px;}
+
+  /* Layout */
+  .layout{display:grid;grid-template-columns:240px 1fr 290px;flex:1;overflow:hidden;min-height:0;}
+
+  /* Panels */
+  .panel{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--brown3);}
+  .panel-header{padding:10px 14px;border-bottom:1px solid var(--brown3);font-size:11px;color:var(--dim);letter-spacing:0.08em;text-transform:uppercase;flex-shrink:0;background:var(--brown2);}
+  .panel-body{flex:1;overflow-y:auto;padding:12px 14px;}
+
+  /* State panel */
+  .state-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--brown3);}
+  .state-row:last-child{border-bottom:none;}
+  .state-label{font-size:11px;color:var(--dim);}
+  .state-val{font-size:12px;font-weight:bold;}
+  .state-val.ok{color:var(--green);}
+  .state-val.wait{color:#e06060;}
+  .state-val.dim{color:var(--dim);}
+  .state-section{margin-bottom:14px;}
+  .state-section-title{font-size:10px;color:var(--purple2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--brown3);}
+  .last-mu-card{margin-top:8px;background:var(--brown3);border-radius:4px;padding:8px 10px;}
+  .last-mu-sentence{font-size:12px;color:var(--parchment2);font-style:italic;line-height:1.5;margin-bottom:6px;}
+  .last-mu-meta{font-size:10px;color:var(--dim);}
+  .mu-avatar-mini{width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid var(--green3);background:var(--brown3);margin-bottom:8px;display:block;}
+
+  /* Simulator panel */
+  .sim-panel{border-right:1px solid var(--brown3);}
+  .sim-input-wrap{padding:12px 14px;border-bottom:1px solid var(--brown3);flex-shrink:0;}
+  .sim-textarea{width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:13px;padding:8px 10px;border-radius:4px;outline:none;resize:none;min-height:60px;}
+  .sim-textarea:focus{border-color:var(--green3);}
+  .sim-textarea::placeholder{color:var(--dim);}
+  .sim-controls{display:flex;gap:8px;margin-top:8px;align-items:center;}
+  .sim-btn{background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:6px 16px;border-radius:4px;cursor:pointer;}
+  .sim-btn:hover{background:var(--purple2);}
+  .sim-btn-clear{background:var(--brown2);border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:4px;cursor:pointer;}
+  .sim-btn-clear:hover{border-color:var(--green3);color:var(--parchment);}
+  .sim-hint{font-size:11px;color:var(--dim);margin-left:auto;}
+
+  /* Output */
+  .sim-output{flex:1;overflow-y:auto;padding:14px;}
+  .output-empty{color:var(--dim);font-style:italic;font-size:12px;text-align:center;padding:40px 20px;}
+  .decision-block{margin-bottom:16px;}
+  .decision-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .decision-badge{font-size:13px;font-weight:bold;padding:4px 14px;border-radius:3px;letter-spacing:0.06em;}
+  .decision-badge.yes{background:rgba(80,105,90,0.3);color:var(--green);border:1px solid var(--green3);}
+  .decision-badge.no{background:rgba(133,27,28,0.2);color:#e06060;border:1px solid #883333;}
+  .decision-reason{font-size:12px;color:var(--dim);}
+
+  .trace-row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--brown3);align-items:flex-start;}
+  .trace-row:last-child{border-bottom:none;}
+  .trace-key{font-size:10px;color:var(--dim);width:80px;flex-shrink:0;padding-top:2px;letter-spacing:0.04em;text-transform:uppercase;}
+  .trace-val{font-size:12px;color:var(--parchment2);flex:1;}
+  .trace-val.highlight{color:var(--green);}
+
+  .card-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+  .card-chip{display:flex;align-items:center;gap:5px;background:var(--brown3);border-radius:10px;padding:3px 8px;font-size:11px;}
+  .chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+  .output-sentence{background:var(--brown);border-left:3px solid var(--purple);padding:10px 14px;border-radius:0 4px 4px 0;font-size:14px;color:var(--parchment);font-style:italic;line-height:1.6;margin-top:10px;}
+  .output-sentence em{color:var(--green2);}
+
+  .template-highlight{background:rgba(76,46,87,0.35) !important;border-color:var(--purple2) !important;}
+
+  /* Template browser */
+  .tabs{display:flex;border-bottom:1px solid var(--brown3);flex-shrink:0;}
+  .tab{padding:8px 14px;font-size:11px;color:var(--dim);cursor:pointer;letter-spacing:0.06em;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tab:hover{color:var(--parchment);}
+  .tab.active{color:var(--green);border-bottom-color:var(--green);}
+  .template-grid{display:flex;flex-direction:column;gap:6px;}
+  .template-card{background:var(--brown);border:1px solid var(--brown3);border-radius:4px;padding:8px 10px;font-size:11px;color:var(--parchment2);line-height:1.5;cursor:default;transition:all 0.2s;}
+  .template-card .t-idx{color:var(--dim);font-size:10px;margin-bottom:4px;}
+  .template-card .t-body{font-style:italic;}
+  .template-card .t-vars{font-size:10px;color:var(--purple2);margin-top:4px;}
+
+  /* Word pool */
+  .word-search{width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 9px;border-radius:4px;outline:none;margin-bottom:10px;}
+  .word-search:focus{border-color:var(--green3);}
+  .word-card{background:var(--brown);border:1px solid var(--brown3);border-radius:4px;padding:8px 10px;margin-bottom:6px;}
+  .word-card-name{font-size:12px;font-weight:bold;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .word-card-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .word-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+  .word-row{font-size:11px;}
+  .word-key{color:var(--dim);font-size:10px;}
+  .word-val{color:var(--parchment2);}
+
+  /* Loading / auth */
+  .gate{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--dim);font-style:italic;}
+
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-track{background:var(--brown);}
+  ::-webkit-scrollbar-thumb{background:var(--brown3);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-link" href="index.html">← Lodge</a>
+  <div>
+    <div class="page-title">📦 Mu · Flow Visualizer</div>
+    <div class="page-sub">see what mu sees</div>
+  </div>
+  <div class="access-badge">archmage only</div>
+</header>
+
+<div id="gate" class="gate" style="display:flex"><em>checking access…</em></div>
+
+<div class="layout" id="app" style="display:none">
+
+  <!-- ── State Panel ── -->
+  <div class="panel" id="state-panel">
+    <div class="panel-header">mu state</div>
+    <div class="panel-body">
+      <div class="state-section">
+        <div class="state-section-title">cooldown thresholds</div>
+        <div class="state-row">
+          <span class="state-label">direct mention</span>
+          <span class="state-val">2 min</span>
+        </div>
+        <div class="state-row">
+          <span class="state-label">question (?)</span>
+          <span class="state-val">5 min + 2 humans</span>
+        </div>
+      </div>
+      <div class="state-section">
+        <div class="state-section-title">live state</div>
+        <div class="state-row">
+          <span class="state-label">last response</span>
+          <span class="state-val" id="s-last">loading…</span>
+        </div>
+        <div class="state-row">
+          <span class="state-label">mention cooldown</span>
+          <span class="state-val" id="s-mention">…</span>
+        </div>
+        <div class="state-row">
+          <span class="state-label">question cooldown</span>
+          <span class="state-val" id="s-question">…</span>
+        </div>
+      </div>
+      <div class="state-section">
+        <div class="state-section-title">last mu message</div>
+        <div class="last-mu-card" id="last-mu-card">
+          <div class="last-mu-sentence" id="last-mu-sentence">—</div>
+          <div class="last-mu-meta" id="last-mu-meta">—</div>
+        </div>
+      </div>
+      <div class="state-section">
+        <div class="state-section-title">template counts</div>
+        <div class="state-row"><span class="state-label">koan frames</span><span class="state-val" id="t-koan-count">20</span></div>
+        <div class="state-row"><span class="state-label">sentence templates</span><span class="state-val" id="t-sent-count">—</span></div>
+        <div class="state-row"><span class="state-label">greeting templates</span><span class="state-val" id="t-greet-count">—</span></div>
+        <div class="state-row"><span class="state-label">cards loaded</span><span class="state-val" id="t-card-count">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Simulator Panel ── -->
+  <div class="panel sim-panel" style="display:flex;flex-direction:column;border-right:1px solid var(--brown3)">
+    <div class="panel-header">message simulator</div>
+    <div class="sim-input-wrap">
+      <textarea class="sim-textarea" id="sim-input" placeholder="type a test message… try mentioning 'mu', asking a '?', or just saying something"></textarea>
+      <div class="sim-controls">
+        <button class="sim-btn" onclick="runSim()">simulate →</button>
+        <button class="sim-btn-clear" onclick="clearSim()">clear</button>
+        <span class="sim-hint">shift+enter = new line</span>
+      </div>
+    </div>
+    <div class="sim-output" id="sim-output">
+      <div class="output-empty">*Mu watches. Type a message and simulate to see what he would do.*</div>
+    </div>
+  </div>
+
+  <!-- ── Template Browser ── -->
+  <div class="panel" style="border-right:none">
+    <div class="panel-header" style="padding:0">
+      <div class="tabs" id="tabs">
+        <div class="tab active" onclick="setTab('koans',this)">koans</div>
+        <div class="tab" onclick="setTab('sentences',this)">sentences</div>
+        <div class="tab" onclick="setTab('greetings',this)">greetings</div>
+        <div class="tab" onclick="setTab('words',this)">word pool</div>
+      </div>
+    </div>
+    <div class="panel-body" id="template-body"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const ARCHMAGE_ONLY = ['archmage'];
+let CARDS = [];
+let currentUser = null;
+let lastMuMsg = null;
+let activeTab = 'koans';
+let lastHighlightedTemplate = null;
+
+// ── Mu logic (mirrors index.html) ────────────────────────────────────────────
+const MU_COOLDOWN_MS = 5 * 60 * 1000;
+const MU_COOLDOWN_MENTION_MS = 2 * 60 * 1000;
+
+const clean = s => s.replace(/\s{2,}/g,' ').replace(/ \./g,'.').replace(/ ,/g,',').trim();
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+const KOAN_FRAMES = [
+  (a,b) => `${a.adj} ${a.noun} does not explain itself to ${b.adj} ${b.noun}.`,
+  (a,b) => `You are looking for ${b.noun}. ${a.adj} is the door.`,
+  (a,b) => `The one who carries ${a.noun} cannot yet hold ${b.adj} ${b.noun}.`,
+  (a,b) => `Before ${a.adj} ${a.noun} — what were you?`,
+  (a,b) => `${b.adj} ${b.noun} waits at the end of every ${a.adj} path.`,
+  (a,b) => `Ask ${a.adj} ${a.noun} what it costs. Then ask ${b.noun} what it gives.`,
+  (a,b) => `${a.noun} speaks. ${b.adj} ${b.noun} listens. Neither moves.`,
+  (a,b) => `The fool mistakes ${a.adj} ${a.noun} for the destination. The sage knows it is the weather.`,
+  (a,b) => `What would ${a.adj} ${a.noun} do if it knew about ${b.adj} ${b.noun}?`,
+  (a,b) => `${b.adj} is not the opposite of ${a.adj}. It is ${a.adj} after a long sleep.`,
+  (a,b) => `You said you wanted ${b.noun}. Was that before or after you met ${a.adj} ${a.noun}?`,
+  (a,b) => `${a.adj} ${a.noun} crossed the river. On the other side: ${b.adj} ${b.noun}. It turned back.`,
+  (a,b) => `To become ${b.adj} is to release ${a.noun}. Have you thanked it yet?`,
+  (a,b) => `${a.noun} and ${b.noun} are the same word in a language no one speaks anymore.`,
+  (a,b) => `The ${a.adj} path leads here. The ${b.adj} path leads here. Both are correct.`,
+  (a,b) => `Something ${a.adj} is asking for ${b.noun}. Give it nothing. See what it offers instead.`,
+  (a,b) => `If ${a.adj} ${a.noun} is the question — ${b.adj} ${b.noun} is what you asked before you forgot.`,
+  (a,b) => `${b.noun} cannot be reached by ${a.adj} means. Try stillness.`,
+  (a,b) => `${a.adj} ${a.noun} once tried to become ${b.noun}. The attempt was the arrival.`,
+  (a,b) => `You already have ${b.noun}. That's why ${a.adj} ${a.noun} is so loud right now.`,
+];
+
+const SENTENCE_TEMPLATES = [
+  c => `${c[0].subject} ${c[1].verb} ${c[0].adv}.`,
+  c => `${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.`,
+  c => `${c[0].subject} ${c[1].verb} — ${c[1].adj} ${c[1].noun} ${c[0].adv}.`,
+  c => `${c[0].adj} ${c[1].noun} ${c[0].verb} ${c[1].adv}. ${c[1].subject} listens.`,
+];
+
+const GREETING_TEMPLATES = [
+  (n,c) => `Hello ${n} — ${c.timeframe}, ${c.command} the ${c.adj} ${c.noun}.`,
+  (n,c) => `${n}. *${c.adj} ${c.noun}* greets you today.`,
+  (n,c) => `Welcome, ${n}. ${c.timeframe} — ${c.command} your ${c.adj} ${c.noun}.`,
+  (n,c) => `The archive stirs. ${n} has entered. *${c.command} the ${c.adj} ${c.noun}.*`,
+  (n,c) => `${n} — ${c.timeframe}. *${c.adj} ${c.noun}.*`,
+  (n,c) => `*${c.timeframe}.* Hello ${n} — the ${c.adj} ${c.noun} is yours today.`,
+];
+
+const SUIT_COLOR = {major:'#9955cc',wands:'#cc3333',cups:'#4477dd',swords:'#ccaa22',disks:'#33aa55'};
+const SUIT_LABEL = {major:'Major',wands:'Wands',cups:'Cups',swords:'Swords',disks:'Disks'};
+
+function cardName(c){
+  if(!c) return '—';
+  if(c.suit==='major') return c.name;
+  return `${c.suit_number}·${SUIT_LABEL[c.suit][0]}·${c.name}`;
+}
+
+function drawCards(n){
+  return [...CARDS].sort(()=>Math.random()-0.5).slice(0,n);
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+db.auth.onAuthStateChange(async(_e, session) => {
+  if(!session?.user){
+    document.getElementById('gate').innerHTML='<em>sign in to the Lodge first</em>';
+    return;
+  }
+  currentUser = session.user;
+  const{data}=await db.from('user_roles').select('role').eq('user_id',session.user.id).maybeSingle();
+  const role = data?.role || 'apprentice';
+  if(!ARCHMAGE_ONLY.includes(role)){
+    document.getElementById('gate').innerHTML='<em>archmage access required</em>';
+    return;
+  }
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='grid';
+  await init();
+});
+
+async function init(){
+  await Promise.all([loadCards(), loadLastMuMessage()]);
+  renderTemplates();
+  updateStateCounts();
+  setInterval(updateStateCounts, 10000);
+}
+
+async function loadCards(){
+  const{data}=await db.from('cards').select('*').order('card_id',{ascending:true});
+  CARDS = data || [];
+  document.getElementById('t-card-count').textContent = CARDS.length;
+}
+
+async function loadLastMuMessage(){
+  const{data}=await db.from('messages').select('*').eq('is_mu',true).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  lastMuMsg = data;
+  if(data){
+    const ago = timeSince(new Date(data.created_at));
+    document.getElementById('s-last').textContent = ago;
+    document.getElementById('last-mu-sentence').textContent = data.content.replace(/\*/g,'');
+    document.getElementById('last-mu-meta').textContent = `${new Date(data.created_at).toLocaleTimeString()} · ${data.card_line||'—'}`;
+    if(data.user_avatar){
+      const img=document.createElement('img');
+      img.src=data.user_avatar; img.className='mu-avatar-mini'; img.alt='Mu';
+      document.getElementById('last-mu-card').prepend(img);
+    }
+    // Cooldown status
+    const elapsed = Date.now() - new Date(data.created_at).getTime();
+    const mentionReady = elapsed > MU_COOLDOWN_MENTION_MS;
+    const questionReady = elapsed > MU_COOLDOWN_MS;
+    const el_m = document.getElementById('s-mention');
+    const el_q = document.getElementById('s-question');
+    el_m.textContent = mentionReady ? '✓ ready' : `${Math.ceil((MU_COOLDOWN_MENTION_MS-elapsed)/60000)}m remaining`;
+    el_m.className = 'state-val ' + (mentionReady?'ok':'wait');
+    el_q.textContent = questionReady ? '✓ ready' : `${Math.ceil((MU_COOLDOWN_MS-elapsed)/60000)}m remaining`;
+    el_q.className = 'state-val ' + (questionReady?'ok':'wait');
+  } else {
+    document.getElementById('s-last').textContent='no messages yet';
+    document.getElementById('s-last').className='state-val dim';
+    document.getElementById('s-mention').textContent='✓ ready';
+    document.getElementById('s-mention').className='state-val ok';
+    document.getElementById('s-question').textContent='✓ ready';
+    document.getElementById('s-question').className='state-val ok';
+  }
+}
+
+function timeSince(date){
+  const s = Math.floor((Date.now()-date.getTime())/1000);
+  if(s<60) return `${s}s ago`;
+  if(s<3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+
+function updateStateCounts(){
+  loadLastMuMessage();
+}
+
+// ── Simulator ─────────────────────────────────────────────────────────────────
+function runSim(){
+  if(CARDS.length===0){
+    document.getElementById('sim-output').innerHTML='<div class="output-empty">Cards not loaded yet.</div>';
+    return;
+  }
+  const text = document.getElementById('sim-input').value.trim();
+  const out = document.getElementById('sim-output');
+
+  const mentionsMu = text.toLowerCase().includes('mu');
+  const isQuestion  = text.includes('?');
+  const isGreeting  = !text; // empty = greeting simulation
+
+  // Cooldown check
+  let elapsed = Infinity;
+  if(lastMuMsg) elapsed = Date.now() - new Date(lastMuMsg.created_at).getTime();
+  const mentionReady  = elapsed > MU_COOLDOWN_MENTION_MS;
+  const questionReady = elapsed > MU_COOLDOWN_MS;
+
+  let respond = false;
+  let trigger = '';
+  let reason  = '';
+
+  if(isGreeting){
+    respond = true; trigger = 'daily greeting'; reason = 'First visit today — personal greeting';
+  } else if(mentionsMu && mentionReady){
+    respond = true; trigger = 'direct mention';
+    reason  = `"mu" mentioned · cooldown passed (${Math.floor(elapsed/60000)}m elapsed, threshold 2m)`;
+  } else if(mentionsMu && !mentionReady){
+    respond = false; trigger = 'direct mention (blocked)';
+    reason  = `"mu" mentioned but cooldown active — ${Math.ceil((MU_COOLDOWN_MENTION_MS-elapsed)/60000)}m remaining`;
+  } else if(isQuestion && questionReady){
+    respond = true; trigger = 'question';
+    reason  = `"?" detected · cooldown passed · (presence check not simulated)`;
+  } else if(isQuestion && !questionReady){
+    respond = false; trigger = 'question (blocked)';
+    reason  = `"?" detected but cooldown active — ${Math.ceil((MU_COOLDOWN_MS-elapsed)/60000)}m remaining`;
+  } else {
+    respond = false; trigger = 'no trigger';
+    reason  = 'No "mu" mention, no "?", not a greeting — Mu stays quiet';
+  }
+
+  let html = `<div class="decision-block">
+    <div class="decision-header">
+      <span class="decision-badge ${respond?'yes':'no'}">${respond?'RESPONDS':'SILENT'}</span>
+      <span class="decision-reason">${trigger}</span>
+    </div>
+    <div style="background:var(--brown);border:1px solid var(--brown3);border-radius:4px;padding:10px 12px;margin-bottom:12px;">
+      <div class="trace-row"><span class="trace-key">reason</span><span class="trace-val">${reason}</span></div>
+    </div>`;
+
+  if(respond){
+    // Simulate the response
+    let sentence, cards, templateIdx, templateType;
+
+    if(isGreeting){
+      cards = [pick(CARDS)];
+      templateIdx = Math.floor(Math.random()*GREETING_TEMPLATES.length);
+      templateType = 'greetings';
+      const name = currentUser?.user_metadata?.full_name||'traveler';
+      sentence = clean(GREETING_TEMPLATES[templateIdx](name, cards[0]).replace(/\*/g,''));
+    } else if(trigger.startsWith('direct mention') || trigger === 'question'){
+      cards = drawCards(2);
+      const hasKw = text.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(w=>w.length>3).length > 0;
+      if(Math.random()>0.4 && hasKw){
+        templateIdx = Math.floor(Math.random()*SENTENCE_TEMPLATES.length);
+        templateType = 'sentences';
+        sentence = clean(SENTENCE_TEMPLATES[templateIdx](cards));
+      } else {
+        templateIdx = Math.floor(Math.random()*KOAN_FRAMES.length);
+        templateType = 'koans';
+        sentence = KOAN_FRAMES[templateIdx](cards[0],cards[1]);
+      }
+    }
+
+    const cardChips = cards.map(c=>{
+      const rgb = `rgb(${c.r},${c.g},${c.b})`;
+      return `<div class="card-chip"><span class="chip-dot" style="background:${rgb}"></span>${cardName(c)}</div>`;
+    }).join('');
+
+    html += `<div style="background:var(--brown);border:1px solid var(--brown3);border-radius:4px;padding:10px 12px;margin-bottom:12px;">
+      <div class="trace-row"><span class="trace-key">template</span><span class="trace-val highlight">${templateType}[${templateIdx}]</span></div>
+      <div class="trace-row"><span class="trace-key">cards</span><span class="trace-val"><div class="card-chips">${cardChips}</div></span></div>
+    </div>
+    <div class="output-sentence">${sentence}</div>`;
+
+    // Highlight the used template
+    highlightTemplate(templateType, templateIdx);
+    if(activeTab !== templateType) setTab(templateType, document.querySelector(`.tab:nth-child(${['koans','sentences','greetings','words'].indexOf(templateType)+1})`));
+  }
+
+  html += '</div>';
+  out.innerHTML = html;
+}
+
+function clearSim(){
+  document.getElementById('sim-input').value='';
+  document.getElementById('sim-output').innerHTML='<div class="output-empty">*Mu watches. Type a message and simulate to see what he would do.*</div>';
+  if(lastHighlightedTemplate){
+    document.querySelectorAll('.template-highlight').forEach(el=>el.classList.remove('template-highlight'));
+    lastHighlightedTemplate=null;
+  }
+}
+
+function highlightTemplate(type, idx){
+  document.querySelectorAll('.template-highlight').forEach(el=>el.classList.remove('template-highlight'));
+  const el=document.getElementById(`tpl-${type}-${idx}`);
+  if(el){
+    el.classList.add('template-highlight');
+    el.scrollIntoView({behavior:'smooth',block:'nearest'});
+    lastHighlightedTemplate=el;
+  }
+}
+
+// ── Template Browser ──────────────────────────────────────────────────────────
+function setTab(tab, btn){
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderTemplates();
+}
+
+function renderTemplates(){
+  const body = document.getElementById('template-body');
+  if(activeTab==='koans'){
+    body.innerHTML=`<div class="template-grid">${KOAN_FRAMES.map((f,i)=>{
+      const ex=CARDS.length>=2?f(CARDS[0],CARDS[1]):'adj noun does not explain itself to adj noun.';
+      return`<div class="template-card" id="tpl-koans-${i}">
+        <div class="t-idx">koan[${i}]</div>
+        <div class="t-body">${ex}</div>
+        <div class="t-vars">vars: a.adj · a.noun · b.adj · b.noun</div>
+      </div>`;
+    }).join('')}</div>`;
+  } else if(activeTab==='sentences'){
+    body.innerHTML=`<div class="template-grid">${SENTENCE_TEMPLATES.map((f,i)=>{
+      const ex=CARDS.length>=2?f([CARDS[0],CARDS[1]]):'subject verb adv.';
+      return`<div class="template-card" id="tpl-sentences-${i}">
+        <div class="t-idx">sentence[${i}]</div>
+        <div class="t-body">${ex}</div>
+        <div class="t-vars">vars: c[0].subject · c[1].verb · c[0].adj · c[1].noun · adv</div>
+      </div>`;
+    }).join('')}</div>`;
+    document.getElementById('t-sent-count').textContent=SENTENCE_TEMPLATES.length;
+  } else if(activeTab==='greetings'){
+    body.innerHTML=`<div class="template-grid">${GREETING_TEMPLATES.map((f,i)=>{
+      const name=currentUser?.user_metadata?.full_name||'traveler';
+      const ex=CARDS.length>0?f(name,CARDS[0]).replace(/\*/g,''):`Hello ${name} — greeting template.`;
+      return`<div class="template-card" id="tpl-greetings-${i}">
+        <div class="t-idx">greeting[${i}]</div>
+        <div class="t-body">${ex}</div>
+        <div class="t-vars">vars: name · card.timeframe · card.command · card.adj · card.noun</div>
+      </div>`;
+    }).join('')}</div>`;
+    document.getElementById('t-greet-count').textContent=GREETING_TEMPLATES.length;
+  } else if(activeTab==='words'){
+    renderWordPool('');
+  }
+}
+
+function renderWordPool(q){
+  const body = document.getElementById('template-body');
+  let cards = CARDS;
+  if(q) cards=cards.filter(c=>
+    c.name?.toLowerCase().includes(q)||
+    c.adj?.toLowerCase().includes(q)||
+    c.noun?.toLowerCase().includes(q)||
+    c.suit?.toLowerCase().includes(q)
+  );
+  const color=c=>SUIT_COLOR[c.suit]||'#888';
+  body.innerHTML=`<input class="word-search" placeholder="filter cards…" oninput="renderWordPool(this.value.toLowerCase())" value="${q}">
+  ${cards.slice(0,30).map(c=>`<div class="word-card">
+    <div class="word-card-name">
+      <span class="word-card-dot" style="background:rgb(${c.r},${c.g},${c.b})"></span>
+      <span style="color:${color(c)}">${cardName(c)}</span>
+    </div>
+    <div class="word-grid">
+      <div class="word-row"><span class="word-key">adj </span><span class="word-val">${c.adj||'—'}</span></div>
+      <div class="word-row"><span class="word-key">noun </span><span class="word-val">${c.noun||'—'}</span></div>
+      <div class="word-row"><span class="word-key">subject </span><span class="word-val">${c.subject||'—'}</span></div>
+      <div class="word-row"><span class="word-key">verb </span><span class="word-val">${c.verb||'—'}</span></div>
+      <div class="word-row"><span class="word-key">adv </span><span class="word-val">${c.adv||'—'}</span></div>
+      <div class="word-row"><span class="word-key">command </span><span class="word-val">${c.command||'—'}</span></div>
+      <div class="word-row"><span class="word-key">timeframe </span><span class="word-val">${c.timeframe||'—'}</span></div>
+    </div>
+  </div>`).join('')}${cards.length>30?`<div style="color:var(--dim);font-size:11px;text-align:center;padding:8px">+${cards.length-30} more — refine search</div>`:''}`;
+}
+
+document.getElementById('sim-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();runSim();}
+});
+</script>
+</body>
+</html>
