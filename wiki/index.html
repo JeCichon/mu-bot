@@ -200,8 +200,8 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Card data ─────────────────────────────────────────────────────────────────
@@ -316,6 +316,12 @@ async function loadMuAvatar(){
 }
 const shownIds=new Set();
 
+// ── Mu response throttling ────────────────────────────────────────────────────
+const MU_COOLDOWN_MS         = 5 * 60 * 1000; // 5 min between responses
+const MU_COOLDOWN_MENTION_MS = 2 * 60 * 1000; // 2 min when directly mentioned
+let lastMuTime    = 0;
+let humansSinceMu = 0;
+
 async function signIn(){
   await db.auth.signInWithOAuth({provider:"discord",options:{redirectTo:window.location.origin+window.location.pathname}});
 }
@@ -365,14 +371,35 @@ async function showApp(user){
   loadSidebarEntries();
   await Promise.all([loadRecentMessages(), loadMuAvatar()]);
   subscribeToMessages();
-  // Mu greets — save to DB so everyone sees it
-  setTimeout(async()=>{
-    const{sentence,cards}=buildMuReply("");
-    await saveMuMessage(sentence,cards.map(c=>cardName(c)).join(" · "));
-  },500);
+  // Daily personal greeting (only once per day per user)
+  setTimeout(()=>checkDailyGreeting(user), 800);
 }
 
 // ── Realtime ─────────────────────────────────────────────────────────────────
+// ── Greeting templates ───────────────────────────────────────────────────────
+const GREETING_TEMPLATES=[
+  (n,c)=>`Hello ${n} — ${c.timeframe}, ${c.command} the ${c.adj} ${c.noun}.`,
+  (n,c)=>`${n}. *${c.adj} ${c.noun}* greets you today.`,
+  (n,c)=>`Welcome, ${n}. ${c.timeframe} — ${c.command} your ${c.adj} ${c.noun}.`,
+  (n,c)=>`The archive stirs. ${n} has entered. *${c.command} the ${c.adj} ${c.noun}.*`,
+  (n,c)=>`${n} — ${c.timeframe}. *${c.adj} ${c.noun}.*`,
+  (n,c)=>`*${c.timeframe}.* Hello ${n} — the ${c.adj} ${c.noun} is yours today.`,
+];
+
+async function checkDailyGreeting(user){
+  const today=new Date().toISOString().split('T')[0];
+  try{
+    const{data}=await db.from('daily_greeted').select('id')
+      .eq('user_id',user.id).eq('greeted_date',today).maybeSingle();
+    if(data) return; // already greeted today
+    const card=pick(CARDS);
+    const name=user.user_metadata?.full_name||user.user_metadata?.name||'traveler';
+    const sentence=clean(pick(GREETING_TEMPLATES)(name,card));
+    await saveMuMessage(sentence,cardName(card));
+    await db.from('daily_greeted').insert({user_id:user.id,greeted_date:today});
+  } catch(err){ console.log('Greeting check failed (non-fatal):',err.message); }
+}
+
 function subscribeToMessages(){
   const user=currentUser;
   const name=user.user_metadata?.full_name||user.user_metadata?.name||"traveler";
@@ -500,10 +527,20 @@ async function sendMessage(){
   }).select().single();
   if(inserted){ renderMessage(inserted); } // renderMessage adds to shownIds itself
 
-  // Mu responds if mentioned or asked a question
+  // Track humans speaking since Mu last responded
+  humansSinceMu++;
+
+  // Cooldown + presence check before Mu responds
   const mentionsMu=text.toLowerCase().includes("mu");
   const isQuestion=text.includes("?");
-  if(mentionsMu||isQuestion){
+  const now=Date.now();
+  const timeSinceMu=now-lastMuTime;
+
+  let shouldRespond=false;
+  if(mentionsMu && timeSinceMu>MU_COOLDOWN_MENTION_MS) shouldRespond=true;
+  if(isQuestion && timeSinceMu>MU_COOLDOWN_MS && humansSinceMu>=2) shouldRespond=true;
+
+  if(shouldRespond){
     setTimeout(async()=>{
       const{sentence,cards}=buildMuReply(text);
       await saveMuMessage(sentence,cards.map(c=>cardName(c)).join(" · "));
@@ -512,6 +549,8 @@ async function sendMessage(){
 }
 
 async function saveMuMessage(sentence,cardLine){
+  lastMuTime=Date.now();
+  humansSinceMu=0;
   const{data}=await db.from("messages").insert({
     user_id:"mu",
     user_name:"Mu",
