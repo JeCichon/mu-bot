@@ -90,8 +90,8 @@
   .template-highlight{background:rgba(76,46,87,0.35) !important;border-color:var(--purple2) !important;}
 
   /* Template browser */
-  .tabs{display:flex;border-bottom:1px solid var(--brown3);flex-shrink:0;}
-  .tab{padding:8px 14px;font-size:11px;color:var(--dim);cursor:pointer;letter-spacing:0.06em;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tabs{display:flex;border-bottom:1px solid var(--brown3);flex-shrink:0;overflow:hidden;}
+  .tab{padding:7px 8px;font-size:10px;color:var(--dim);cursor:pointer;letter-spacing:0.04em;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex:1;text-align:center;}
   .tab:hover{color:var(--parchment);}
   .tab.active{color:var(--green);border-bottom-color:var(--green);}
   .template-grid{display:flex;flex-direction:column;gap:6px;}
@@ -198,7 +198,7 @@
   </div>
 
   <!-- ── Template Browser ── -->
-  <div class="panel" style="border-right:none">
+  <div class="panel" style="border-right:1px solid var(--brown3)">
     <div class="panel-header" style="padding:0">
       <div class="tabs" id="tabs">
         <div class="tab active" onclick="setTab('koans',this)">koans</div>
@@ -324,9 +324,13 @@ async function loadLastMuMessage(){
     document.getElementById('last-mu-sentence').textContent = data.content.replace(/\*/g,'');
     document.getElementById('last-mu-meta').textContent = `${new Date(data.created_at).toLocaleTimeString()} · ${data.card_line||'—'}`;
     if(data.user_avatar){
-      const img=document.createElement('img');
-      img.src=data.user_avatar; img.className='mu-avatar-mini'; img.alt='Mu';
-      document.getElementById('last-mu-card').prepend(img);
+      let img=document.getElementById('mu-last-avatar');
+      if(!img){
+        img=document.createElement('img');
+        img.id='mu-last-avatar'; img.className='mu-avatar-mini'; img.alt='Mu';
+        document.getElementById('last-mu-card').prepend(img);
+      }
+      img.src=data.user_avatar;
     }
     // Cooldown status
     const elapsed = Date.now() - new Date(data.created_at).getTime();

@@ -201,8 +201,8 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Card data ─────────────────────────────────────────────────────────────────
@@ -357,7 +357,7 @@ function showLoginScreen(){
 
 function updateHeader(user){
   const avatar=user.user_metadata?.avatar_url;
-  const name=user.user_metadata?.full_name||user.user_metadata?.name||"traveler";
+  const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   document.getElementById("header-right").innerHTML=`
     ${avatar?`<img src="${avatar}" class="user-avatar" alt="">`:""}
     <span class="user-name">${name}</span>
@@ -409,7 +409,7 @@ async function checkDailyGreeting(user){
 
 function subscribeToMessages(){
   const user=currentUser;
-  const name=user.user_metadata?.full_name||user.user_metadata?.name||"traveler";
+  const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
 
   realtimeChannel=db.channel('lodge-chat')
@@ -520,7 +520,7 @@ async function sendMessage(){
   inp.value="";inp.style.height="auto";
 
   const user=currentUser;
-  const name=user.user_metadata?.full_name||user.user_metadata?.name||"traveler";
+  const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
 
   // Save user message
