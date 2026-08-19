@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Playlist · TricknoLodge</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --green:rgb(144,171,153);--green2:rgb(110,135,118);--green3:rgb(80,105,90);
+    --brown:rgb(43,28,16);--brown2:rgb(60,42,26);--brown3:rgb(80,58,36);
+    --purple:rgb(76,46,87);--purple2:rgb(100,65,112);
+    --parchment:rgb(220,210,190);--parchment2:rgb(200,188,168);
+    --dim:rgb(120,100,80);
+    --mono:'Courier New',Courier,monospace;--serif:Georgia,'Times New Roman',serif;
+    --gold:rgb(201,169,110);
+  }
+  body{background:var(--brown);color:var(--parchment);font-family:var(--serif);font-size:14px;min-height:100vh;}
+  header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:12px 24px;display:flex;align-items:center;gap:16px;}
+  .back-link{color:var(--green);text-decoration:none;font-family:var(--mono);font-size:12px;}
+  .back-link:hover{color:var(--parchment);}
+  .page-title{font-size:18px;color:var(--green);font-weight:normal;letter-spacing:0.08em;}
+  .page-sub{font-size:11px;color:var(--dim);font-family:var(--mono);}
+  .now-playing-bar{background:var(--brown2);border-bottom:1px solid var(--brown3);padding:10px 24px;display:flex;align-items:center;gap:14px;min-height:56px;}
+  .np-avatar{width:36px;height:36px;border-radius:3px;background:var(--brown3);flex-shrink:0;border:1px solid var(--purple);display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .np-info{flex:1;min-width:0;}
+  .np-title{font-size:13px;color:var(--gold);font-family:var(--mono);letter-spacing:0.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .np-author{font-size:11px;color:var(--dim);font-family:var(--mono);}
+  .np-controls{display:flex;align-items:center;gap:10px;}
+  .ctrl-btn{background:var(--brown3);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:13px;padding:6px 16px;border-radius:4px;cursor:pointer;transition:all .15s;}
+  .ctrl-btn:hover{border-color:var(--green3);}
+  .ctrl-btn.playing{background:rgba(80,105,90,.3);border-color:var(--green3);color:var(--green);}
+  .ctrl-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .progress-wrap{flex:1;max-width:300px;display:flex;align-items:center;gap:8px;}
+  .progress-bar{flex:1;height:3px;background:var(--brown3);border-radius:2px;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--green3);border-radius:2px;width:0%;transition:width .1s linear;}
+  .progress-time{font-size:11px;font-family:var(--mono);color:var(--dim);white-space:nowrap;}
+  .bpm-badge{font-size:11px;font-family:var(--mono);color:var(--dim);background:var(--brown3);padding:2px 8px;border-radius:10px;}
+
+  .wrap{max-width:800px;margin:0 auto;padding:24px 20px;}
+  .playlist-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .playlist-title{font-size:15px;color:var(--green);font-family:var(--mono);letter-spacing:0.06em;}
+  .track-count{font-size:11px;color:var(--dim);font-family:var(--mono);}
+  .track-list{display:flex;flex-direction:column;gap:6px;}
+  .track-row{background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;padding:12px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s;}
+  .track-row:hover{border-color:var(--green3);}
+  .track-row.active{border-color:var(--green);background:rgba(80,105,90,.1);}
+  .track-num{font-size:12px;font-family:var(--mono);color:var(--dim);width:22px;flex-shrink:0;text-align:right;}
+  .track-play-icon{width:28px;height:28px;border-radius:50%;background:var(--brown3);border:1px solid var(--brown3);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all .15s;}
+  .track-row:hover .track-play-icon{border-color:var(--green3);color:var(--green);}
+  .track-row.active .track-play-icon{background:rgba(80,105,90,.3);border-color:var(--green);color:var(--green);}
+  .track-info{flex:1;min-width:0;}
+  .track-name{font-size:14px;color:var(--parchment);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .track-meta{font-size:11px;color:var(--dim);font-family:var(--mono);}
+  .track-bpm{font-size:11px;font-family:var(--mono);color:var(--dim);flex-shrink:0;}
+  .track-date{font-size:11px;font-family:var(--mono);color:var(--dim);flex-shrink:0;}
+  .loading{color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:40px;text-align:center;}
+  .empty{color:var(--dim);font-family:var(--mono);font-size:13px;text-align:center;padding:40px;}
+
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-track{background:var(--brown);}
+  ::-webkit-scrollbar-thumb{background:var(--brown3);border-radius:3px;}
+</style>
+</head>
+<body>
+<header>
+  <a class="back-link" href="index.html">← Lodge</a>
+  <div>
+    <div class="page-title">♪ The Playlist</div>
+    <div class="page-sub">published tracks · dream music</div>
+  </div>
+</header>
+
+<!-- Now Playing Bar -->
+<div class="now-playing-bar" id="now-playing-bar">
+  <div class="np-avatar" id="np-avatar">♪</div>
+  <div class="np-info">
+    <div class="np-title" id="np-title">No track selected</div>
+    <div class="np-author" id="np-author">choose a track from the list</div>
+  </div>
+  <div class="np-controls">
+    <button class="ctrl-btn" id="btn-prev" onclick="prevTrack()" disabled>⏮</button>
+    <button class="ctrl-btn" id="btn-play" onclick="togglePlay()" disabled>▶ Play</button>
+    <button class="ctrl-btn" id="btn-next" onclick="nextTrack()" disabled>⏭</button>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <span class="progress-time" id="progress-time">0:00</span>
+  </div>
+  <span class="bpm-badge" id="np-bpm"></span>
+</div>
+
+<div class="wrap">
+  <div class="playlist-header">
+    <span class="playlist-title">published tracks</span>
+    <span class="track-count" id="track-count"></span>
+  </div>
+  <div class="track-list" id="track-list">
+    <div class="loading">*Mu retrieves the recordings…*</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Card data (loaded from Supabase) ─────────────────────────────────────────
+let CARDS = [];
+async function loadCards(){
+  const{data}=await db.from('cards').select('card_id,name,suit,suit_number,r,g,b').order('card_id');
+  CARDS=data||[];
+}
+function getCard(n){ return CARDS.find(c=>c.card_id===n)||CARDS.find(c=>c.name===n)||null; }
+
+// ── Synthesis engine (extracted from Trickno·Organ) ───────────────────────────
+const WAVES={major:'sine',wands:'triangle',cups:'sine',swords:'sawtooth',disks:'square'};
+const COS_RED_RAMP=[{v:0.32,f:349.2},{v:0.45,f:370.0},{v:0.70,f:392.0},{v:0.93,f:415.3},{v:1.00,f:440.0}];
+const COS_SPECTRUM=[{h:23,f:440.0},{h:56,f:466.2},{h:84,f:493.9},{h:111,f:523.2},{h:175,f:554.4},{h:211,f:587.3},{h:241,f:622.2},{h:258,f:659.3},{h:273,f:698.5}];
+
+function rgbToFreq(r,g,b){
+  const rr=r/255,gg=g/255,bb=b/255;
+  const mx=Math.max(rr,gg,bb),mn=Math.min(rr,gg,bb),d=mx-mn;
+  let h=0,s=mx===0?0:d/mx,v=mx;
+  if(d){if(mx===rr)h=((gg-bb)/d+6)%6;else if(mx===gg)h=(bb-rr)/d+2;else h=(rr-gg)/d+4;h*=60;}
+  if(v<.04) return 174.6;
+  if(s<.12) return 400+v*200;
+  if(h<23){
+    const vv=Math.max(0.32,Math.min(1,v));
+    for(let i=0;i<COS_RED_RAMP.length-1;i++){
+      const a=COS_RED_RAMP[i],b2=COS_RED_RAMP[i+1];
+      if(vv>=a.v&&vv<=b2.v) return a.f+(vv-a.v)/(b2.v-a.v)*(b2.f-a.f);
+    }
+    return COS_RED_RAMP[0].f;
+  }
+  if(h<=273){
+    for(let i=0;i<COS_SPECTRUM.length-1;i++){
+      const a=COS_SPECTRUM[i],b2=COS_SPECTRUM[i+1];
+      if(h>=a.h&&h<=b2.h) return a.f+(h-a.h)/(b2.h-a.h)*(b2.f-a.f);
+    }
+    return COS_SPECTRUM[COS_SPECTRUM.length-1].f;
+  }
+  const t=(h-273)/(360-273);
+  return 698.5+(349.2-698.5)*t;
+}
+
+function getCmykAdsr(r,g,b){
+  const rr=r/255,gg=g/255,bb=b/255;
+  const k=1-Math.max(rr,gg,bb);
+  const d=k<1?1-k:1;
+  const c=k<1?(1-rr-k)/d:0,m=k<1?(1-gg-k)/d:0,y=k<1?(1-bb-k)/d:0;
+  return{attack:0.004+c*0.12,decay:0.02+m*0.22,sustain:Math.max(0,1-y*0.9),release:0.03+k*0.25};
+}
+
+let audioCtx=null;
+function getCtx(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playNote(a,cardId,t,dur,vol,octShift=0,pan=0){
+  const card=getCard(cardId);
+  if(!card) return;
+  const freq=rgbToFreq(card.r,card.g,card.b)*Math.pow(2,octShift||0);
+  const env=getCmykAdsr(card.r,card.g,card.b);
+  const panner=a.createStereoPanner();
+  panner.pan.value=Math.max(-1,Math.min(1,pan||0));
+  panner.connect(a.destination);
+  const osc=a.createOscillator(),g=a.createGain();
+  osc.type=WAVES[card.suit]||'sine';
+  osc.frequency.value=freq;
+  const A=Math.max(0.003,env.attack),D=Math.max(0.003,env.decay);
+  const sV=Math.max(0,Math.min(1,env.sustain));
+  const R=Math.max(0.003,env.release);
+  const pk=0.22*vol;
+  const relStart=Math.max(t+A+D,t+dur-0.003);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(pk,t+A);
+  g.gain.linearRampToValueAtTime(pk*sV,t+A+D);
+  g.gain.setValueAtTime(pk*sV,relStart);
+  g.gain.linearRampToValueAtTime(0,relStart+R);
+  osc.connect(g);g.connect(panner);
+  osc.start(t);osc.stop(relStart+R+0.05);
+  if(card.suit==='major'){
+    const o2=a.createOscillator(),g2=a.createGain();
+    o2.type='triangle';o2.frequency.value=freq*2;
+    g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(pk*0.14,t+A);
+    g2.gain.setValueAtTime(pk*0.14*sV,relStart);g2.gain.linearRampToValueAtTime(0,relStart+R);
+    o2.connect(g2);g2.connect(panner);o2.start(t);o2.stop(relStart+R+0.05);
+  }
+}
+
+// ── Player state ──────────────────────────────────────────────────────────────
+let tracks=[];
+let currentIdx=-1;
+let playing=false;
+let schedStep=0,nextNoteTime=0,schedTimer=null,rafHandle=null;
+let currentTracks=null,currentBpm=120,currentStepCount=16;
+let totalSteps=0,playedSteps=0;
+
+const LOOKAHEAD_MS=25,SCHEDULE_AHEAD_S=0.1;
+
+function fireStep(step,t){
+  if(!currentTracks) return;
+  const channels=currentTracks.channels||[];
+  const patterns=currentTracks.patterns||[];
+  const patIdx=currentTracks.activePattern||0;
+  const pat=patterns[patIdx]||patterns[0];
+  if(!pat) return;
+  channels.forEach((ch,ci)=>{
+    if(!ch||ch.muted) return;
+    const steps=pat.channels?.[ci]?.steps||ch.steps;
+    if(!steps||!steps[step]) return;
+    const cardId=steps[step];
+    const vel=(pat.channels?.[ci]?.stepVelocities?.[step]??ch.stepVelocities?.[step]??100)/100;
+    const oct=(pat.channels?.[ci]?.stepOctaves?.[step]??ch.stepOctaves?.[step]??0);
+    const vol=(ch.volume??80)/100;
+    const pan=(ch.pan??0)/100;
+    playNote(getCtx(),cardId,t,60/currentBpm/4,vel*vol,oct,pan);
+  });
+  playedSteps++;
+}
+
+function scheduler(){
+  const a=getCtx();
+  while(nextNoteTime<a.currentTime+SCHEDULE_AHEAD_S){
+    fireStep(schedStep,nextNoteTime);
+    nextNoteTime+=60/currentBpm/4;
+    schedStep=(schedStep+1)%currentStepCount;
+  }
+  if(playing) schedTimer=setTimeout(scheduler,LOOKAHEAD_MS);
+}
+
+function rafLoop(){
+  if(!playing){cancelAnimationFrame(rafHandle);return;}
+  const a=getCtx();
+  // Progress based on steps played
+  const pct=totalSteps>0?Math.min(1,playedSteps/totalSteps):0;
+  document.getElementById('progress-fill').style.width=(pct*100)+'%';
+  const elapsed=a.currentTime-(startTime||a.currentTime);
+  const secs=Math.floor(elapsed);
+  document.getElementById('progress-time').textContent=`${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
+  // Auto-advance after one full loop (4 bars)
+  if(playedSteps>0&&playedSteps%(currentStepCount*4)===0){
+    // Could auto-next here — for now just loop
+  }
+  rafHandle=requestAnimationFrame(rafLoop);
+}
+
+let startTime=0;
+
+function startPlayer(idx){
+  stopPlayer();
+  if(idx<0||idx>=tracks.length) return;
+  currentIdx=idx;
+  const song=tracks[idx];
+  currentTracks=song.tracks;
+  currentBpm=song.bpm||120;
+  currentStepCount=song.step_count||16;
+  totalSteps=currentStepCount*8; // estimate 8 bars for progress
+  playedSteps=0;
+  const a=getCtx();
+  playing=true;schedStep=0;nextNoteTime=a.currentTime+0.05;startTime=a.currentTime+0.05;
+  scheduler();rafHandle=requestAnimationFrame(rafLoop);
+  updateNowPlaying();
+  updateTrackList();
+  document.getElementById('btn-play').textContent='■ Stop';
+  document.getElementById('btn-play').classList.add('playing');
+}
+
+function stopPlayer(){
+  playing=false;clearTimeout(schedTimer);cancelAnimationFrame(rafHandle);
+  document.getElementById('progress-fill').style.width='0%';
+  document.getElementById('progress-time').textContent='0:00';
+  document.getElementById('btn-play').textContent='▶ Play';
+  document.getElementById('btn-play').classList.remove('playing');
+}
+
+function togglePlay(){
+  if(playing){ stopPlayer(); }
+  else if(currentIdx>=0){ startPlayer(currentIdx); }
+  else if(tracks.length>0){ startPlayer(0); }
+}
+function prevTrack(){ if(currentIdx>0) startPlayer(currentIdx-1); }
+function nextTrack(){ if(currentIdx<tracks.length-1) startPlayer(currentIdx+1); }
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+function updateNowPlaying(){
+  if(currentIdx<0) return;
+  const s=tracks[currentIdx];
+  document.getElementById('np-title').textContent=s.name;
+  document.getElementById('np-author').textContent=`by ${s.author_name||'unknown'}`;
+  document.getElementById('np-bpm').textContent=`${s.bpm} bpm`;
+  document.getElementById('btn-play').disabled=false;
+  document.getElementById('btn-prev').disabled=currentIdx===0;
+  document.getElementById('btn-next').disabled=currentIdx===tracks.length-1;
+}
+
+function updateTrackList(){
+  document.getElementById('track-list').innerHTML=tracks.map((s,i)=>`
+    <div class="track-row${i===currentIdx?' active':''}" onclick="startPlayer(${i})">
+      <span class="track-num">${i+1}</span>
+      <div class="track-play-icon">${i===currentIdx&&playing?'▶':'○'}</div>
+      <div class="track-info">
+        <div class="track-name">${s.name}</div>
+        <div class="track-meta">by ${s.author_name||'unknown'}</div>
+      </div>
+      <span class="track-bpm">${s.bpm} bpm</span>
+      <span class="track-date">${new Date(s.updated_at).toLocaleDateString()}</span>
+    </div>`).join('');
+}
+
+async function loadPlaylist(){
+  const{data,error}=await db.from('sequences')
+    .select('id,name,bpm,step_count,tracks,author_name,updated_at')
+    .eq('published',true)
+    .order('updated_at',{ascending:false});
+  if(error||!data||data.length===0){
+    document.getElementById('track-list').innerHTML=`<div class="empty">*The playlist is quiet. No tracks published yet.*<br><br><span style="font-size:12px;font-family:var(--mono)">Publish a song from the Trickno·Organ to add it here.</span></div>`;
+    return;
+  }
+  tracks=data;
+  document.getElementById('track-count').textContent=`${tracks.length} track${tracks.length===1?'':'s'}`;
+  document.getElementById('btn-play').disabled=false;
+  updateTrackList();
+}
+
+async function init(){
+  await Promise.all([loadCards(),loadPlaylist()]);
+}
+init();
+</script>
+</body>
+</html>
