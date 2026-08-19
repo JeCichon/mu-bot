@@ -112,6 +112,8 @@
   .modal-title { font-size:16px; color:var(--green); margin-bottom:6px; }
   .modal-meta { font-size:11px; color:var(--dim); font-family:var(--mono); margin-bottom:14px; }
   .modal-content { font-size:14px; line-height:1.65; color:var(--parchment2); }
+  .modal-content p { margin-bottom:0.85em; }
+  .modal-content p:last-child { margin-bottom:0; }
   .modal-rgb { display:inline-block; width:24px; height:12px; border-radius:2px; vertical-align:middle; margin-right:6px; border:0.5px solid rgba(255,255,255,0.15); }
   .modal-close { position:absolute; top:12px; right:16px; background:none; border:none; color:var(--dim); font-size:18px; cursor:pointer; padding:0; }
   .loading { color:var(--dim); font-family:var(--mono); font-size:12px; font-style:italic; }
@@ -617,7 +619,20 @@ async function openEntry(id){
   const rgb=data.r!=null?`rgb(${data.r},${data.g},${data.b})`:null;
   document.getElementById("modal-title").innerHTML=`${emoji} ${data.title}`;
   document.getElementById("modal-meta").innerHTML=`${data.entry_type}${data.subtype?" · "+data.subtype:""} · by ${data.author||"unknown"} · ${new Date(data.created_at).toLocaleDateString()}${rgb?` <span class="modal-rgb" style="background:${rgb}"></span>`:""}`;
-  document.getElementById("modal-content").textContent=data.content||"—";
+  // Paragraph formatting
+  const fmt=(data.content||"—").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .split(/\n\n+/).map(p=>`<p>${p.replace(/\n/g,"<br>")}</p>`).join("");
+  document.getElementById("modal-content").innerHTML=fmt;
+  // URL link
+  const existingUrl=document.getElementById("modal-url-link");
+  if(existingUrl) existingUrl.remove();
+  if(data.url){
+    const a=document.createElement("a");
+    a.id="modal-url-link"; a.href=data.url; a.target="_blank"; a.rel="noopener";
+    a.textContent="🔗 "+data.url.replace(/^https?:\/\//,"");
+    a.style.cssText="display:block;font-size:12px;font-family:'Courier New',monospace;color:rgb(144,171,153);margin-top:10px;word-break:break-all;";
+    document.getElementById("modal-content").after(a);
+  }
   document.getElementById("modal-bg").classList.add("open");
 }
 

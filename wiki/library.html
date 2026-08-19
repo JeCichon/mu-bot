@@ -141,6 +141,13 @@
   .btn-add-group:hover { border-color:var(--green3); color:var(--green); }
 
   .loading { color:var(--dim); font-family:var(--mono); font-size:13px; font-style:italic; padding:40px; text-align:center; }
+  .entry-image { width:100%; max-height:220px; object-fit:cover; border-radius:4px; margin-bottom:12px; display:block; }
+  .entry-url { display:block; font-size:12px; font-family:var(--mono); color:var(--green); margin-top:8px; word-break:break-all; }
+  .entry-url:hover { color:var(--parchment); }
+  .upload-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .lib-upload-btn { background:var(--brown3); border:1px solid var(--green3); color:var(--green); font-family:var(--mono); font-size:11px; padding:4px 12px; border-radius:4px; cursor:pointer; }
+  .lib-upload-btn:hover { color:var(--parchment); }
+  .lib-upload-status { font-size:11px; font-family:var(--mono); color:var(--dim); }
   ::-webkit-scrollbar { width:5px; }
   ::-webkit-scrollbar-track { background:var(--brown); }
   ::-webkit-scrollbar-thumb { background:var(--brown3); border-radius:3px; }
@@ -225,6 +232,10 @@
           <div class="field-label">Tags</div>
           <input type="text" id="f-tags" placeholder="comma, separated, tags">
         </div>
+      </div>
+      <div class="field">
+        <div class="field-label">Website URL</div>
+        <input type="url" id="f-url" placeholder="https://…">
       </div>
       <div class="field">
         <div class="field-label">Content <span class="field-required">*</span></div>
@@ -372,6 +383,18 @@ async function openDetail(id){
   if(editBtn) editBtn.style.display = CAN_CREATE.includes(userRole) ? 'block' : 'none';
 
   let extra = '';
+  // Image if present
+  if(entry.image_url) extra += `<img class="entry-image" src="${entry.image_url}" alt="${entry.title}">`;
+  // Upload image button (for creators)
+  if(CAN_CREATE.includes(userRole)){
+    extra += `<div class="upload-row">
+      <button class="lib-upload-btn" onclick="document.getElementById('lib-img-input').click()">⬆ upload image</button>
+      <input type="file" id="lib-img-input" accept="image/*" style="display:none" onchange="handleLibraryUpload(event,${entry.id})">
+      <span class="lib-upload-status" id="lib-upload-status"></span>
+    </div>`;
+  }
+  // URL link
+  if(entry.url) extra += `<a class="entry-url" href="${entry.url}" target="_blank" rel="noopener">🔗 ${entry.url.replace(/^https?:\/\//,'')}</a>`;
   if(rgb) extra += `<div class="modal-section-label">color token</div>
     <div class="modal-rgb-row">
       <div class="modal-rgb-swatch" style="background:${rgb}"></div>
@@ -477,6 +500,7 @@ function openCreateModal(entryData=null, cardGroups=null){
   document.getElementById('f-subtype').value = entryData?.subtype || '';
   document.getElementById('f-content').value = entryData?.content || '';
   document.getElementById('f-tags').value    = entryData?.tags || '';
+  document.getElementById('f-url').value     = entryData?.url  || '';
   document.getElementById('create-status').textContent = '';
   document.getElementById('btn-save').disabled = false;
   const saveBtn = document.getElementById('btn-save');
@@ -614,6 +638,39 @@ function removeGroup(gi){
   renderCardGroups();
 }
 
+// ── Library Image Upload ─────────────────────────────────────────────────────────
+async function handleLibraryUpload(event, entryId){
+  const file=event.target.files[0];
+  if(!file||!entryId) return;
+  const statusEl=document.getElementById('lib-upload-status');
+  if(statusEl) statusEl.textContent='uploading…';
+  try{
+    const ext=file.name.split('.').pop().toLowerCase();
+    const path=`library/${entryId}_${Date.now()}.${ext}`;
+    const{error:upErr}=await db.storage.from('library-images').upload(path,file,{upsert:true});
+    if(upErr) throw upErr;
+    const{data:urlData}=db.storage.from('library-images').getPublicUrl(path);
+    const publicUrl=urlData.publicUrl;
+    await db.from('library_entries').update({image_url:publicUrl}).eq('id',entryId);
+    // Update local data
+    const entry=allEntries.find(e=>e.id===entryId);
+    if(entry) entry.image_url=publicUrl;
+    // Update modal image
+    let img=document.querySelector('.modal .entry-image');
+    if(!img){
+      img=document.createElement('img');
+      img.className='entry-image';
+      document.getElementById('detail-extra').prepend(img);
+    }
+    img.src=publicUrl;
+    if(statusEl){ statusEl.textContent='✓ saved'; statusEl.style.color='var(--green)'; }
+    render();
+  } catch(err){
+    if(statusEl){ statusEl.textContent=`error: ${err.message}`; statusEl.style.color='#e06060'; }
+  }
+  event.target.value='';
+}
+
 // ── Save Entry ─────────────────────────────────────────────────────────────────
 async function saveEntry(){
   const title   = document.getElementById('f-title').value.trim();
@@ -660,8 +717,9 @@ async function saveEntry(){
 
   if(editingEntryId){
     // UPDATE existing entry
+    const url = (document.getElementById('f-url').value||'').trim()||null;
     const{data:updated,error}=await db.from('library_entries')
-      .update({title, entry_type:type, content, subtype, tags, r, g, b})
+      .update({title, entry_type:type, content, subtype, tags, r, g, b, url})
       .eq('id', editingEntryId).select().single();
     if(error||!updated){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
@@ -683,8 +741,9 @@ async function saveEntry(){
     statusEl.textContent=`✓ "${title}" updated.`;
   } else {
     // INSERT new entry
-    const{data:inserted,error}=await db.from('library_entries')
-      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b})
+    const url=(document.getElementById('f-url')?.value||'').trim()||null;
+  const{data:inserted,error}=await db.from('library_entries')
+      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url})
       .select().single();
     if(error||!inserted){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
