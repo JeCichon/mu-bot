@@ -233,9 +233,15 @@
           <input type="text" id="f-tags" placeholder="comma, separated, tags">
         </div>
       </div>
-      <div class="field">
-        <div class="field-label">Website URL</div>
-        <input type="url" id="f-url" placeholder="https://…">
+      <div class="fields-row">
+        <div class="field">
+          <div class="field-label">Link Label</div>
+          <input type="text" id="f-url-label" placeholder="e.g. Read the PDF…">
+        </div>
+        <div class="field">
+          <div class="field-label">Website URL</div>
+          <input type="url" id="f-url" placeholder="https://…">
+        </div>
       </div>
       <div class="field">
         <div class="field-label">Content <span class="field-required">*</span></div>
@@ -394,7 +400,13 @@ async function openDetail(id){
     </div>`;
   }
   // URL link
-  if(entry.url) extra += `<a class="entry-url" href="${entry.url}" target="_blank" rel="noopener">🔗 ${entry.url.replace(/^https?:\/\//,'')}</a>`;
+  if(entry.url){
+    const label=entry.url_label||entry.url.replace(/^https?:\/\//,'').split('/')[0];
+    extra += `<div style="font-size:13px;margin-top:10px;font-family:var(--mono)">
+      <span style="color:var(--dim)">A link to: </span>
+      <a href="${entry.url}" target="_blank" rel="noopener" style="color:var(--green);text-decoration:underline">${label}</a>
+    </div>`;
+  }
   if(rgb) extra += `<div class="modal-section-label">color token</div>
     <div class="modal-rgb-row">
       <div class="modal-rgb-swatch" style="background:${rgb}"></div>
@@ -422,15 +434,24 @@ async function openDetail(id){
     groups.forEach((grp,gi)=>{
       if(!grp||!grp.length) return;
       const filled = grp.filter(Boolean);
-      // Group token
+      // Component dots row
+      const componentDots=filled.map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${c.r},${c.g},${c.b});border:0.5px solid rgba(255,255,255,0.15)"></span>`).join('');
       if(filled.length===3){
         const tr = Math.round(filled.reduce((s,c)=>s+c.r,0)/3);
         const tg = Math.round(filled.reduce((s,c)=>s+c.g,0)/3);
         const tb = Math.round(filled.reduce((s,c)=>s+c.b,0)/3);
         extra += `<div class="group-token">
           <span style="color:var(--dim);font-size:11px;font-family:var(--mono)">Group ${gi+1}</span>
+          <span style="display:flex;gap:3px;align-items:center">${componentDots}</span>
+          <span style="color:var(--dim);font-size:11px">→</span>
           <div class="group-token-swatch" style="background:rgb(${tr},${tg},${tb})"></div>
           <span style="color:var(--green);font-size:11px;font-family:var(--mono)">R:${tr} G:${tg} B:${tb}</span>
+        </div>`;
+      } else {
+        extra += `<div class="group-token">
+          <span style="color:var(--dim);font-size:11px;font-family:var(--mono)">Group ${gi+1}</span>
+          <span style="display:flex;gap:3px;align-items:center">${componentDots}</span>
+          <span style="color:var(--dim);font-size:11px;font-family:var(--mono)">${filled.length}/3 cards</span>
         </div>`;
       }
       extra += `<div class="modal-card-list">`;
@@ -439,8 +460,8 @@ async function openDetail(id){
         const rgb = cardRgb(c);
         const imgSrc = cardImgUrl(c);
         extra += `<div class="card-chip">
-          <img class="card-chip-img" src="${imgSrc}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-          <span class="chip-dot" style="display:none;background:${rgb}"></span>
+          <span class="chip-dot" style="background:${rgb}"></span>
+          <img class="card-chip-img" src="${imgSrc}" alt="" onerror="this.style.display='none'">
           <span>${cardDisplayName(c)}</span>
         </div>`;
       });
@@ -500,7 +521,8 @@ function openCreateModal(entryData=null, cardGroups=null){
   document.getElementById('f-subtype').value = entryData?.subtype || '';
   document.getElementById('f-content').value = entryData?.content || '';
   document.getElementById('f-tags').value    = entryData?.tags || '';
-  document.getElementById('f-url').value     = entryData?.url  || '';
+  document.getElementById('f-url').value       = entryData?.url       || '';
+  document.getElementById('f-url-label').value = entryData?.url_label || '';
   document.getElementById('create-status').textContent = '';
   document.getElementById('btn-save').disabled = false;
   const saveBtn = document.getElementById('btn-save');
@@ -719,7 +741,7 @@ async function saveEntry(){
     // UPDATE existing entry
     const url = (document.getElementById('f-url').value||'').trim()||null;
     const{data:updated,error}=await db.from('library_entries')
-      .update({title, entry_type:type, content, subtype, tags, r, g, b, url})
+      .update({title,entry_type:type,content,subtype,tags,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null})
       .eq('id', editingEntryId).select().single();
     if(error||!updated){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
@@ -743,7 +765,7 @@ async function saveEntry(){
     // INSERT new entry
     const url=(document.getElementById('f-url')?.value||'').trim()||null;
   const{data:inserted,error}=await db.from('library_entries')
-      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url})
+      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null})
       .select().single();
     if(error||!inserted){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
