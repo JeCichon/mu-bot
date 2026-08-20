@@ -113,12 +113,35 @@ async function loadCards(){
   CARDS=data||[];
 }
 function getCard(n){ return CARDS.find(c=>c.card_id===n)||CARDS.find(c=>c.name===n)||null; }
+function cardColor(cardId){ const c=getCard(cardId); return c?{r:c.r,g:c.g,b:c.b}:{r:128,g:128,b:128}; }
 
-// ── Synthesis engine (extracted from Trickno·Organ) ───────────────────────────
+// ════════════════════════════════════════════════════════
+// SYNTHESIS ENGINE — ported line-for-line from the Trickno·Organ
+// (tarot_sequencer_144.html), not reimplemented. Every function below
+// matches the source exactly so a published song plays identically here.
+// ════════════════════════════════════════════════════════
 const WAVES={major:'sine',wands:'triangle',cups:'sine',swords:'sawtooth',disks:'square'};
 const COS_RED_RAMP=[{v:0.32,f:349.2},{v:0.45,f:370.0},{v:0.70,f:392.0},{v:0.93,f:415.3},{v:1.00,f:440.0}];
 const COS_SPECTRUM=[{h:23,f:440.0},{h:56,f:466.2},{h:84,f:493.9},{h:111,f:523.2},{h:175,f:554.4},{h:211,f:587.3},{h:241,f:622.2},{h:258,f:659.3},{h:273,f:698.5}];
+const DRUM_SLOTS=[
+  {id:'kick', label:'K', cardN:38, color:'#c84020'},
+  {id:'snare',label:'S', cardN:59, color:'#9a8030'},
+  {id:'chat', label:'c', cardN:58, color:'#603878'},
+  {id:'ohat', label:'o', cardN:57, color:'#8a2020'},
+  {id:'clap', label:'C', cardN:53, color:'#6a2878'},
+  {id:'perc', label:'P', cardN:73, color:'#685820'},
+];
+const DRUM_PARAMS=[
+  {fStart:160,fEnd:45,tone:true,noiseF:180,noiseQ:0.6,A:0.001,D:0.28,R:0.12,toneVol:0.9,noiseVol:0.4},
+  {fStart:280,fEnd:180,tone:true,noiseF:1400,noiseQ:1.2,A:0.001,D:0.1,R:0.07,toneVol:0.4,noiseVol:0.6},
+  {tone:false,noiseF:10000,noiseQ:3.0,A:0.001,D:0.032,R:0.018,noiseVol:0.55},
+  {tone:false,noiseF:9500,noiseQ:2.2,A:0.001,D:0.22,R:0.1,noiseVol:0.5},
+  {tone:false,noiseF:1800,noiseQ:1.1,A:0.002,D:0.08,R:0.05,noiseVol:0.65},
+  {fStart:420,fEnd:240,tone:true,noiseF:600,noiseQ:1.8,A:0.001,D:0.1,R:0.05,toneVol:0.55,noiseVol:0.3},
+];
+const LOOKAHEAD_MS=25,SCHEDULE_AHEAD_S=0.1,NOTE_FACTOR=0.75;
 
+// ── Frequency ──
 function rgbToFreq(r,g,b){
   const rr=r/255,gg=g/255,bb=b/255;
   const mx=Math.max(rr,gg,bb),mn=Math.min(rr,gg,bb),d=mx-mn;
@@ -144,13 +167,124 @@ function rgbToFreq(r,g,b){
   const t=(h-273)/(360-273);
   return 698.5+(349.2-698.5)*t;
 }
-
-function getCmykAdsr(r,g,b){
+function rgbLightness(r,g,b){
+  const mx=Math.max(r,g,b)/255,mn=Math.min(r,g,b)/255;
+  return (mx+mn)/2;
+}
+function rgbToHSLSaturation(r,g,b){
   const rr=r/255,gg=g/255,bb=b/255;
-  const k=1-Math.max(rr,gg,bb);
+  const mx=Math.max(rr,gg,bb),mn=Math.min(rr,gg,bb);
+  if(mx===mn) return 0;
+  const l=(mx+mn)/2,d=mx-mn;
+  return l>0.5?d/(2-mx-mn):d/(mx+mn);
+}
+function rgbToFreqMultiOctave(r,g,b){
+  const l=rgbLightness(r,g,b);
+  const s=rgbToHSLSaturation(r,g,b);
+  if(l<0.04) return 87.31;
+  let pitchFreq4;
+  if(s<0.12) pitchFreq4=440.0;
+  else pitchFreq4=rgbToFreq(r,g,b);
+  const octaveShift=(l-0.5)*4;
+  return Math.max(43.65,Math.min(5587.65,pitchFreq4*Math.pow(2,octaveShift)));
+}
+// Picks single vs multi-octave based on THIS track's own saved flag —
+// the real Organ reads a single global; here each song carries its own.
+function activeRgbToFreq(r,g,b){
+  return currentMultiOctave?rgbToFreqMultiOctave(r,g,b):rgbToFreq(r,g,b);
+}
+
+// ── Color blending (channel gradients + group gradients) ──
+function hexToRgb(hex){
+  const m=hex.replace('#','');
+  return{r:parseInt(m.substr(0,2),16),g:parseInt(m.substr(2,2),16),b:parseInt(m.substr(4,2),16)};
+}
+function blendChannel(base,grd,blend,op){
+  let blended;
+  switch(blend){
+    case 'multiply':  blended=(base/255)*(grd/255)*255; break;
+    case 'screen':    blended=(1-(1-base/255)*(1-grd/255))*255; break;
+    case 'overlay':   blended=base<128?(2*base/255*grd/255)*255:(1-2*(1-base/255)*(1-grd/255))*255; break;
+    case 'hard-light':blended=grd<128?(2*grd/255*base/255)*255:(1-2*(1-grd/255)*(1-base/255))*255; break;
+    case 'color-dodge':blended=grd===255?255:Math.min(255,(base/255)/(1-grd/255)*255); break;
+    case 'additive':   blended=base+grd; break;
+    case 'subtractive':blended=base-grd; break;
+    case 'divide':      blended=grd===0?(base===0?0:255):(base/grd)*255; break;
+    default: blended=grd;
+  }
+  return Math.round(base*(1-op)+blended*op);
+}
+function getChannelGroup(channel){
+  if(!channel||!channel.id) return null;
+  return currentChannelGroups.find(g=>g.channelIds.includes(channel.id))||null;
+}
+// Full port of getEffectiveColor(track,n,si,stepCount): base card color,
+// then channel gradient, then group gradient (sweeps across the step index).
+function getEffectiveColor(ch,cardId,si=null,stepCount=null){
+  const base=cardColor(cardId);
+  let col=base;
+  if(ch&&ch.grad&&ch.grad.on){
+    const card=getCard(cardId);
+    const suitCards=CARDS.filter(c=>c.suit===card.suit);
+    const ci2=suitCards.findIndex(c=>c.card_id===cardId);
+    const t=suitCards.length>1?ci2/(suitCards.length-1):0;
+    const sc=hexToRgb(ch.grad.start),ec=hexToRgb(ch.grad.end);
+    const gr={r:Math.round(sc.r+(ec.r-sc.r)*t),g:Math.round(sc.g+(ec.g-sc.g)*t),b:Math.round(sc.b+(ec.b-sc.b)*t)};
+    const op=ch.grad.opacity/100,blend=ch.grad.blend;
+    col={
+      r:Math.max(0,Math.min(255,blendChannel(base.r,gr.r,blend,op))),
+      g:Math.max(0,Math.min(255,blendChannel(base.g,gr.g,blend,op))),
+      b:Math.max(0,Math.min(255,blendChannel(base.b,gr.b,blend,op))),
+    };
+  }
+  if(si!==null&&stepCount!=null&&stepCount>0){
+    const group=getChannelGroup(ch);
+    if(group&&group.grad.on){
+      const t=stepCount>1?si/(stepCount-1):0;
+      const gs=hexToRgb(group.grad.start),ge=hexToRgb(group.grad.end);
+      const gr2={r:Math.round(gs.r+(ge.r-gs.r)*t),g:Math.round(gs.g+(ge.g-gs.g)*t),b:Math.round(gs.b+(ge.b-gs.b)*t)};
+      const op2=group.grad.opacity/100,blend2=group.grad.blend;
+      col={
+        r:Math.max(0,Math.min(255,blendChannel(col.r,gr2.r,blend2,op2))),
+        g:Math.max(0,Math.min(255,blendChannel(col.g,gr2.g,blend2,op2))),
+        b:Math.max(0,Math.min(255,blendChannel(col.b,gr2.b,blend2,op2))),
+      };
+    }
+  }
+  return col;
+}
+
+// ── ADSR envelope ──
+function getCmykAdsr(col){
+  if(!col) return{attack:0.005,decay:0.06,sustain:0.7,release:0.08};
+  const r=col.r/255,g=col.g/255,b=col.b/255;
+  const k=1-Math.max(r,g,b);
   const d=k<1?1-k:1;
-  const c=k<1?(1-rr-k)/d:0,m=k<1?(1-gg-k)/d:0,y=k<1?(1-bb-k)/d:0;
-  return{attack:0.004+c*0.12,decay:0.02+m*0.22,sustain:Math.max(0,1-y*0.9),release:0.03+k*0.25};
+  const c=k<1?(1-r-k)/d:0,m=k<1?(1-g-k)/d:0,y=k<1?(1-b-k)/d:0;
+  return{
+    attack: 0.004+c*0.12,
+    decay:  0.02+m*0.22,
+    sustain:Math.max(0,1-y*0.9),
+    release:0.03+k*0.25
+  };
+}
+function blendAdsr(cmyk,user,mode){
+  const AT=0.5,DT=0.5,RT=0.5;
+  function bv(c,u,m){
+    const cn=Math.min(1,c),un=Math.min(1,u);
+    switch(m){
+      case'multiply':return cn*un;
+      case'screen':return 1-(1-cn)*(1-un);
+      case'overlay':return cn<0.5?2*cn*un:1-2*(1-cn)*(1-un);
+      default:return un;
+    }
+  }
+  return{
+    attack: bv(cmyk.attack/AT,user.attack/AT,mode)*AT,
+    decay:  bv(cmyk.decay/DT,user.decay/DT,mode)*DT,
+    sustain:bv(cmyk.sustain,user.sustain,mode),
+    release:bv(cmyk.release/RT,user.release/RT,mode)*RT
+  };
 }
 
 let audioCtx=null;
@@ -160,116 +294,282 @@ function getCtx(){
   return audioCtx;
 }
 
-function playNote(a,cardId,t,dur,vol,octShift=0,pan=0){
+// Full port of scheduleCardNote — both the extended-ADSR branch (channel
+// effects on) and the compact branch (effects off), including RGB Particle
+// Mode and Gravity Layer 1, gated exactly as the Organ gates them.
+function scheduleCardNote(cardId,t,dur,vol,octShift,effColor,pan,clipBpm,channel){
+  const col=effColor||cardColor(cardId);
   const card=getCard(cardId);
   if(!card) return;
-  const freq=rgbToFreq(card.r,card.g,card.b)*Math.pow(2,octShift||0);
-  const env=getCmykAdsr(card.r,card.g,card.b);
-  const panner=a.createStereoPanner();
-  panner.pan.value=Math.max(-1,Math.min(1,pan||0));
-  panner.connect(a.destination);
+  const a=getCtx();
+  const baseFreq=activeRgbToFreq(col.r,col.g,col.b);
+  const freq=baseFreq*Math.pow(2,octShift||0);
+  const panner=a.createStereoPanner();panner.pan.value=Math.max(-1,Math.min(1,pan||0));panner.connect(a.destination);
   const osc=a.createOscillator(),g=a.createGain();
-  osc.type=WAVES[card.suit]||'sine';
-  osc.frequency.value=freq;
-  const A=Math.max(0.003,env.attack),D=Math.max(0.003,env.decay);
-  const sV=Math.max(0,Math.min(1,env.sustain));
-  const R=Math.max(0.003,env.release);
-  const pk=0.22*vol;
-  const relStart=Math.max(t+A+D,t+dur-0.003);
-  g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(pk,t+A);
-  g.gain.linearRampToValueAtTime(pk*sV,t+A+D);
-  g.gain.setValueAtTime(pk*sV,relStart);
-  g.gain.linearRampToValueAtTime(0,relStart+R);
-  osc.connect(g);g.connect(panner);
-  osc.start(t);osc.stop(relStart+R+0.05);
-  if(card.suit==='major'){
-    const o2=a.createOscillator(),g2=a.createGain();
-    o2.type='triangle';o2.frequency.value=freq*2;
-    g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(pk*0.14,t+A);
-    g2.gain.setValueAtTime(pk*0.14*sV,relStart);g2.gain.linearRampToValueAtTime(0,relStart+R);
-    o2.connect(g2);g2.connect(panner);o2.start(t);o2.stop(relStart+R+0.05);
+  osc.type=WAVES[card.suit]||'sine';osc.frequency.value=freq;
+
+  const ua=channel?.effects?.adsr;
+  if(ua&&ua.on){
+    const cmykEnv=getCmykAdsr(col);
+    const userEnv={
+      attack:Math.max(0.001,ua.attack/1000),
+      decay:Math.max(0.001,ua.decay/1000),
+      sustain:Math.max(0,Math.min(1,ua.sustain/100)),
+      release:Math.max(0.001,ua.release/1000)
+    };
+    const env=blendAdsr(cmykEnv,userEnv,ua.blend||'normal');
+    const A=Math.max(0.003,env.attack),D=Math.max(0.003,env.decay);
+    let sV=Math.max(0,Math.min(1,env.sustain)),R_e=Math.max(0.003,env.release);
+    let pk=0.90*vol;
+    const rp=channel?.effects?.rgbParticle;
+    const physOn=channel?.effects?.physicsOn;
+    if(physOn&&rp&&rp.on){
+      const depth=rp.depth/100;
+      const rn=col.r/255,gn=col.g/255,bn=col.b/255;
+      pk=Math.max(0,pk*(1+(rn-0.5)*depth*0.6));
+      sV=Math.min(1,sV+bn*depth*0.35);
+      pan=Math.max(-1,Math.min(1,(pan||0)+(gn-0.5)*depth*0.4));
+    }
+    const grav=channel?.effects?.gravity;
+    let gravDecay=0;
+    if(physOn&&grav&&grav.on){
+      const gNorm=grav.value/9.81;
+      gravDecay=Math.min(0.92,gNorm*(grav.depth/100)*0.22);
+    }
+    const relStart=Math.max(t+A+D,t+dur-0.003);
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(pk,t+A);
+    g.gain.linearRampToValueAtTime(pk*sV,t+A+D);
+    const sV_end=pk*Math.max(0,sV*(1-gravDecay));
+    g.gain.linearRampToValueAtTime(sV_end,relStart);
+    g.gain.linearRampToValueAtTime(0,relStart+R_e);
+    osc.connect(g);g.connect(panner);osc.start(t);osc.stop(relStart+R_e+0.05);
+    if(card.suit==='major'){
+      const o2=a.createOscillator(),g2=a.createGain();o2.type='triangle';o2.frequency.value=freq*2;
+      g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(pk*0.14,t+A);
+      g2.gain.setValueAtTime(pk*0.14*sV/Math.max(0.01,pk),relStart);g2.gain.linearRampToValueAtTime(0,relStart+R_e);
+      o2.connect(g2);g2.connect(panner);o2.start(t);o2.stop(relStart+R_e+0.05);
+    }
+  } else {
+    const rr=col.r/255,gg=col.g/255,bb=col.b/255;
+    const k=1-Math.max(rr,gg,bb);
+    const d=k<1?1-k:1;
+    const cmyk={c:k<1?(1-rr-k)/d:0,m:k<1?(1-gg-k)/d:0,y:k<1?(1-bb-k)/d:0,k};
+    const A=0.004+cmyk.c*0.04,D=0.02+cmyk.m*0.08;
+    let sV=0.25+cmyk.y*0.4,R=0.03+cmyk.k*0.15;
+    let pk=0.70*vol;
+    const rp2=channel?.effects?.rgbParticle;
+    const physOn2=channel?.effects?.physicsOn;
+    if(physOn2&&rp2&&rp2.on){
+      const depth=rp2.depth/100;
+      const rn=col.r/255,gn=col.g/255,bn=col.b/255;
+      pk=Math.max(0,pk*(1+(rn-0.5)*depth*0.6));
+      sV=Math.min(1,sV+bn*depth*0.35);
+      pan=Math.max(-1,Math.min(1,(pan||0)+(gn-0.5)*depth*0.4));
+    }
+    const grav2=channel?.effects?.gravity;
+    let gravDecay2=0;
+    if(physOn2&&grav2&&grav2.on){
+      const gNorm=grav2.value/9.81;
+      gravDecay2=Math.min(0.92,gNorm*(grav2.depth/100)*0.22);
+    }
+    const relS=Math.max(t+A+D,t+dur-R);
+    const sV_end2=pk*Math.max(0,sV*(1-gravDecay2));
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+A);
+    g.gain.linearRampToValueAtTime(pk*sV,t+A+D);g.gain.linearRampToValueAtTime(sV_end2,relS);
+    g.gain.linearRampToValueAtTime(0,t+dur);
+    osc.connect(g);g.connect(panner);osc.start(t);osc.stop(t+dur+0.05);
+    if(card.suit==='major'){
+      const o2=a.createOscillator(),g2=a.createGain();o2.type='triangle';o2.frequency.value=freq*2;
+      g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(pk*0.14,t+A);g2.gain.linearRampToValueAtTime(0,t+dur);
+      o2.connect(g2);g2.connect(panner);o2.start(t);o2.stop(t+dur+0.05);
+    }
   }
 }
 
-// ── Player state ──────────────────────────────────────────────────────────────
+function scheduleDrumNote(slotIdx,t,vol,pan){
+  const a=getCtx();const p=DRUM_PARAMS[slotIdx];if(!p) return;
+  const panner=a.createStereoPanner();panner.pan.value=Math.max(-1,Math.min(1,pan||0));panner.connect(a.destination);
+  const bufSamples=Math.ceil(a.sampleRate*(p.A+p.D+p.R+0.05));
+  const buf=a.createBuffer(1,bufSamples,a.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<bufSamples;i++) data[i]=Math.random()*2-1;
+  const noise=a.createBufferSource();noise.buffer=buf;
+  const filt=a.createBiquadFilter();filt.type='bandpass';filt.frequency.value=p.noiseF;filt.Q.value=p.noiseQ;
+  const ng=a.createGain();ng.gain.setValueAtTime(0,t);
+  ng.gain.linearRampToValueAtTime((vol??0.8)*p.noiseVol,t+p.A);
+  ng.gain.exponentialRampToValueAtTime(0.0001,t+p.A+p.D+p.R);
+  noise.connect(filt);filt.connect(ng);ng.connect(panner);
+  noise.start(t);noise.stop(t+p.A+p.D+p.R+0.06);
+  if(p.tone){
+    const osc=a.createOscillator(),og=a.createGain();
+    osc.frequency.setValueAtTime(p.fStart,t);
+    osc.frequency.exponentialRampToValueAtTime(p.fEnd,t+p.D);
+    og.gain.setValueAtTime((vol??0.8)*(p.toneVol||0.5),t);
+    og.gain.exponentialRampToValueAtTime(0.0001,t+p.D+p.R);
+    osc.connect(og);og.connect(panner);osc.start(t);osc.stop(t+p.D+p.R+0.06);
+  }
+}
+
+function isChannelAudible(ch,hasSolo){
+  if(!ch||!ch.suit) return false;
+  if(ch.muted) return false;
+  if(hasSolo&&!ch.solo) return false;
+  return true;
+}
+
+// ════════════════════════════════════════════════════════
+// PLAYER STATE — per-track fields the real Organ keeps as session globals,
+// re-loaded fresh for whichever song is currently selected.
+// ════════════════════════════════════════════════════════
 let tracks=[];
 let currentIdx=-1;
 let playing=false;
-let schedStep=0,nextNoteTime=0,schedTimer=null,rafHandle=null;
-let currentTracks=null,currentBpm=120,currentStepCount=16;
-let totalSteps=0,playedSteps=0;
+let schedStep=0,nextNoteTime=0,schedTimer=null,rafHandle=null,needsStop=false;
+let currentBpm=120;
+let currentChannels=[],currentPatterns=[],currentChannelGroups=[],currentArrangementClips=[];
+let currentPlayMode='pattern',currentSongLoop=true,currentMultiOctave=false,currentActivePatternIndex=0;
+let timelinePos=0;
+let totalDurationSec=0;
+let startTime=0;
 
-const LOOKAHEAD_MS=25,SCHEDULE_AHEAD_S=0.1;
-
-const NOTE_FACTOR=0.75;
-function fireStep(step,t){
-  if(!currentTracks) return;
-  const channels=currentTracks.channels||[];
-  const patterns=currentTracks.patterns||[];
-  const pat=patterns[0]; // player always uses first pattern (pattern mode)
-  if(!pat||!pat.channelData) return;
-  const dur=(60/currentBpm/4)*NOTE_FACTOR;
-  const hasSolo=channels.some(ch=>ch&&ch.solo);
-  channels.forEach((ch,ci)=>{
-    if(!ch) return;
-    if(ch.muted) return;
-    if(hasSolo&&!ch.solo) return;
-    const pd=pat.channelData[ci];
-    if(!pd||!pd.steps) return;
-    const cardId=pd.steps[step];
-    if(cardId===null||cardId===undefined) return;
-    const vel=pd.stepVelocities?.[step]??100;
-    const oct=(ch.octave||0)+(pd.stepOctaves?.[step]||0);
-    const vol=ch.vol??0.8;
-    const pan=ch.pan??0;
-    playNote(getCtx(),cardId,t,dur,vol*(vel/127),oct,pan);
-  });
-  playedSteps++;
+// ── Song-mode timeline helpers — exact port of getClipAtStep and friends ──
+function clipEffectiveLen(clip){
+  const pat=currentPatterns[clip.patternIndex];
+  if(!pat) return 0;
+  const sc=pat.stepCount||16;
+  const end=clip.trimEnd!=null?Math.min(clip.trimEnd,sc):sc;
+  const start=clip.trimStart||0;
+  return Math.max(1,Math.max(0,end-start));
+}
+function clipTotalLen(clip){ return clipEffectiveLen(clip)*clip.repeatCount; }
+function getTotalTimelineSteps(){
+  return currentArrangementClips.reduce((a,c)=>a+clipTotalLen(c),0);
+}
+function getClipAtStep(absStep){
+  let pos=0;
+  for(let i=0;i<currentArrangementClips.length;i++){
+    const clip=currentArrangementClips[i];
+    const len=clipTotalLen(clip);
+    if(absStep>=pos&&absStep<pos+len){
+      const localStep=absStep-pos;
+      const trimStart=clip.trimStart||0;
+      const effLen=clipEffectiveLen(clip);
+      const patStep=trimStart+(localStep%effLen);
+      return{clip,clipIdx:i,localStep,patStep};
+    }
+    pos+=len;
+  }
+  return null;
+}
+function computeTotalDuration(){
+  if(currentPlayMode==='song'&&currentArrangementClips.length>0){
+    return currentArrangementClips.reduce((sum,clip)=>{
+      const bpmForClip=clip.tempo||currentBpm;
+      return sum+clipTotalLen(clip)*(60/bpmForClip/4);
+    },0);
+  }
+  const pat=currentPatterns[currentActivePatternIndex]||currentPatterns[0];
+  const sc=(pat&&pat.stepCount)||16;
+  return sc*(60/currentBpm/4);
 }
 
+// ── fireStep — exact port, handles both drum and melodic channels ──
+function fireStep(step,t,clipBpm=null){
+  const effectiveBpm=clipBpm||currentBpm;
+  const pat=currentPatterns[currentActivePatternIndex];
+  if(!pat||!pat.channelData) return;
+  const dur=((60/effectiveBpm)/4)*NOTE_FACTOR;
+  const hasSolo=currentChannels.some(ch=>ch&&ch.solo);
+  currentChannels.forEach((ch,ci)=>{
+    if(!isChannelAudible(ch,hasSolo)) return;
+    const pan=ch.pan||0;
+    const pd=pat.channelData[ci];
+    if(!pd) return;
+    if(ch.suit==='drums'&&pd.drumSteps){
+      DRUM_SLOTS.forEach((_,si)=>{
+        if(pd.drumSteps[si][step]) scheduleDrumNote(si,t,ch.vol??0.8,pan);
+      });
+    } else if(pd.steps){
+      const n=pd.steps[step];
+      if(n!==null&&n!==undefined){
+        const octShift=(ch.octave||0)+((pd.stepOctaves&&pd.stepOctaves[step])||0);
+        const vel=(pd.stepVelocities&&pd.stepVelocities[step]!==undefined)?pd.stepVelocities[step]:100;
+        const eff=getEffectiveColor(ch,n,step,pat.stepCount);
+        scheduleCardNote(n,t,dur,(ch.vol??0.8)*(vel/127),octShift,eff,pan,clipBpm,ch);
+      }
+    }
+  });
+}
+
+// ── scheduler — exact port: song-mode arrangement vs. pattern-mode loop ──
 function scheduler(){
   const a=getCtx();
   while(nextNoteTime<a.currentTime+SCHEDULE_AHEAD_S){
-    fireStep(schedStep,nextNoteTime);
-    nextNoteTime+=60/currentBpm/4;
-    schedStep=(schedStep+1)%currentStepCount;
+    if(currentPlayMode==='song'&&currentArrangementClips.length>0){
+      const total=getTotalTimelineSteps();
+      if(timelinePos>=total){
+        if(currentSongLoop){ timelinePos=0; }
+        else{ needsStop=true; break; }
+      }
+      const ci=getClipAtStep(timelinePos);
+      if(ci){
+        const{clip,patStep}=ci;
+        currentActivePatternIndex=clip.patternIndex;
+        const clipBpm=clip.tempo||currentBpm;
+        fireStep(patStep,nextNoteTime,clipBpm);
+        nextNoteTime+=(60/clipBpm/4);
+      } else {
+        nextNoteTime+=(60/currentBpm/4);
+      }
+      timelinePos++;
+    } else {
+      const sc=(currentPatterns[currentActivePatternIndex]&&currentPatterns[currentActivePatternIndex].stepCount)||16;
+      fireStep(schedStep,nextNoteTime);
+      nextNoteTime+=((60/currentBpm)/4);
+      schedStep=(schedStep+1)%sc;
+    }
+    if(needsStop) break;
   }
+  if(needsStop){ needsStop=false; stopPlayer(); return; }
   if(playing) schedTimer=setTimeout(scheduler,LOOKAHEAD_MS);
 }
 
 function rafLoop(){
-  if(!playing){cancelAnimationFrame(rafHandle);return;}
+  if(!playing){ cancelAnimationFrame(rafHandle); return; }
   const a=getCtx();
-  // Progress based on steps played
-  const pct=totalSteps>0?Math.min(1,playedSteps/totalSteps):0;
+  const elapsed=a.currentTime-startTime;
+  const pct=totalDurationSec>0?Math.min(1,(elapsed%totalDurationSec)/totalDurationSec):0;
   document.getElementById('progress-fill').style.width=(pct*100)+'%';
-  const elapsed=a.currentTime-(startTime||a.currentTime);
-  const secs=Math.floor(elapsed);
+  const dispSecs=totalDurationSec>0?(elapsed%totalDurationSec):elapsed;
+  const secs=Math.floor(Math.max(0,dispSecs));
   document.getElementById('progress-time').textContent=`${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
-  // Auto-advance after one full loop (4 bars)
-  if(playedSteps>0&&playedSteps%(currentStepCount*4)===0){
-    // Could auto-next here — for now just loop
-  }
   rafHandle=requestAnimationFrame(rafLoop);
 }
-
-let startTime=0;
 
 function startPlayer(idx){
   stopPlayer();
   if(idx<0||idx>=tracks.length) return;
   currentIdx=idx;
   const song=tracks[idx];
-  currentTracks=song.tracks;
+  const t=song.tracks||{};
+  currentChannels=t.channels||[];
+  currentPatterns=t.patterns||[];
+  currentChannelGroups=t.channelGroups||[];
+  currentArrangementClips=t.arrangementClips||[];
+  currentPlayMode=t.playMode||'pattern';
+  currentSongLoop=t.songLoop!==undefined?t.songLoop:true;
+  currentMultiOctave=t.multiOctave||false;
   currentBpm=song.bpm||120;
-  // Use the pattern's actual stepCount if available
-  const pat=song.tracks?.patterns?.[0];
-  currentStepCount=pat?.stepCount||song.step_count||16;
-  totalSteps=currentStepCount*8; // estimate 8 bars for progress
-  playedSteps=0;
+  currentActivePatternIndex=0;
+  timelinePos=0;
+  if(currentPlayMode==='song'&&currentArrangementClips.length>0){
+    const ci=getClipAtStep(0);
+    if(ci) currentActivePatternIndex=ci.clip.patternIndex;
+  }
+  totalDurationSec=computeTotalDuration();
   const a=getCtx();
-  playing=true;schedStep=0;nextNoteTime=a.currentTime+0.05;startTime=a.currentTime+0.05;
+  playing=true;schedStep=0;needsStop=false;nextNoteTime=a.currentTime+0.05;startTime=a.currentTime+0.05;
   scheduler();rafHandle=requestAnimationFrame(rafLoop);
   updateNowPlaying();
   updateTrackList();
