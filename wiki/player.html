@@ -202,23 +202,28 @@ let totalSteps=0,playedSteps=0;
 
 const LOOKAHEAD_MS=25,SCHEDULE_AHEAD_S=0.1;
 
+const NOTE_FACTOR=0.75;
 function fireStep(step,t){
   if(!currentTracks) return;
   const channels=currentTracks.channels||[];
   const patterns=currentTracks.patterns||[];
-  const patIdx=currentTracks.activePattern||0;
-  const pat=patterns[patIdx]||patterns[0];
-  if(!pat) return;
+  const pat=patterns[0]; // player always uses first pattern (pattern mode)
+  if(!pat||!pat.channelData) return;
+  const dur=(60/currentBpm/4)*NOTE_FACTOR;
+  const hasSolo=channels.some(ch=>ch&&ch.solo);
   channels.forEach((ch,ci)=>{
-    if(!ch||ch.muted) return;
-    const steps=pat.channels?.[ci]?.steps||ch.steps;
-    if(!steps||!steps[step]) return;
-    const cardId=steps[step];
-    const vel=(pat.channels?.[ci]?.stepVelocities?.[step]??ch.stepVelocities?.[step]??100)/100;
-    const oct=(pat.channels?.[ci]?.stepOctaves?.[step]??ch.stepOctaves?.[step]??0);
-    const vol=(ch.volume??80)/100;
-    const pan=(ch.pan??0)/100;
-    playNote(getCtx(),cardId,t,60/currentBpm/4,vel*vol,oct,pan);
+    if(!ch) return;
+    if(ch.muted) return;
+    if(hasSolo&&!ch.solo) return;
+    const pd=pat.channelData[ci];
+    if(!pd||!pd.steps) return;
+    const cardId=pd.steps[step];
+    if(cardId===null||cardId===undefined) return;
+    const vel=pd.stepVelocities?.[step]??100;
+    const oct=(ch.octave||0)+(pd.stepOctaves?.[step]||0);
+    const vol=ch.vol??0.8;
+    const pan=ch.pan??0;
+    playNote(getCtx(),cardId,t,dur,vol*(vel/127),oct,pan);
   });
   playedSteps++;
 }
@@ -258,7 +263,9 @@ function startPlayer(idx){
   const song=tracks[idx];
   currentTracks=song.tracks;
   currentBpm=song.bpm||120;
-  currentStepCount=song.step_count||16;
+  // Use the pattern's actual stepCount if available
+  const pat=song.tracks?.patterns?.[0];
+  currentStepCount=pat?.stepCount||song.step_count||16;
   totalSteps=currentStepCount*8; // estimate 8 bars for progress
   playedSteps=0;
   const a=getCtx();
