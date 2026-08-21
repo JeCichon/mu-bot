@@ -132,6 +132,10 @@
   .yt-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:52px; height:52px; background:rgba(0,0,0,.75); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; color:#fff; transition:background .15s; }
   .yt-preview:hover .yt-play { background:rgba(200,0,0,.85); }
   .yt-embed { width:100%; max-width:380px; aspect-ratio:16/9; border:none; border-radius:4px; margin-top:8px; display:block; }
+  /* System messages (centered) */
+  .msg.system-msg { align-self:center; max-width:85%; width:auto; }
+  .msg.system-msg .msg-bubble { text-align:center; background:rgba(76,46,87,.15); border-color:var(--purple); color:var(--parchment2); border-radius:6px; font-style:italic; padding:8px 18px; }
+
   /* Changelog sidebar */
   .changelog-entry { padding:7px 0; border-bottom:1px solid var(--brown3); }
   .changelog-entry:last-child { border-bottom:none; }
@@ -208,7 +212,11 @@
       <div id="sidebar-entries"><div class="loading">loading…</div></div>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-label" style="cursor:pointer" onclick="openContent('changelog.html','📋 Whats New')">what's new ↗</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;">
+        <span class="sidebar-label" style="margin-bottom:0;cursor:pointer;flex:1" onclick="openContent('changelog.html','📋 Whats New')">what's new</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer" onclick="openContent('changelog.html','📋 Whats New')" title="open changelog">↗</span>
+        <button id="btn-add-changelog" style="display:none;background:none;border:1px solid var(--purple);color:var(--purple2);font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;letter-spacing:0.04em;" onclick="showChangelogModal()">+ add</button>
+      </div>
       <div id="sidebar-changelog"><div class="loading">loading…</div></div>
     </div>
   </aside>
@@ -233,6 +241,31 @@
       </div>
       <div class="input-hint">shift+enter for new line · mention <em>mu</em> for a response</div>
     </div>
+  </div>
+</div>
+
+<!-- Changelog Modal -->
+<div class="modal-bg" id="changelog-modal-bg" onclick="if(event.target===this)closeChangelogModal()">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="closeChangelogModal()">×</button>
+    <div class="modal-title" style="margin-bottom:14px">📋 New Update</div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:0.06em;margin-bottom:5px;text-transform:uppercase">Title *</div>
+      <input type="text" id="cl-title" placeholder="What changed?" style="width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--serif);font-size:13px;padding:7px 10px;border-radius:4px;outline:none;">
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:0.06em;margin-bottom:5px;text-transform:uppercase">Version / Tag</div>
+      <input type="text" id="cl-version" placeholder="e.g. Phase 3, v1.5…" style="width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--serif);font-size:13px;padding:7px 10px;border-radius:4px;outline:none;">
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:0.06em;margin-bottom:5px;text-transform:uppercase">Details</div>
+      <textarea id="cl-body" rows="3" placeholder="What was added or changed…" style="width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--serif);font-size:13px;padding:7px 10px;border-radius:4px;outline:none;resize:vertical;"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button onclick="closeChangelogModal()">cancel</button>
+      <button onclick="saveChangelogEntry()" style="background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:6px 16px;border-radius:4px;cursor:pointer;">save + share to chat</button>
+    </div>
+    <div id="cl-status" style="font-size:12px;font-family:var(--mono);margin-top:8px;min-height:18px;color:var(--green);"></div>
   </div>
 </div>
 
@@ -425,6 +458,8 @@ async function showApp(user){
   if(roleData?.role==='archmage'){
     const fl=document.getElementById('link-muflow');
     if(fl) fl.style.display='block';
+    const ac=document.getElementById('btn-add-changelog');
+    if(ac) ac.style.display='block';
   }
   // Daily personal greeting (only once per day per user)
   setTimeout(()=>checkDailyGreeting(user), 800);
@@ -559,23 +594,34 @@ function renderMessage(msg){
   shownIds.add(msg.id);
   const isMine=currentUser&&msg.user_id===currentUser.id;
   const isMu=msg.is_mu;
-  const cls=isMu?"mu-msg":isMine?"mine":"other";
-  const avatarHtml=isMu?(msg.user_avatar?`<img src="${msg.user_avatar}" alt="Mu">`:"📦"):(msg.user_avatar?`<img src="${msg.user_avatar}" alt="">`:"👤");
+  const isSystem=msg.is_system||false;
   const time=new Date(msg.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
   const{html:msgHtml,media:msgMedia}=parseMessageContent(msg.content);
   const div=document.createElement("div");
-  div.className=`msg ${cls}`;
-  div.innerHTML=`
-    <div class="msg-avatar">${avatarHtml}</div>
-    <div class="msg-body">
-      <div class="msg-author">
-        <span class="msg-author-name">${isMu?"Mu":msg.user_name}</span>
-        <span class="msg-time">${time}</span>
-      </div>
+
+  if(isSystem){
+    // Centered system message — no avatar, no author
+    div.className="msg system-msg";
+    div.innerHTML=`<div class="msg-body" style="width:100%">
       <div class="msg-bubble">${msgHtml}</div>
-      ${msgMedia?`<div class="msg-media">${msgMedia}</div>`:""}
-      ${msg.card_line?`<div class="msg-cards">${msg.card_line}</div>`:""}
+      <div class="msg-cards" style="text-align:center">${time}</div>
     </div>`;
+  } else {
+    const cls=isMu?"mu-msg":isMine?"mine":"other";
+    const avatarHtml=isMu?(msg.user_avatar?`<img src="${msg.user_avatar}" alt="Mu">`:"📦"):(msg.user_avatar?`<img src="${msg.user_avatar}" alt="">`:"👤");
+    div.className=`msg ${cls}`;
+    div.innerHTML=`
+      <div class="msg-avatar">${avatarHtml}</div>
+      <div class="msg-body">
+        <div class="msg-author">
+          <span class="msg-author-name">${isMu?"Mu":msg.user_name}</span>
+          <span class="msg-time">${time}</span>
+        </div>
+        <div class="msg-bubble">${msgHtml}</div>
+        ${msgMedia?`<div class="msg-media">${msgMedia}</div>`:""}
+        ${msg.card_line?`<div class="msg-cards">${msg.card_line}</div>`:""}
+      </div>`;
+  }
   document.getElementById("chat-messages").appendChild(div);
   scrollToBottom();
 }
@@ -749,7 +795,39 @@ function popoutContent(){
 }
 function openLibrary(){ openContent('library.html','📚 Library'); }
 function closeModal(){ document.getElementById("modal-bg").classList.remove("open"); }
-document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeModal(); });
+
+// ── Changelog modal ───────────────────────────────────────────────────────────
+function showChangelogModal(){
+  document.getElementById('cl-title').value='';
+  document.getElementById('cl-version').value='';
+  document.getElementById('cl-body').value='';
+  document.getElementById('cl-status').textContent='';
+  document.getElementById('changelog-modal-bg').classList.add('open');
+}
+function closeChangelogModal(){
+  document.getElementById('changelog-modal-bg').classList.remove('open');
+}
+async function saveChangelogEntry(){
+  const title=document.getElementById('cl-title').value.trim();
+  const body=document.getElementById('cl-body').value.trim()||null;
+  const version=document.getElementById('cl-version').value.trim()||null;
+  const statusEl=document.getElementById('cl-status');
+  if(!title){statusEl.textContent='Title required.';statusEl.style.color='#e06060';return;}
+  statusEl.textContent='saving…';statusEl.style.color='var(--dim)';
+  const author=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'unknown';
+  const{error}=await db.from('changelog').insert({title,body,version,author});
+  if(error){statusEl.textContent=`Error: ${error.message}`;statusEl.style.color='#e06060';return;}
+  // Post centered system message to chat
+  const chatMsg=version?`✦ ${version} — ${title}`:`✦ ${title}`;
+  await db.from('messages').insert({
+    user_id:'system',user_name:'update',user_avatar:null,
+    content:chatMsg,is_mu:false,card_line:null,is_system:true,
+  });
+  loadSidebarChangelog();
+  statusEl.textContent='✓ Shared to chat.';
+  setTimeout(closeChangelogModal,900);
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){closeModal();closeChangelogModal();} });
 </script>
 </body>
 </html>
