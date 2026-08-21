@@ -126,6 +126,18 @@
   .member-dot { width:7px; height:7px; border-radius:50%; background:var(--green3); flex-shrink:0; }
 
   /* Chat media */
+  .yt-preview { display:block; position:relative; max-width:380px; margin-top:8px; border-radius:4px; overflow:hidden; cursor:pointer; border:1px solid var(--brown3); }
+  .yt-preview:hover { border-color:var(--green3); }
+  .yt-preview img { width:100%; display:block; }
+  .yt-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:52px; height:52px; background:rgba(0,0,0,.75); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; color:#fff; transition:background .15s; }
+  .yt-preview:hover .yt-play { background:rgba(200,0,0,.85); }
+  .yt-embed { width:100%; max-width:380px; aspect-ratio:16/9; border:none; border-radius:4px; margin-top:8px; display:block; }
+  /* Changelog sidebar */
+  .changelog-entry { padding:7px 0; border-bottom:1px solid var(--brown3); }
+  .changelog-entry:last-child { border-bottom:none; }
+  .changelog-title-link { font-size:12px; color:var(--parchment2); font-family:var(--mono); display:block; cursor:pointer; transition:color .1s; }
+  .changelog-title-link:hover { color:var(--green); }
+  .changelog-meta { font-size:10px; color:var(--dim); font-family:var(--mono); margin-top:2px; }
   .msg-media { margin-top:8px; }
   .msg-img { max-width:100%; max-height:300px; border-radius:4px; display:block; border:1px solid var(--brown3); cursor:pointer; }
   .msg-img:hover { border-color:var(--green3); }
@@ -184,6 +196,10 @@
     <div class="sidebar-section">
       <div class="sidebar-label">recent entries</div>
       <div id="sidebar-entries"><div class="loading">loading…</div></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label" style="cursor:pointer" onclick="window.open('changelog.html','_blank')">what's new ↗</div>
+      <div id="sidebar-changelog"><div class="loading">loading…</div></div>
     </div>
   </aside>
 
@@ -381,6 +397,7 @@ async function showApp(user){
   document.getElementById("chat-wrap").style.display="flex";
   updateHeader(user);
   loadSidebarEntries();
+  loadSidebarChangelog();
   await Promise.all([loadRecentMessages(), loadMuAvatar()]);
   subscribeToMessages();
   // Check role — show archmage tools
@@ -492,11 +509,17 @@ function parseMessageContent(raw){
   let media='';
   let text=raw;
 
-  // YouTube embed
+  // YouTube preview thumbnail (click → embed)
   const ytRe=new RegExp('(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})');
   const ytMatch=text.match(ytRe);
   if(ytMatch){
-    media+=`<iframe class="msg-yt" src="https://www.youtube.com/embed/${ytMatch[1]}" allowfullscreen loading="lazy"></iframe>`;
+    const vid=ytMatch[1];
+    const embedSrc='https://www.youtube.com/embed/'+vid+'?autoplay=1';
+    const thumbSrc='https://img.youtube.com/vi/'+vid+'/mqdefault.jpg';
+    media+=`<div class="yt-preview" onclick="this.outerHTML='<iframe class=\"yt-embed\" src=\"${embedSrc}\" allow=\"autoplay;encrypted-media\" allowfullscreen></iframe>'">
+      <img src="${thumbSrc}" alt="YouTube video" loading="lazy">
+      <div class="yt-play">▶</div>
+    </div>`;
     text=text.replace(ytMatch[0],'').trim();
   }
 
@@ -657,6 +680,21 @@ async function loadSidebarEntries(){
       </div>`;
     }).join("");
   }catch(err){el.innerHTML=`<div class="loading">error: ${err.message}</div>`;}
+}
+
+async function loadSidebarChangelog(){
+  const el=document.getElementById('sidebar-changelog');
+  try{
+    const{data,error}=await db.from('changelog')
+      .select('id,title,created_at,version')
+      .order('created_at',{ascending:false}).limit(3);
+    if(error) throw error;
+    if(!data||data.length===0){el.innerHTML=`<div class="loading">nothing yet</div>`;return;}
+    el.innerHTML=data.map(e=>`<div class="changelog-entry">
+      <span class="changelog-title-link" onclick="window.open('changelog.html','_blank')">${e.title}</span>
+      <div class="changelog-meta">${e.version?e.version+' · ':''}${new Date(e.created_at).toLocaleDateString()}</div>
+    </div>`).join('');
+  }catch(err){el.innerHTML=`<div class="loading">—</div>`;}
 }
 
 async function openEntry(id){
