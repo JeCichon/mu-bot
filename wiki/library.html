@@ -717,15 +717,15 @@ function parseWikiContent(text, entries){
   (entries||[]).forEach(e=>{ titleMap[e.title.toLowerCase()]=e.id; });
   let html=text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  // External links [url Label]
-  html=html.replace(/\[([^\s\]]+)\s+([^\]]+)\]/g,(_,url,label)=>
-    `<a class="entry-ext-link" href="${url}" target="_blank" rel="noopener">${label}</a>`);
-  // Wikilinks [[Title]]
+  // Wikilinks [[Title]] — must run BEFORE external links
   html=html.replace(/\[\[([^\]]+)\]\]/g,(_,title)=>{
     const id=titleMap[title.toLowerCase()];
     if(id) return `<span class="wikilink" onclick="openDetail(${id})">${title}</span>`;
     return `<span class="wikilink-dead" title="not found — click to create" onclick="promptCreateEntry('${title.replace(/'/g,String.fromCharCode(39))}')">${title}</span>`;
   });
+  // External links [https://url Label] — only match http(s) URLs to avoid catching [[]]
+  html=html.replace(/\[https?:\/\/([^\s\]]+)\s+([^\]]+)\]/g,(_,url,label)=>
+    `<a class="entry-ext-link" href="https://${url}" target="_blank" rel="noopener">${label}</a>`);
   // Italic *text*
   html=html.replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
   // Paragraphs
