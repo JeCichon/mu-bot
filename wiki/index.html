@@ -208,7 +208,7 @@
       <div id="sidebar-entries"><div class="loading">loading…</div></div>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-label" style="cursor:pointer" onclick="openContent('changelog.html','📋 What's New')">what's new ↗</div>
+      <div class="sidebar-label" style="cursor:pointer" onclick="openContent('changelog.html','📋 Whats New')">what's new ↗</div>
       <div id="sidebar-changelog"><div class="loading">loading…</div></div>
     </div>
   </aside>
@@ -699,7 +699,7 @@ async function loadSidebarChangelog(){
     if(error) throw error;
     if(!data||data.length===0){el.innerHTML=`<div class="loading">nothing yet</div>`;return;}
     el.innerHTML=data.map(e=>`<div class="changelog-entry">
-      <span class="changelog-title-link" onclick="openContent('changelog.html','📋 What's New')">${e.title}</span>
+      <span class="changelog-title-link" onclick="openContent('changelog.html','📋 Whats New')">${e.title}</span>
       <div class="changelog-meta">${e.version?e.version+' · ':''}${new Date(e.created_at).toLocaleDateString()}</div>
     </div>`).join('');
   }catch(err){el.innerHTML=`<div class="loading">—</div>`;}
