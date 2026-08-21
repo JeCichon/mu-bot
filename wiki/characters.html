@@ -127,6 +127,16 @@
   ::-webkit-scrollbar-track { background:var(--brown); }
   ::-webkit-scrollbar-thumb { background:var(--brown3); border-radius:3px; }
 </style>
+
+<script>
+// Hide header when loaded inside the Lodge content panel
+if(window.location.search.includes('embed=1')||window.self!==window.top){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const h=document.querySelector('header');
+    if(h) h.style.display='none';
+  });
+}
+</script>
 </head>
 <body>
 
@@ -193,8 +203,8 @@
 </div>
 
 <script>
-const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const SUIT_LABEL={major:"Major Arcana",wands:"Wands",cups:"Cups",swords:"Swords",disks:"Disks"};

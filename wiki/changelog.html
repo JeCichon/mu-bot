@@ -60,6 +60,16 @@
   ::-webkit-scrollbar-track{background:var(--brown);}
   ::-webkit-scrollbar-thumb{background:var(--brown3);border-radius:3px;}
 </style>
+
+<script>
+// Hide header when loaded inside the Lodge content panel
+if(window.location.search.includes('embed=1')||window.self!==window.top){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const h=document.querySelector('header');
+    if(h) h.style.display='none';
+  });
+}
+</script>
 </head>
 <body>
 <header>
