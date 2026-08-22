@@ -460,9 +460,16 @@ async function showApp(user){
   updateHeader(user);
   loadSidebarEntries();
   loadSidebarChangelog();
-  await Promise.all([loadRecentMessages(), loadMuAvatar()]);
-  subscribeToMessages();
-  // Check role — show archmage tools (wrapped so errors don't block it)
+
+  // Load messages safely — catch errors so later steps always run
+  try{ await Promise.all([loadRecentMessages(), loadMuAvatar()]); }
+  catch(err){ console.warn('Message/avatar load error (non-fatal):',err.message); }
+
+  // Subscribe to realtime — always runs now
+  try{ subscribeToMessages(); }
+  catch(err){ console.warn('Realtime subscribe error:',err.message); }
+
+  // Check role — show archmage tools
   try{
     const{data:roleData}=await db.from('user_roles').select('role').eq('user_id',user.id).maybeSingle();
     if(roleData?.role==='archmage'){
@@ -472,6 +479,7 @@ async function showApp(user){
       if(ac) ac.style.display='block';
     }
   }catch(err){ console.warn('Role check failed:',err.message); }
+
   // Daily personal greeting (only once per day per user)
   setTimeout(()=>checkDailyGreeting(user), 800);
 }
@@ -566,12 +574,11 @@ async function loadRecentMessages(){
   data.reverse();
   let lastDate="";
   data.forEach(msg=>{
-    const d=new Date(msg.created_at).toLocaleDateString();
-    if(d!==lastDate){
-      addDateDivider(d);
-      lastDate=d;
-    }
-    renderMessage(msg);
+    try{
+      const d=new Date(msg.created_at).toLocaleDateString();
+      if(d!==lastDate){ addDateDivider(d); lastDate=d; }
+      renderMessage(msg);
+    }catch(err){ console.warn('Failed to render message',msg?.id,err.message); }
   });
   scrollToBottom();
 }
@@ -903,16 +910,14 @@ async function saveChangelogEntry(){
   const{error}=await db.from('changelog').insert({title,body,version,author});
   if(error){statusEl.textContent=`Error: ${error.message}`;statusEl.style.color='#e06060';return;}
   // Post centered system message to chat
-  const chatLines=[
-    'What\'s new',
-    version?`${version} — ${title}`:title,
-    ...(body?[body]:[])
-  ];
+  const chatLines=['What\'s new',version?`${version} — ${title}`:title,...(body?[body]:[])];
   const chatMsg=chatLines.join('\n');
-  await db.from('messages').insert({
-    user_id:'system',user_name:'update',user_avatar:null,
-    content:chatMsg,is_mu:false,card_line:null,is_system:true,
-  });
+  try{
+    await db.from('messages').insert({
+      user_id:'system',user_name:'update',user_avatar:null,
+      content:chatMsg,is_mu:false,card_line:null,is_system:true,
+    });
+  }catch(e){ console.warn('System message post failed (run is_system SQL):', e.message); }
   loadSidebarChangelog();
   statusEl.textContent='✓ Shared to chat.';
   setTimeout(closeChangelogModal,900);
