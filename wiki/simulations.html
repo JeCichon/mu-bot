@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slide Rules · TricknoLodge</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --green:rgb(144,171,153);--green2:rgb(110,135,118);--green3:rgb(80,105,90);
+    --brown:rgb(43,28,16);--brown2:rgb(60,42,26);--brown3:rgb(80,58,36);
+    --purple:rgb(76,46,87);--purple2:rgb(100,65,112);
+    --parchment:rgb(220,210,190);--parchment2:rgb(200,188,168);
+    --dim:rgb(120,100,80);--gold:rgb(201,169,110);
+    --mono:'Courier New',Courier,monospace;--serif:Georgia,'Times New Roman',serif;
+  }
+  body{background:var(--brown);color:var(--parchment);font-family:var(--serif);font-size:14px;min-height:100vh;}
+  header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:12px 24px;display:flex;align-items:center;gap:16px;}
+  .back-link{color:var(--green);text-decoration:none;font-family:var(--mono);font-size:12px;}
+  .back-link:hover{color:var(--parchment);}
+  .page-title{font-size:18px;color:var(--green);font-weight:normal;letter-spacing:0.08em;}
+  .page-sub{font-size:11px;color:var(--dim);font-family:var(--mono);}
+
+  .wrap{max-width:860px;margin:0 auto;padding:24px 20px;}
+
+  /* Simulation cards */
+  .sim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:28px;}
+  .sim-card{background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;overflow:hidden;cursor:pointer;transition:border-color .15s;}
+  .sim-card:hover{border-color:var(--green3);}
+  .sim-preview{width:100%;aspect-ratio:1;background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+  .sim-preview-canvas{width:100%;height:100%;object-fit:cover;}
+  .sim-preview-label{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.7));padding:12px 10px 8px;font-size:12px;font-family:var(--mono);color:#fff;letter-spacing:0.04em;}
+  .sim-body{padding:10px 12px;}
+  .sim-name{font-size:14px;font-weight:bold;color:var(--gold);margin-bottom:3px;}
+  .sim-desc{font-size:11px;color:var(--parchment2);font-family:var(--mono);margin-bottom:6px;line-height:1.4;}
+  .sim-meta{font-size:10px;color:var(--dim);font-family:var(--mono);}
+  .sim-play{display:block;width:100%;background:var(--brown3);border:none;border-top:1px solid var(--brown3);color:var(--green);font-family:var(--mono);font-size:12px;padding:7px;cursor:pointer;text-align:center;transition:background .15s;}
+  .sim-play:hover{background:rgba(80,105,90,.25);}
+
+  /* Add form */
+  .add-section{background:var(--brown2);border:1px solid var(--brown3);border-radius:8px;padding:20px;}
+  .add-section-label{font-size:13px;color:var(--green);font-family:var(--mono);margin-bottom:14px;letter-spacing:0.06em;}
+  .field{margin-bottom:12px;}
+  .field-label{font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;}
+  .field input,.field textarea{width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:7px 10px;border-radius:4px;outline:none;}
+  .field input:focus,.field textarea:focus{border-color:var(--green3);}
+  .field input::placeholder,.field textarea::placeholder{color:var(--dim);}
+  .paste-area{font-family:var(--mono);font-size:11px;min-height:60px;resize:vertical;}
+  .field-hint{font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:4px;}
+  .fields-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .parse-btn{background:var(--brown3);border:1px solid var(--green3);color:var(--green);font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:4px;cursor:pointer;margin-top:6px;}
+  .parse-btn:hover{background:rgba(80,105,90,.2);}
+  .parse-status{font-size:11px;font-family:var(--mono);color:var(--green);margin-top:4px;min-height:16px;}
+  .form-actions{display:flex;gap:8px;margin-top:14px;align-items:center;}
+  .btn-preview{background:var(--brown3);border:1px solid var(--brown3);color:var(--parchment2);font-family:var(--mono);font-size:12px;padding:6px 14px;border-radius:4px;cursor:pointer;}
+  .btn-preview:hover{border-color:var(--green3);}
+  .btn-publish{background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:6px 16px;border-radius:4px;cursor:pointer;}
+  .btn-publish:hover{background:var(--purple2);}
+  .btn-publish:disabled{opacity:.5;cursor:not-allowed;}
+  .save-status{font-size:12px;font-family:var(--mono);color:var(--green);min-height:18px;}
+
+  /* Preview iframe */
+  .preview-wrap{margin-top:12px;border:1px solid var(--brown3);border-radius:4px;overflow:hidden;display:none;}
+  .preview-wrap.open{display:block;}
+  .preview-frame{width:100%;aspect-ratio:1;border:none;background:#000;display:block;max-height:300px;}
+
+  .section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .section-title{font-size:15px;color:var(--green);font-family:var(--mono);letter-spacing:0.06em;}
+  .section-count{font-size:11px;color:var(--dim);font-family:var(--mono);}
+  .loading{color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:30px;text-align:center;}
+  .empty{color:var(--dim);font-family:var(--mono);font-size:12px;text-align:center;padding:30px;}
+  .divider{border:none;border-top:1px solid var(--brown3);margin:24px 0;}
+
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-track{background:var(--brown);}
+  ::-webkit-scrollbar-thumb{background:var(--brown3);border-radius:3px;}
+</style>
+</head>
+<body>
+<header>
+  <a class="back-link" href="index.html">← Lodge</a>
+  <div>
+    <div class="page-title">🎮 Slide Rules</div>
+    <div class="page-sub">living automata · published simulations</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- Gallery -->
+  <div class="section-header">
+    <span class="section-title">published simulations</span>
+    <span class="section-count" id="sim-count"></span>
+  </div>
+  <div class="sim-grid" id="sim-grid">
+    <div class="loading">*Retrieving the simulations…*</div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Add form (archmage only) -->
+  <div id="add-section" style="display:none">
+    <div class="add-section">
+      <div class="add-section-label">+ publish a new simulation</div>
+
+      <div class="field">
+        <div class="field-label">Paste URL code or full URL string</div>
+        <textarea class="field paste-area" id="f-paste" placeholder="?n=Circuit+City&c=.AA0EhEmAhCAC...&#10;or just the code: .AA0EhEmAhCAC..."></textarea>
+        <div class="field-hint">paste the full ?n=...&c=... string to auto-fill name + code</div>
+        <button class="parse-btn" onclick="parseInput()">↓ parse</button>
+        <div class="parse-status" id="parse-status"></div>
+      </div>
+
+      <div class="fields-row">
+        <div class="field">
+          <div class="field-label">Name *</div>
+          <input type="text" id="f-name" placeholder="Circuit City">
+        </div>
+        <div class="field">
+          <div class="field-label">Code *</div>
+          <input type="text" id="f-code" placeholder=".AA0EhEmAhCAC…">
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Description</div>
+        <input type="text" id="f-desc" placeholder="A brief description of what this simulation does…">
+      </div>
+
+      <!-- Live preview -->
+      <div class="preview-wrap" id="preview-wrap">
+        <iframe class="preview-frame" id="preview-frame" src="about:blank"></iframe>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-preview" onclick="previewSim()">▶ preview</button>
+        <button class="btn-publish" id="btn-publish" onclick="publishSim()">publish to Lodge</button>
+        <span class="save-status" id="save-status"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userRole = null;
+let sims = [];
+
+db.auth.onAuthStateChange(async(_e, session) => {
+  currentUser = session?.user || null;
+  if(currentUser){
+    const{data}=await db.from('user_roles').select('role').eq('user_id',currentUser.id).maybeSingle();
+    userRole = data?.role || 'apprentice';
+    if(userRole === 'archmage'){
+      document.getElementById('add-section').style.display = 'block';
+    }
+  }
+});
+
+// ── Parse URL string ──────────────────────────────────────────────────────────
+function parseSlideRulesInput(raw){
+  const s = raw.trim().replace(/^[?#]+/, '');
+  const dec = v => { try{ return decodeURIComponent(v.replace(/\+/g,' ')); }catch(e){ return v; } };
+  const cm = s.match(/(?:^|[?&])c=([^&#]+)/);
+  const nm = s.match(/(?:^|[?&])n=([^&#]+)/);
+  let code = cm ? dec(cm[1]) : null;
+  let name = nm ? dec(nm[1]) : null;
+  if(!code && s.includes('.') && !s.includes('=')) code = s;
+  return { code, name };
+}
+
+function parseInput(){
+  const raw = document.getElementById('f-paste').value;
+  const { code, name } = parseSlideRulesInput(raw);
+  const statusEl = document.getElementById('parse-status');
+  if(code){
+    document.getElementById('f-code').value = code;
+    statusEl.textContent = '✓ code extracted' + (name ? ' · name extracted' : ' · add a name below');
+    statusEl.style.color = 'var(--green)';
+  } else {
+    statusEl.textContent = 'no code found — paste the ?c=... string';
+    statusEl.style.color = '#e06060';
+  }
+  if(name && !document.getElementById('f-name').value){
+    document.getElementById('f-name').value = name;
+  }
+}
+
+// Auto-parse on paste
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('f-paste').addEventListener('input', () => {
+    const v = document.getElementById('f-paste').value;
+    if(v.includes('.') && v.length > 10) parseInput();
+  });
+});
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+function previewSim(){
+  const code = document.getElementById('f-code').value.trim();
+  const name = document.getElementById('f-name').value.trim() || 'Preview';
+  if(!code){ alert('Add a code first.'); return; }
+  const wrap = document.getElementById('preview-wrap');
+  const frame = document.getElementById('preview-frame');
+  frame.src = `slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`;
+  wrap.classList.add('open');
+}
+
+// ── Publish ───────────────────────────────────────────────────────────────────
+async function publishSim(){
+  const name = document.getElementById('f-name').value.trim();
+  const code = document.getElementById('f-code').value.trim();
+  const desc = document.getElementById('f-desc').value.trim() || null;
+  const statusEl = document.getElementById('save-status');
+  if(!name || !code){ statusEl.textContent = 'Name and code are required.'; statusEl.style.color='#e06060'; return; }
+  document.getElementById('btn-publish').disabled = true;
+  statusEl.textContent = 'publishing…'; statusEl.style.color='var(--dim)';
+  const author = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || 'unknown';
+  const{error} = await db.from('slide_rules').insert({name, code, description:desc, author_name:author, published:true});
+  if(error){ statusEl.textContent = `Error: ${error.message}`; statusEl.style.color='#e06060'; document.getElementById('btn-publish').disabled=false; return; }
+  statusEl.textContent = '✓ Published!'; statusEl.style.color='var(--green)';
+  document.getElementById('f-paste').value = '';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-code').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('preview-wrap').classList.remove('open');
+  document.getElementById('preview-frame').src = 'about:blank';
+  document.getElementById('parse-status').textContent = '';
+  document.getElementById('btn-publish').disabled = false;
+  loadSims();
+}
+
+// ── Gallery ───────────────────────────────────────────────────────────────────
+function playInLodge(code, name){
+  // Tell parent to open the simulation in the content panel
+  const url = `slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`;
+  if(window.parent && window.parent.openContent){
+    window.parent.openContent(url, '🎮 ' + name);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+async function loadSims(){
+  const{data,error}=await db.from('slide_rules').select('*').eq('published',true).order('created_at',{ascending:false});
+  const grid = document.getElementById('sim-grid');
+  if(error||!data||data.length===0){
+    grid.innerHTML = `<div class="empty">*No simulations published yet.*<br><br>Add one using the form below.</div>`;
+    document.getElementById('sim-count').textContent = '';
+    return;
+  }
+  sims = data;
+  document.getElementById('sim-count').textContent = `${data.length} simulation${data.length===1?'':'s'}`;
+  grid.innerHTML = data.map(s=>`
+    <div class="sim-card">
+      <div class="sim-preview" onclick="playInLodge('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">
+        <div style="color:#3a3a3a;font-family:var(--mono);font-size:11px;text-align:center;padding:20px;pointer-events:none">
+          click to<br>run simulation
+        </div>
+      </div>
+      <div class="sim-body">
+        <div class="sim-name">${s.name}</div>
+        ${s.description?`<div class="sim-desc">${s.description}</div>`:''}
+        <div class="sim-meta">by ${s.author_name||'unknown'} · ${new Date(s.created_at).toLocaleDateString()}</div>
+      </div>
+      <button class="sim-play" onclick="playInLodge('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">▶ run</button>
+    </div>`).join('');
+}
+
+loadSims();
+</script>
+</body>
+</html>

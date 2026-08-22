@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Slide Rules</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;display:grid;place-items:center;overflow:hidden}
+  canvas{display:block;width:600px;height:auto;max-width:100%;max-height:100vh;
+         aspect-ratio:1/1;image-rendering:pixelated;background:#000}
+  #err{display:none;color:#8a8a8a;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;
+       text-align:center;padding:24px;max-width:34ch}
+</style>
+</head>
+<body>
+<canvas id="cv" width="600" height="600"></canvas>
+<p id="err">This browser can't run WebGL2, so the automaton can't be drawn.</p>
+<script>
+"use strict";
+/* ============================================================================
+   SLIDE RULES — compact single-file player (no controls)
+   Engine ported from slide-rules-bg.html: rule-compiled WebGL2 compute shader,
+   palette + scanline render pass, toroidal wrap, "stale" carry-forward.
+
+   ADDRESS
+     Loads Conway's Game of Life by default. Append a Slide Rules code to the
+     address to load that automaton instead:
+       sliderules.html?n=Diag+Drip&c=.AABDAABEhA0.B_A6QQ...
+       sliderules.html?c=.AABDAABEhA0.B_A6QQ...
+       sliderules.html?.AABDAABEhA0.B_A6QQ...        (bare code, no key)
+     A #hash works the same way. An unreadable code falls back to Conway.
+
+   FRAME
+     The sim is fast-forwarded to generation FRAME before the first paint, so
+     the opening image is the 200th 600x600 frame. It then keeps playing.
+     Set PLAY = false to hold on frame 200 as a still.
+   ========================================================================= */
+
+const SIZE      = 600;    // grid cells AND canvas pixels (1 cell = 1 px)
+const FRAME     = 200;    // generations to run before the first paint
+const PLAY      = true;   // false = freeze on frame FRAME
+const SPEED     = 1;      // sim ticks per rendered frame
+const SCANLINES = true;   // CRT-style dim on alternate rows (Slide Rules look)
+const SCAN_A    = 0.92;   // 1 = off, lower = stronger
+
+const DEFAULT_CODE = ".AADAMHwAI.BACACACAC.CAAAAAAAA.DACACACAB.EABAB.FAD" +
+  ".GGwAA_5kA__8AAP8FAP9mAP__AGb_MwD_zAD__wCZ____AAAA";
+const DEFAULT_NAME = "Conway's Game of Life";
+
+const FALLBACK_PALETTE = [
+  {r:255,g:0,b:0},{r:255,g:153,b:0},{r:255,g:255,b:0},{r:0,g:255,b:5},
+  {r:0,g:255,b:102},{r:0,g:255,b:255},{r:0,g:102,b:255},{r:51,g:0,b:255},
+  {r:204,g:0,b:255},{r:255,g:0,b:153},{r:255,g:255,b:255},{r:0,g:0,b:0}];
+
+/* ---- Slide Rules minified-code decoder (Base64URL) ---------------------- */
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+function bitmask2(s){                    // 2 chars -> array of set bits 0..11
+  if (typeof s !== "string" || s.length !== 2) return [];
+  const a = B64.indexOf(s[0]), b = B64.indexOf(s[1]);
+  if (a < 0 || b < 0) return [];
+  const m = (a << 6) | b, out = [];
+  for (let i = 0; i < 12; i++) if (m & (1 << i)) out.push(i);
+  return out;
+}
+function toArrays(s){                    // steps of 2 -> array of arrays
+  if (typeof s !== "string" || s.length % 2) return [];
+  const out = [];
+  for (let i = 0; i < s.length; i += 2) out.push(bitmask2(s.slice(i, i + 2)));
+  return out;
+}
+function toNums(s){                      // each char -> number 0..11
+  const out = [];
+  for (const c of (s || "")) { const n = B64.indexOf(c); if (n >= 0 && n <= 11) out.push(n); }
+  return out;
+}
+function toPalette(s){                   // 4 chars -> {r,g,b}
+  if (typeof s !== "string" || !s.length || s.length % 4) return null;
+  const out = [];
+  for (let i = 0; i < s.length; i += 4) {
+    const v = (B64.indexOf(s[i]) << 18) | (B64.indexOf(s[i+1]) << 12) |
+              (B64.indexOf(s[i+2]) <<  6) |  B64.indexOf(s[i+3]);
+    out.push({ r:(v >> 16) & 255, g:(v >> 8) & 255, b: v & 255 });
+  }
+  return out;
+}
+function decodeCode(code){
+  const seg = {}; let staleOff = false;
+  for (const p of String(code).split(".")) {
+    if (!p.length) continue;
+    const k = p[0];
+    if (k === "H") staleOff = true;      // .H flag = clean carry-forward
+    seg[k] = p.substring(1);
+  }
+  const rules = {
+    neighbors:   { validCounts: toArrays(seg.A || ""),
+                   validStates: toArrays(seg.B || ""),
+                   ignore:      toArrays(seg.C || "") },
+    currentCell: { validStates: toArrays(seg.D || ""),
+                   results:     toNums(seg.E || "") },
+    activeStates: ("F" in seg) ? bitmask2(seg.F) : [0,1,2,3,4,5,6,7,8,9,10,11],
+  };
+  return { rules, palette: ("G" in seg) ? toPalette(seg.G) : null, staleOff };
+}
+function isUsable(d){
+  return !!d && d.rules.currentCell.results.length > 0 &&
+         d.rules.currentCell.validStates.length > 0 &&
+         d.rules.activeStates.length > 0;
+}
+// Pull "c" (and optional "n") out of anything appended to the address.
+function resolveAddress(raw){
+  const s = String(raw || "").replace(/^[?#]+/, "").trim();
+  if (!s) return null;
+  const dec = (v) => { try { return decodeURIComponent(v.replace(/\+/g, " ")); }
+                       catch (e) { return v; } };
+  const cm = s.match(/(?:^|[?&])c=([^&#]+)/);
+  const nm = s.match(/(?:^|[?&])n=([^&#]+)/);
+  let code = cm ? dec(cm[1]) : null;
+  if (!code && s.includes(".") && !s.includes("=")) code = s;   // bare code
+  if (!code) return null;
+  return { code, name: nm ? dec(nm[1]) : "Custom" };
+}
+
+/* ---- deterministic seeding: one code always yields the same frame ------- */
+function hash32(str){
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+function rng(seed){
+  let s = seed >>> 0 || 1;
+  return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+}
+
+/* ---- GLSL generation ---------------------------------------------------- */
+const QUAD_VS = `#version 300 es
+in vec2 a_position;
+out vec2 v_texCoord;
+void main(){
+  gl_Position = vec4(a_position, 0.0, 1.0);
+  v_texCoord = (a_position + 1.0) * 0.5;
+}`;
+
+function contains(name, arr){            // "value is one of [...]"
+  if (!arr || arr.length === 0) return "false";
+  if (arr.length === 1) return `(${name} == ${arr[0]})`;
+  return "(" + arr.map(v => `${name} == ${v}`).join(" || ") + ")";
+}
+
+function buildComputeFS(rules, activeStates, staleOff){
+  let s = `#version 300 es
+precision highp float;
+in vec2 v_texCoord;
+out vec4 outColor;
+uniform sampler2D u_state;
+uniform vec2 u_resolution;`;
+  if (!staleOff) s += `
+uniform sampler2D u_stale;`;
+  s += `
+int getCell(vec2 offset){
+  vec2 coord = fract(v_texCoord + offset / u_resolution);
+  return int(texture(u_state, coord).r * 11.0 + 0.5);
+}
+void main(){
+  int neighbors[8];
+  neighbors[0] = getCell(vec2(-1.0,-1.0));
+  neighbors[1] = getCell(vec2( 0.0,-1.0));
+  neighbors[2] = getCell(vec2( 1.0,-1.0));
+  neighbors[3] = getCell(vec2(-1.0, 0.0));
+  neighbors[4] = getCell(vec2( 1.0, 0.0));
+  neighbors[5] = getCell(vec2(-1.0, 1.0));
+  neighbors[6] = getCell(vec2( 0.0, 1.0));
+  neighbors[7] = getCell(vec2( 1.0, 1.0));
+  int current = getCell(vec2(0.0,0.0));`;
+  s += staleOff
+    ? `
+  int next = current;`
+    : `
+  int next = int(texture(u_stale, v_texCoord).r * 11.0 + 0.5);`;
+  s += `
+  bool matched = false;`;
+  const n = rules.currentCell.validStates.length;
+  for (let i = 0; i < n; i++) {
+    const result = rules.currentCell.results[i];
+    if (!activeStates.includes(result)) continue;
+    const validCounts   = rules.neighbors.validCounts[i]   || [];
+    const validNbStates = rules.neighbors.validStates[i]   || [];
+    const validCurrent  = rules.currentCell.validStates[i] || [];
+    const ignore        = rules.neighbors.ignore[i]        || [];
+    s += `
+  if (!matched) {
+    if (${contains("current", validCurrent)}) {
+      int neighborCount = 0;`;
+    for (let j = 0; j < 8; j++) {
+      if (!ignore.includes(j)) s += `
+      if (${contains(`neighbors[${j}]`, validNbStates)}) neighborCount++;`;
+    }
+    s += `
+      if (${contains("neighborCount", validCounts)}) { next = ${result}; matched = true; }
+    }
+  }`;
+  }
+  s += `
+  outColor = vec4(float(next) / 11.0, 0.0, 0.0, 1.0);
+}`;
+  return s;
+}
+
+function buildRenderFS(size, scanlines, scanAlpha){
+  const dim = scanlines
+    ? `if (int(v_texCoord.y * ${size}.0) % 2 == 0) color *= ${scanAlpha.toFixed(4)};`
+    : ``;
+  return `#version 300 es
+precision highp float;
+in vec2 v_texCoord;
+out vec4 outColor;
+uniform sampler2D u_cellState;
+uniform sampler2D u_palette;
+void main(){
+  int cellState = int(texture(u_cellState, v_texCoord).r * 11.0 + 0.5);
+  vec3 color = texture(u_palette, vec2((float(cellState) + 0.5) / 12.0, 0.5)).rgb;
+  ${dim}
+  outColor = vec4(color, 1.0);
+}`;
+}
+
+/* ---- engine ------------------------------------------------------------- */
+class SlideRules {
+  constructor(canvas, decoded, seedKey){
+    this.canvas = canvas;
+    this.size = SIZE;
+    this.rules = decoded.rules;
+    this.staleOff = decoded.staleOff === true;
+    this.activeStates = decoded.rules.activeStates;
+
+    this.palette = (decoded.palette && decoded.palette.length
+      ? decoded.palette : FALLBACK_PALETTE).slice(0, 12);
+    while (this.palette.length < 12) this.palette.push({ r:0, g:0, b:0 });
+
+    this.lut = new Uint8Array(12);
+    for (let i = 0; i < 12; i++) this.lut[i] = Math.round((i / 11) * 255);
+    this.accum = 0;
+
+    // preserveDrawingBuffer keeps canvas.toDataURL() valid outside the raf tick,
+    // so the host page can grab the frame whenever it likes.
+    const gl = canvas.getContext("webgl2", {
+      premultipliedAlpha:false, antialias:false, preserveDrawingBuffer:true, alpha:false });
+    if (!gl) throw new Error("no webgl2");
+    this.gl = gl;
+
+    this.initCompute();
+    this.seed(seedKey);
+    this.initRender();
+
+    gl.viewport(0, 0, this.size, this.size);
+    for (let i = 0; i < FRAME; i++) this.tick();   // fast-forward to frame 200
+    this.render();
+
+    if (PLAY) { this.frame = this.frame.bind(this); requestAnimationFrame(this.frame); }
+  }
+
+  compile(vsSrc, fsSrc){
+    const gl = this.gl;
+    const mk = (type, src) => {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS))
+        throw new Error(gl.getShaderInfoLog(sh) + "\n" + src);
+      return sh;
+    };
+    const vs = mk(gl.VERTEX_SHADER, vsSrc), fs = mk(gl.FRAGMENT_SHADER, fsSrc);
+    const p = gl.createProgram();
+    gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
+    gl.deleteShader(vs); gl.deleteShader(fs);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+
+  cellTexture(data){
+    const gl = this.gl, t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);     // toroidal
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.size, this.size, 0,
+                  gl.RED, gl.UNSIGNED_BYTE, data || null);
+    return t;
+  }
+
+  initCompute(){
+    const gl = this.gl;
+    this.computeProg = this.compile(QUAD_VS,
+      buildComputeFS(this.rules, this.activeStates, this.staleOff));
+    this.cLoc = {
+      position:   gl.getAttribLocation(this.computeProg, "a_position"),
+      state:      gl.getUniformLocation(this.computeProg, "u_state"),
+      stale:      gl.getUniformLocation(this.computeProg, "u_stale"),
+      resolution: gl.getUniformLocation(this.computeProg, "u_resolution"),
+    };
+    this.vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER,
+      new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    this.textures = [this.cellTexture(), this.cellTexture()];
+    this.curTex = 0;
+    this.fbo = gl.createFramebuffer();
+
+    if (!this.staleOff) {
+      const v = Math.round(((this.activeStates[0] || 0) / 11) * 255);
+      const init = new Uint8Array(this.size * this.size).fill(v);
+      this.staleTex = [this.cellTexture(init), this.cellTexture(init)];
+      this.curStale = 0;
+    }
+  }
+
+  seed(key){
+    const gl = this.gl;
+    const rand = rng(hash32(key));
+    const data = new Uint8Array(this.size * this.size);
+    const st = this.activeStates, n = st.length;
+    for (let i = 0; i < data.length; i++) data[i] = this.lut[st[(rand() * n) | 0]] || 0;
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    for (const t of this.textures) {
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.size, this.size, 0,
+                    gl.RED, gl.UNSIGNED_BYTE, data);
+    }
+  }
+
+  initRender(){
+    const gl = this.gl;
+    this.renderProg = this.compile(QUAD_VS, buildRenderFS(this.size, SCANLINES, SCAN_A));
+    this.rLoc = {
+      position:  gl.getAttribLocation(this.renderProg, "a_position"),
+      cellState: gl.getUniformLocation(this.renderProg, "u_cellState"),
+      palette:   gl.getUniformLocation(this.renderProg, "u_palette"),
+    };
+    const pd = new Uint8Array(12 * 3);
+    for (let i = 0; i < 12; i++) {
+      const c = this.palette[i] || { r:0, g:0, b:0 };
+      pd[i*3] = c.r; pd[i*3+1] = c.g; pd[i*3+2] = c.b;
+    }
+    this.paletteTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, 12, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, pd);
+  }
+
+  tick(){
+    const gl = this.gl;
+    gl.disable(gl.BLEND);
+    gl.useProgram(this.computeProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    gl.enableVertexAttribArray(this.cLoc.position);
+    gl.vertexAttribPointer(this.cLoc.position, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(this.cLoc.resolution, this.size, this.size);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.viewport(0, 0, this.size, this.size);
+
+    if (this.staleOff) {
+      const next = 1 - this.curTex;
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
+                              this.textures[next], 0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.textures[this.curTex]);
+      gl.uniform1i(this.cLoc.state, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      this.curTex = next;
+    } else {
+      const rd = this.curStale, wr = 1 - rd;
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
+                              this.staleTex[wr], 0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.textures[this.curTex]);
+      gl.uniform1i(this.cLoc.state, 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.staleTex[rd]);
+      gl.uniform1i(this.cLoc.stale, 1);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      this.curStale = wr;
+      gl.bindTexture(gl.TEXTURE_2D, this.textures[this.curTex]);
+      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, this.size, this.size);
+    }
+  }
+
+  render(){
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    gl.disable(gl.BLEND);
+    gl.useProgram(this.renderProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.curTex]);
+    gl.uniform1i(this.rLoc.cellState, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
+    gl.uniform1i(this.rLoc.palette, 1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    gl.enableVertexAttribArray(this.rLoc.position);
+    gl.vertexAttribPointer(this.rLoc.position, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  frame(){
+    if (SPEED > 0) {
+      this.accum += SPEED;
+      let steps = 0;
+      while (this.accum >= 1 && steps < 4) { this.accum -= 1; this.tick(); steps++; }
+    }
+    this.render();
+    requestAnimationFrame(this.frame);
+  }
+}
+
+/* ---- boot --------------------------------------------------------------- */
+function start(){
+  const canvas = document.getElementById("cv");
+  const fromUrl = resolveAddress(location.search || location.hash);
+  let code = DEFAULT_CODE, name = DEFAULT_NAME;
+
+  if (fromUrl && isUsable(decodeCode(fromUrl.code))) {
+    code = fromUrl.code; name = fromUrl.name;
+  }
+  document.title = name + " — Slide Rules";
+
+  try {
+    new SlideRules(canvas, decodeCode(code), code);
+  } catch (e) {
+    console.error("Slide Rules:", e);
+    canvas.style.display = "none";
+    document.getElementById("err").style.display = "block";
+  }
+}
+if (document.readyState === "loading")
+  window.addEventListener("DOMContentLoaded", start);
+else start();
+</script>
+</body>
+</html>

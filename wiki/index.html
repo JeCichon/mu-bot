@@ -205,6 +205,7 @@
       <span class="sidebar-link" onclick="openContent('player.html','♪ Playlist')">♪ Playlist</span>
       <span class="sidebar-link" onclick="openContent('cards.html','🃏 Cards')">🃏 Cards</span>
       <span class="sidebar-link" onclick="openContent('characters.html','🧙 Characters')">🧙 Characters</span>
+      <span class="sidebar-link" onclick="openContent('simulations.html','🎮 Slide Rules')">🎮 Slide Rules</span>
       <span class="sidebar-link" id="link-muflow" style="display:none" onclick="openContent('mu-flow.html','🔬 Mu Flow')">🔬 Mu Flow</span>
     </div>
     <div class="sidebar-section">
@@ -242,6 +243,12 @@
       <div class="input-hint">shift+enter for new line · mention <em>mu</em> for a response</div>
     </div>
   </div>
+</div>
+
+<!-- Slide Rules Background Overlay -->
+<div id="life-overlay" style="position:fixed;inset:0;z-index:10;pointer-events:auto;opacity:0;transform:translateY(100%);transition:transform 0s;overflow:hidden;cursor:pointer;" onclick="dismissLife()" title="click to dismiss">
+  <iframe id="life-frame" style="width:100%;height:100%;border:none;background:#000;" src="about:blank"></iframe>
+  <div style="position:absolute;bottom:16px;right:16px;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.3);pointer-events:none;">click to dismiss</div>
 </div>
 
 <!-- Changelog Modal -->
@@ -491,6 +498,13 @@ async function checkDailyGreeting(user){
 }
 
 function subscribeToMessages(){
+  // /life command — trigger background simulation
+  if(text.toLowerCase().startsWith('/life')){
+    inp.value='';inp.style.height='auto';
+    triggerLifeBackground();
+    return;
+  }
+
   const user=currentUser;
   const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
@@ -653,6 +667,13 @@ async function sendMessage(){
   if(!text||!currentUser)return;
   inp.value="";inp.style.height="auto";
 
+  // /life command — trigger background simulation
+  if(text.toLowerCase().startsWith('/life')){
+    inp.value='';inp.style.height='auto';
+    triggerLifeBackground();
+    return;
+  }
+
   const user=currentUser;
   const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
@@ -713,6 +734,58 @@ function checkAndReconnect(){
     db.removeChannel(realtimeChannel);
     subscribeToMessages();
   }
+}
+
+// ── Slide Rules background effect ────────────────────────────────────────────
+const CONWAY_DEFAULT = '.AADAMHwAI.BACACACAC.CAAAAAAAA.DACACACAB.EABAB.FAD.GGwAA_5kA__8AAP8FAP9mAP__AGb_MwD_zAD__wCZ____AAAA';
+
+async function triggerLifeBackground(){
+  const overlay = document.getElementById('life-overlay');
+  const frame   = document.getElementById('life-frame');
+  if(!overlay||!frame) return;
+
+  // Fetch a random published simulation (or fall back to Conway)
+  let code = CONWAY_DEFAULT, name = "Conway's Game of Life";
+  try{
+    const{data}=await db.from('slide_rules').select('code,name').eq('published',true);
+    if(data&&data.length>0){
+      const pick=data[Math.floor(Math.random()*data.length)];
+      code=pick.code; name=pick.name;
+    }
+  }catch(_){}
+
+  // Load and animate up from bottom
+  frame.src = `slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`;
+  overlay.style.transition = 'transform 0s, opacity 0s';
+  overlay.style.transform  = 'translateY(100%)';
+  overlay.style.opacity    = '1';
+  overlay.style.pointerEvents = 'auto';
+
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    overlay.style.transition = 'transform 2.5s cubic-bezier(.22,.61,.36,1)';
+    overlay.style.transform  = 'translateY(0)';
+  }));
+
+  // Auto-dismiss after 28 seconds
+  const t = setTimeout(dismissLife, 28000);
+  overlay._dismissTimer = t;
+}
+
+function dismissLife(){
+  const overlay = document.getElementById('life-overlay');
+  const frame   = document.getElementById('life-frame');
+  if(!overlay) return;
+  clearTimeout(overlay._dismissTimer);
+  overlay.style.transition = 'transform 2s ease-in, opacity 1s ease-in';
+  overlay.style.transform  = 'translateY(-100%)';
+  overlay.style.opacity    = '0';
+  setTimeout(()=>{
+    overlay.style.transition = 'transform 0s';
+    overlay.style.transform  = 'translateY(100%)';
+    overlay.style.opacity    = '1';
+    overlay.style.pointerEvents = 'none';
+    if(frame) frame.src = 'about:blank';
+  }, 2100);
 }
 
 // Check every 30 seconds
