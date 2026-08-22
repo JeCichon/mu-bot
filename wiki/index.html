@@ -246,9 +246,11 @@
 </div>
 
 <!-- Slide Rules Background Overlay -->
-<div id="life-overlay" style="position:fixed;inset:0;z-index:10;pointer-events:auto;opacity:0;transform:translateY(100%);transition:transform 0s;overflow:hidden;cursor:pointer;" onclick="dismissLife()" title="click to dismiss">
-  <iframe id="life-frame" style="width:100%;height:100%;border:none;background:#000;" src="about:blank"></iframe>
-  <div style="position:absolute;bottom:16px;right:16px;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.3);pointer-events:none;">click to dismiss</div>
+<div id="life-overlay" style="position:fixed;inset:0;z-index:10;pointer-events:none;opacity:0;transform:translateY(100%);transition:transform 0s;overflow:hidden;">
+  <iframe id="life-frame" style="width:100%;height:100%;border:none;background:#000;pointer-events:none;" src="about:blank"></iframe>
+  <!-- Transparent click catcher sits on top of iframe -->
+  <div id="life-dismiss" onclick="dismissLife()" style="position:absolute;inset:0;cursor:pointer;z-index:1;"></div>
+  <div style="position:absolute;bottom:16px;right:16px;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.4);pointer-events:none;z-index:2;">click anywhere to dismiss</div>
 </div>
 
 <!-- Changelog Modal -->
@@ -460,14 +462,16 @@ async function showApp(user){
   loadSidebarChangelog();
   await Promise.all([loadRecentMessages(), loadMuAvatar()]);
   subscribeToMessages();
-  // Check role — show archmage tools
-  const{data:roleData}=await db.from('user_roles').select('role').eq('user_id',user.id).maybeSingle();
-  if(roleData?.role==='archmage'){
-    const fl=document.getElementById('link-muflow');
-    if(fl) fl.style.display='block';
-    const ac=document.getElementById('btn-add-changelog');
-    if(ac) ac.style.display='block';
-  }
+  // Check role — show archmage tools (wrapped so errors don't block it)
+  try{
+    const{data:roleData}=await db.from('user_roles').select('role').eq('user_id',user.id).maybeSingle();
+    if(roleData?.role==='archmage'){
+      const fl=document.getElementById('link-muflow');
+      if(fl) fl.style.display='block';
+      const ac=document.getElementById('btn-add-changelog');
+      if(ac) ac.style.display='block';
+    }
+  }catch(err){ console.warn('Role check failed:',err.message); }
   // Daily personal greeting (only once per day per user)
   setTimeout(()=>checkDailyGreeting(user), 800);
 }
@@ -759,7 +763,7 @@ async function triggerLifeBackground(){
   overlay.style.transition = 'transform 0s, opacity 0s';
   overlay.style.transform  = 'translateY(100%)';
   overlay.style.opacity    = '1';
-  overlay.style.pointerEvents = 'auto';
+  overlay.style.pointerEvents = 'auto'; // enable so dismiss-div can receive clicks
 
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     overlay.style.transition = 'transform 2.5s cubic-bezier(.22,.61,.36,1)';
@@ -783,7 +787,7 @@ function dismissLife(){
     overlay.style.transition = 'transform 0s';
     overlay.style.transform  = 'translateY(100%)';
     overlay.style.opacity    = '1';
-    overlay.style.pointerEvents = 'none';
+    overlay.style.pointerEvents = 'none'; // disable again after dismiss
     if(frame) frame.src = 'about:blank';
   }, 2100);
 }
