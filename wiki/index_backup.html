@@ -291,13 +291,6 @@
 </div>
 
 <script>
-// ── Iframe breakout guard ────────────────────────────────────────────────────
-// Prevents the Lodge from spawning inside itself if loaded in a content panel iframe
-if(window.self !== window.top){
-  try{ window.top.location.href = window.location.href; }
-  catch(e){ window.location.href = 'index.html'; }
-}
-
 // ── Config ────────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
@@ -589,8 +582,7 @@ async function loadRecentMessages(){
       renderMessage(msg);
     }catch(err){ console.warn('Failed to render message',msg?.id,err.message); }
   });
-  // Delay ensures browser has painted all messages before scrolling
-  setTimeout(scrollToBottom, 80);
+  scrollToBottom();
 }
 
 // ── Message content parser ────────────────────────────────────────────────────
@@ -678,10 +670,7 @@ function addDateDivider(dateStr){
 
 function scrollToBottom(){
   const el=document.getElementById("chat-messages");
-  if(!el) return;
   el.scrollTop=el.scrollHeight;
-  // Second nudge for images/media that load after initial paint
-  setTimeout(()=>{ el.scrollTop=el.scrollHeight; }, 200);
 }
 
 // ── Send message ──────────────────────────────────────────────────────────────
