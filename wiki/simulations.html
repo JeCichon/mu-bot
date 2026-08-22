@@ -129,6 +129,9 @@
 
       <!-- Live preview -->
       <div class="preview-wrap" id="preview-wrap">
+        <div style="display:flex;justify-content:flex-end;padding:4px 6px;background:var(--brown3);">
+          <button onclick="document.getElementById('preview-wrap').classList.remove('open');document.getElementById('preview-frame').src='about:blank';" style="background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:11px;cursor:pointer;">× close preview</button>
+        </div>
         <iframe class="preview-frame" id="preview-frame" src="about:blank"></iframe>
       </div>
 
@@ -235,13 +238,8 @@ async function publishSim(){
 
 // ── Gallery ───────────────────────────────────────────────────────────────────
 function playInLodge(code, name){
-  // Tell parent to open the simulation in the content panel
   const url = `slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`;
-  if(window.parent && window.parent.openContent){
-    window.parent.openContent(url, '🎮 ' + name);
-  } else {
-    window.open(url, '_blank');
-  }
+  window.open(url, '_blank');
 }
 
 async function loadSims(){
