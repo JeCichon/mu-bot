@@ -264,8 +264,17 @@
   <div class="fb-modal">
     <button class="modal-close" onclick="closeFeedback()">×</button>
     <div class="modal-title" style="margin-bottom:12px">✎ Submit Feedback</div>
-    <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em;">page</div>
-    <div style="font-size:13px;color:var(--green);font-family:var(--mono);background:var(--brown3);padding:5px 10px;border-radius:4px;margin-bottom:12px;" id="fb-page-display">Lodge Chat</div>
+    <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em;">page <span style="color:var(--dim);font-size:10px;normal;text-transform:none">(click to change)</span></div>
+    <div style="position:relative;margin-bottom:12px;">
+      <div id="fb-page-display" onclick="togglePagePicker()" style="font-size:13px;color:var(--green);font-family:var(--mono);background:var(--brown3);padding:5px 10px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <span id="fb-page-text">Lodge Chat</span><span style="color:var(--dim);font-size:11px">▾</span>
+      </div>
+      <div id="fb-page-picker" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--brown2);border:1px solid var(--brown3);border-radius:4px;margin-top:2px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.3);">
+        ${['Lodge Chat','Library','Cards','Characters','Playlist','Slide Rules','What\'s New','Changelog','Mu Flow','Feedback','Other'].map(p=>`
+          <div onclick="selectPage('${p}')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);"
+            onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">${p}</div>`).join('')}
+      </div>
+    </div>
     <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">type</div>
     <div class="fb-type-row">
       <button class="fb-type-btn suggestion selected" onclick="selectFbType('suggestion',this)">💡 suggestion</button>
@@ -968,11 +977,21 @@ function closeModal(){ document.getElementById("modal-bg").classList.remove("ope
 // ── Feedback system ────────────────────────────────────────────────────────
 let fbType='suggestion';
 
+function togglePagePicker(){
+  const picker=document.getElementById('fb-page-picker');
+  picker.style.display=picker.style.display==='none'?'block':'none';
+}
+function selectPage(page){
+  document.getElementById('fb-page-text').textContent=page;
+  document.getElementById('fb-page-picker').style.display='none';
+}
+
 function openFeedback(){
   const contentTitle=document.getElementById('content-title')?.textContent?.trim();
   const isContentOpen=document.getElementById('content-wrap')?.style.display!=='none';
   const page=isContentOpen&&contentTitle?contentTitle:'Lodge Chat';
-  document.getElementById('fb-page-display').textContent=page;
+  document.getElementById('fb-page-text').textContent=page;
+  document.getElementById('fb-page-picker').style.display='none';
   document.getElementById('fb-desc').value='';
   document.getElementById('fb-status').textContent='';
   fbType='suggestion';
@@ -995,7 +1014,7 @@ function selectFbType(type,btn){
 
 async function submitFeedback(){
   const desc=document.getElementById('fb-desc').value.trim();
-  const page=document.getElementById('fb-page-display').textContent;
+  const page=document.getElementById('fb-page-text').textContent;
   const statusEl=document.getElementById('fb-status');
   if(!desc){statusEl.textContent='Please describe the issue first.';statusEl.style.color='#e06060';return;}
   statusEl.textContent='submitting…';statusEl.style.color='var(--dim)';
@@ -1044,6 +1063,12 @@ async function saveChangelogEntry(){
   setTimeout(closeChangelogModal,900);
 }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){closeModal();closeChangelogModal();closeFeedback();} });
+document.addEventListener("click",e=>{
+  if(!e.target.closest('#fb-page-display')&&!e.target.closest('#fb-page-picker')){
+    const p=document.getElementById('fb-page-picker');
+    if(p) p.style.display='none';
+  }
+});
 </script>
 </body>
 </html>
