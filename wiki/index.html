@@ -546,8 +546,23 @@ function subscribeToMessages(){
           user_avatar:avatar,
           online_at:new Date().toISOString(),
         });
+        // Manually sync presence after tracking (fires even if 'sync' event is delayed)
+        setTimeout(()=>updateMembersList(realtimeChannel.presenceState()), 600);
       }
     });
+
+  // Fallback: show at least current user if presence hasn't synced after 6s
+  setTimeout(()=>{
+    const ml=document.getElementById('members-list');
+    if(ml&&ml.querySelector('.loading')){
+      const avatarHtml=avatar?`<img src="${avatar}" alt="">`:'👤';
+      ml.innerHTML=`<div class="member-row">
+        <div class="member-dot"></div>
+        <div class="member-avatar">${avatarHtml}</div>
+        <span class="member-name">${name} (you)</span>
+      </div>`;
+    }
+  }, 6000);
 }
 
 function updateMembersList(state){

@@ -72,6 +72,14 @@
   .empty{color:var(--dim);font-family:var(--mono);font-size:12px;text-align:center;padding:30px;}
   .divider{border:none;border-top:1px solid var(--brown3);margin:24px 0;}
 
+  /* Hover preview */
+  .sim-preview{position:relative;overflow:hidden;}
+  .sim-preview iframe{position:absolute;inset:0;width:100%;height:100%;border:none;pointer-events:none;z-index:1;}
+  .sim-preview-label{position:relative;z-index:2;transition:opacity .3s;}
+  .sim-preview:hover .sim-preview-label{opacity:0;}
+  .sim-hint{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.35);z-index:2;transition:opacity .3s;}
+  .sim-preview:hover .sim-hint{opacity:0;}
+
   ::-webkit-scrollbar{width:5px;}
   ::-webkit-scrollbar-track{background:var(--brown);}
   ::-webkit-scrollbar-thumb{background:var(--brown3);border-radius:3px;}
@@ -252,6 +260,30 @@ function playInLodge(code, name){
   window.open(url, '_blank');
 }
 
+// ── Preview helpers ────────────────────────────────────────────────────────
+function codeToColor(code){
+  let h=0;
+  for(let i=0;i<Math.min(code.length,80);i++) h=((h<<5)-h)+code.charCodeAt(i)|0;
+  const hue=Math.abs(h)%360;
+  return`hsl(${hue},40%,10%)`;
+}
+
+function startPreview(div){
+  if(div.querySelector('iframe')) return;
+  const code=decodeURIComponent(div.dataset.code||'');
+  const name=decodeURIComponent(div.dataset.name||'');
+  if(!code) return;
+  const fr=document.createElement('iframe');
+  fr.src=`slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`;
+  fr.setAttribute('sandbox','allow-scripts allow-same-origin');
+  div.appendChild(fr);
+}
+
+function stopPreview(div){
+  const fr=div.querySelector('iframe');
+  if(fr) fr.remove();
+}
+
 async function loadSims(){
   const{data,error}=await db.from('slide_rules').select('*').eq('published',true).order('created_at',{ascending:false});
   const grid = document.getElementById('sim-grid');
@@ -264,10 +296,15 @@ async function loadSims(){
   document.getElementById('sim-count').textContent = `${data.length} simulation${data.length===1?'':'s'}`;
   grid.innerHTML = data.map(s=>`
     <div class="sim-card">
-      <div class="sim-preview" onclick="playInLodge('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">
-        <div style="color:#3a3a3a;font-family:var(--mono);font-size:11px;text-align:center;padding:20px;pointer-events:none">
-          click to<br>run simulation
-        </div>
+      <div class="sim-preview"
+        style="background:${codeToColor(s.code)}"
+        data-code="${encodeURIComponent(s.code)}"
+        data-name="${encodeURIComponent(s.name)}"
+        onmouseenter="startPreview(this)"
+        onmouseleave="stopPreview(this)"
+        onclick="playInLodge('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">
+        <div class="sim-preview-label">${s.name}</div>
+        <div class="sim-hint">hover to preview · click to open</div>
       </div>
       <div class="sim-body">
         <div class="sim-name">${s.name}</div>
