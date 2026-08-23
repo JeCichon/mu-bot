@@ -166,10 +166,16 @@
   .help-desc { color:var(--parchment2); }
 
   .loading { color:var(--dim); font-family:var(--mono); font-size:13px; font-style:italic; padding:40px; text-align:center; }
-  .entry-image { width:100%; max-height:220px; object-fit:cover; border-radius:4px; margin-bottom:12px; display:block; }
+  .entry-image { width:100%; max-height:260px; object-fit:contain; border-radius:4px; margin-bottom:12px; display:block; background:var(--brown3); cursor:pointer; }
   .entry-url { display:block; font-size:12px; font-family:var(--mono); color:var(--green); margin-top:8px; word-break:break-all; }
   .entry-url:hover { color:var(--parchment); }
   .upload-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .form-img-preview { width:80px; height:60px; object-fit:contain; border-radius:4px; border:1px solid var(--brown3); background:var(--brown3); display:none; }
+  .form-img-preview.visible { display:block; }
+  .form-upload-row { display:flex; align-items:center; gap:10px; margin-top:8px; margin-bottom:12px; }
+  .form-upload-btn { background:var(--brown3); border:1px solid var(--green3); color:var(--green); font-family:var(--mono); font-size:11px; padding:5px 12px; border-radius:4px; cursor:pointer; flex-shrink:0; }
+  .form-upload-btn:hover { color:var(--parchment); }
+  .form-upload-status { font-size:11px; font-family:var(--mono); color:var(--dim); }
   .lib-upload-btn { background:var(--brown3); border:1px solid var(--green3); color:var(--green); font-family:var(--mono); font-size:11px; padding:4px 12px; border-radius:4px; cursor:pointer; }
   .lib-upload-btn:hover { color:var(--parchment); }
   .lib-upload-status { font-size:11px; font-family:var(--mono); color:var(--dim); }
@@ -291,6 +297,14 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
         <textarea id="f-content" placeholder="Describe this entry…" rows="4"></textarea>
       </div>
 
+      <!-- Image upload -->
+      <div class="form-upload-row">
+        <button type="button" class="form-upload-btn" onclick="document.getElementById('form-img-input').click()">⬆ upload image</button>
+        <input type="file" id="form-img-input" accept="image/*" style="display:none" onchange="handleFormImageSelect(event)">
+        <img class="form-img-preview" id="form-img-preview" src="" alt="preview">
+        <span class="form-upload-status" id="form-img-status"></span>
+      </div>
+
       <!-- Card Groups -->
       <div class="cards-section">
         <div class="cards-section-label">cards — groups of 3</div>
@@ -339,6 +353,7 @@ function cardRgb(c){ return `rgb(${c.r},${c.g},${c.b})`; }
 // ── Auth ──────────────────────────────────────────────────────────────────────
 let currentUser = null;
 let editingEntryId = null; // null = creating new, number = editing existing
+let pendingImageUrl = null;  // image uploaded in form, saved with entry
 let currentDetailId = null;  // tracks which entry is open in detail modal
 
 db.auth.onAuthStateChange((_e, session) => {
@@ -430,15 +445,8 @@ async function openDetail(id){
 
   let extra = '';
   // Image if present
-  if(entry.image_url) extra += `<img class="entry-image" src="${entry.image_url}" alt="${entry.title}">`;
-  // Upload image button (for creators)
-  if(CAN_CREATE.includes(userRole)){
-    extra += `<div class="upload-row">
-      <button class="lib-upload-btn" onclick="document.getElementById('lib-img-input').click()">⬆ upload image</button>
-      <input type="file" id="lib-img-input" accept="image/*" style="display:none" onchange="handleLibraryUpload(event,${entry.id})">
-      <span class="lib-upload-status" id="lib-upload-status"></span>
-    </div>`;
-  }
+  if(entry.image_url) extra += `<img class="entry-image" src="${entry.image_url}" alt="${entry.title}" onclick="window.open(this.src,'_blank')" title="Click to open full size">`;
+  // Image upload now in create/edit form
   // URL link
   if(entry.url){
     const label=entry.url_label||entry.url.replace(/^https?:\/\//,'').split('/')[0];
@@ -573,6 +581,12 @@ function openCreateModal(entryData=null, cardGroups=null){
   document.getElementById('f-tags').value    = entryData?.tags || '';
   document.getElementById('f-url').value       = entryData?.url       || '';
   document.getElementById('f-url-label').value = entryData?.url_label || '';
+  // Image: show existing if editing, reset if new
+  pendingImageUrl = entryData?.image_url || null;
+  const prevImg = document.getElementById('form-img-preview');
+  const prevStatus = document.getElementById('form-img-status');
+  if(prevImg){ if(pendingImageUrl){ prevImg.src=pendingImageUrl; prevImg.classList.add('visible'); }else{ prevImg.src=''; prevImg.classList.remove('visible'); } }
+  if(prevStatus) prevStatus.textContent='';
   document.getElementById('create-status').textContent = '';
   document.getElementById('btn-save').disabled = false;
   const saveBtn = document.getElementById('btn-save');
@@ -751,6 +765,28 @@ function toggleHelp(){
 }
 
 // ── Library Image Upload
+// ── Form image selection (before entry exists) ───────────────────────────────
+async function handleFormImageSelect(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const statusEl=document.getElementById('form-img-status');
+  const previewEl=document.getElementById('form-img-preview');
+  statusEl.textContent='uploading…'; statusEl.style.color='var(--dim)';
+  try{
+    const ext=file.name.split('.').pop().toLowerCase();
+    const path=`library/new_${Date.now()}.${ext}`;
+    const{error:upErr}=await db.storage.from('library-images').upload(path,file,{upsert:true});
+    if(upErr) throw upErr;
+    const{data:urlData}=db.storage.from('library-images').getPublicUrl(path);
+    pendingImageUrl=urlData.publicUrl;
+    previewEl.src=pendingImageUrl; previewEl.classList.add('visible');
+    statusEl.textContent='✓ ready'; statusEl.style.color='var(--green)';
+  }catch(err){
+    statusEl.textContent=`error: ${err.message}`; statusEl.style.color='#e06060';
+  }
+  event.target.value='';
+}
+
 // ── Library Image Upload ─────────────────────────────────────────────────────────
 async function handleLibraryUpload(event, entryId){
   const file=event.target.files[0];
@@ -832,7 +868,7 @@ async function saveEntry(){
     // UPDATE existing entry
     const url = (document.getElementById('f-url').value||'').trim()||null;
     const{data:updated,error}=await db.from('library_entries')
-      .update({title,entry_type:type,content,subtype,tags,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null})
+      .update({title,entry_type:type,content,subtype,tags,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrl||null})
       .eq('id', editingEntryId).select().single();
     if(error||!updated){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
@@ -856,7 +892,7 @@ async function saveEntry(){
     // INSERT new entry
     const url=(document.getElementById('f-url')?.value||'').trim()||null;
   const{data:inserted,error}=await db.from('library_entries')
-      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null})
+      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrl||null})
       .select().single();
     if(error||!inserted){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
