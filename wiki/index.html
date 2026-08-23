@@ -530,12 +530,18 @@ function subscribeToMessages(){
   const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
 
-  realtimeChannel=db.channel('lodge-chat')
+  realtimeChannel=db.channel('lodge-chat',{config:{presence:{key:user.id}}})
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{
       const msg=payload.new;
       if(!shownIds.has(msg.id)) renderMessage(msg);
     })
     .on('presence',{event:'sync'},()=>{
+      updateMembersList(realtimeChannel.presenceState());
+    })
+    .on('presence',{event:'join'},()=>{
+      updateMembersList(realtimeChannel.presenceState());
+    })
+    .on('presence',{event:'leave'},()=>{
       updateMembersList(realtimeChannel.presenceState());
     })
     .subscribe(async(status)=>{
@@ -546,15 +552,21 @@ function subscribeToMessages(){
           user_avatar:avatar,
           online_at:new Date().toISOString(),
         });
-        // Manually sync presence after tracking (fires even if 'sync' event is delayed)
-        setTimeout(()=>updateMembersList(realtimeChannel.presenceState()), 600);
+        setTimeout(()=>updateMembersList(realtimeChannel.presenceState()), 800);
       }
     });
 
-  // Fallback: show at least current user if presence hasn't synced after 6s
+  // Poll every 3s as ultimate fallback for browsers where events don't fire
+  const presencePoll=setInterval(()=>{
+    if(!realtimeChannel){clearInterval(presencePoll);return;}
+    const state=realtimeChannel.presenceState();
+    if(Object.keys(state).length>0) updateMembersList(state);
+  },3000);
+
+  // Hard fallback: show current user after 8s if still empty
   setTimeout(()=>{
     const ml=document.getElementById('members-list');
-    if(ml&&ml.querySelector('.loading')){
+    if(ml&&ml.innerHTML.includes('class="loading"')){
       const avatarHtml=avatar?`<img src="${avatar}" alt="">`:'👤';
       ml.innerHTML=`<div class="member-row">
         <div class="member-dot"></div>
@@ -562,7 +574,7 @@ function subscribeToMessages(){
         <span class="member-name">${name} (you)</span>
       </div>`;
     }
-  }, 6000);
+  },8000);
 }
 
 function updateMembersList(state){
