@@ -212,6 +212,8 @@
 
     <div class="sidebar-section">
       <div class="sidebar-label">navigate</div>
+      <span class="sidebar-link" onclick="closeContent()">🏠 Lodge Chat</span>
+      <span class="sidebar-link" onclick="openFeedback()" style="color:var(--dim)">✎ Suggest</span>
       <span class="sidebar-link" onclick="openContent('library.html','📚 Library')">📚 Library</span>
       <span class="sidebar-link" onclick="openContent('player.html','♪ Playlist')">♪ Playlist</span>
       <span class="sidebar-link" onclick="openContent('cards.html','🃏 Cards')">🃏 Cards</span>
@@ -936,6 +938,17 @@ async function loadSidebarChangelog(){
   }catch(err){el.innerHTML=`<div class="loading">—</div>`;}
 }
 
+// ── Sidebar content parser (wikilinks + paragraphs) ─────────────────────────
+function parseSidebarContent(text){
+  if(!text) return '<p>—</p>';
+  let html=text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\[\[([^\]]+)\]\]/g,(_,title)=>
+      `<span style="color:rgb(144,171,153);cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="openLibrary();closeModal()" title="Find in Library: ${title}">${title}</span>`)
+    .replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+  return html.split(/\n\n+/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+}
+
 async function openEntry(id){
   const{data}=await db.from("library_entries").select("*").eq("id",id).single();
   if(!data)return;
@@ -943,20 +956,36 @@ async function openEntry(id){
   const rgb=data.r!=null?`rgb(${data.r},${data.g},${data.b})`:null;
   document.getElementById("modal-title").innerHTML=`${emoji} ${data.title}`;
   document.getElementById("modal-meta").innerHTML=`${data.entry_type}${data.subtype?" · "+data.subtype:""} · by ${data.author||"unknown"} · ${new Date(data.created_at).toLocaleDateString()}${rgb?` <span class="modal-rgb" style="background:${rgb}"></span>`:""}`;
-  // Paragraph formatting
-  const fmt=(data.content||"—").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-    .split(/\n\n+/).map(p=>`<p>${p.replace(/\n/g,"<br>")}</p>`).join("");
-  document.getElementById("modal-content").innerHTML=fmt;
-  // URL link
-  const existingUrl=document.getElementById("modal-url-link");
-  if(existingUrl) existingUrl.remove();
+
+  // Image (if present) + parsed content with wikilinks + paragraph formatting
+  let imageHtml="";
+  if(data.image_url) imageHtml=`<img src="${data.image_url}" style="width:100%;max-height:200px;object-fit:cover;border-radius:4px;margin-bottom:10px;display:block;border:1px solid rgba(80,58,36,.5)">`;
+  document.getElementById("modal-content").innerHTML=imageHtml+parseSidebarContent(data.content||"—");
+
+  // Clean up previous extras
+  document.getElementById("modal-url-link")?.remove();
+  document.getElementById("modal-lib-link")?.remove();
+
+  // URL / external link
   if(data.url){
+    const label=data.url_label||data.url.replace(/^https?:\/\//,"").split("/")[0];
     const a=document.createElement("a");
     a.id="modal-url-link"; a.href=data.url; a.target="_blank"; a.rel="noopener";
-    a.textContent="🔗 "+data.url.replace(/^https?:\/\//,"");
+    a.textContent="🔗 A link to: "+label;
     a.style.cssText="display:block;font-size:12px;font-family:'Courier New',monospace;color:rgb(144,171,153);margin-top:10px;word-break:break-all;";
     document.getElementById("modal-content").after(a);
   }
+
+  // Open in Library button
+  const libBtn=document.createElement("button");
+  libBtn.id="modal-lib-link";
+  libBtn.textContent="→ Open in Library";
+  libBtn.onclick=()=>{ openLibrary(); closeModal(); };
+  libBtn.style.cssText="display:block;margin-top:10px;background:none;border:1px solid rgba(80,105,90,.5);color:rgb(144,171,153);font-family:'Courier New',monospace;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;";
+  libBtn.onmouseover=()=>libBtn.style.borderColor="rgb(80,105,90)";
+  libBtn.onmouseout=()=>libBtn.style.borderColor="rgba(80,105,90,.5)";
+  document.getElementById("modal-content").after(libBtn);
+
   document.getElementById("modal-bg").classList.add("open");
 }
 
