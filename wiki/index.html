@@ -270,9 +270,16 @@
         <span id="fb-page-text">Lodge Chat</span><span style="color:var(--dim);font-size:11px">▾</span>
       </div>
       <div id="fb-page-picker" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--brown2);border:1px solid var(--brown3);border-radius:4px;margin-top:2px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.3);">
-        ${['Lodge Chat','Library','Cards','Characters','Playlist','Slide Rules','What\'s New','Changelog','Mu Flow','Feedback','Other'].map(p=>`
-          <div onclick="selectPage('${p}')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);"
-            onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">${p}</div>`).join('')}
+        <div onclick="selectPage('Lodge Chat')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Lodge Chat</div>
+        <div onclick="selectPage('Library')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Library</div>
+        <div onclick="selectPage('Cards')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Cards</div>
+        <div onclick="selectPage('Characters')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Characters</div>
+        <div onclick="selectPage('Playlist')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Playlist</div>
+        <div onclick="selectPage('Slide Rules')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Slide Rules</div>
+        <div onclick="selectPage('What's New')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">What's New</div>
+        <div onclick="selectPage('Mu Flow')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Mu Flow</div>
+        <div onclick="selectPage('Feedback')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Feedback</div>
+        <div onclick="selectPage('Other')" style="padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--parchment2);" onmouseover="this.style.background='var(--brown3)'" onmouseout="this.style.background=''">Other</div>
       </div>
     </div>
     <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">type</div>
