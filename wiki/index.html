@@ -478,6 +478,21 @@ async function showApp(user){
   try{ subscribeToMessages(); }
   catch(err){ console.warn('Realtime subscribe error:',err.message); }
 
+  // DB-based presence (reliable alternative to WebSocket Presence)
+  try{
+    await trackPresence();
+    await loadPresence();
+    subscribeToPresence();
+    // Heartbeat: refresh presence every 90s
+    setInterval(trackPresence, 90000);
+    // Remove presence on page close
+    window.addEventListener('beforeunload',()=>{
+      if(currentUser) navigator.sendBeacon('/api/noop',
+        JSON.stringify({uid:currentUser.id})); // best-effort
+      db.from('lodge_presence').delete().eq('user_id',currentUser?.id||'');
+    });
+  }catch(err){ console.warn('Presence setup error:',err.message); }
+
   // Check role — show archmage tools
   try{
     const{data:roleData}=await db.from('user_roles').select('role').eq('user_id',user.id).maybeSingle();
@@ -530,75 +545,28 @@ function subscribeToMessages(){
   const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
 
-  realtimeChannel=db.channel('lodge-chat',{config:{presence:{key:user.id}}})
+  realtimeChannel=db.channel('lodge-chat')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{
       const msg=payload.new;
       if(!shownIds.has(msg.id)) renderMessage(msg);
     })
-    .on('presence',{event:'sync'},()=>{
-      updateMembersList(realtimeChannel.presenceState());
-    })
-    .on('presence',{event:'join'},()=>{
-      updateMembersList(realtimeChannel.presenceState());
-    })
-    .on('presence',{event:'leave'},()=>{
-      updateMembersList(realtimeChannel.presenceState());
-    })
-    .subscribe(async(status)=>{
-      if(status==='SUBSCRIBED'){
-        await realtimeChannel.track({
-          user_id:user.id,
-          user_name:name,
-          user_avatar:avatar,
-          online_at:new Date().toISOString(),
-        });
-        setTimeout(()=>updateMembersList(realtimeChannel.presenceState()), 800);
-      }
-    });
-
-  // Poll every 3s as ultimate fallback for browsers where events don't fire
-  const presencePoll=setInterval(()=>{
-    if(!realtimeChannel){clearInterval(presencePoll);return;}
-    const state=realtimeChannel.presenceState();
-    if(Object.keys(state).length>0) updateMembersList(state);
-  },3000);
-
-  // Hard fallback: show current user after 8s if still empty
-  setTimeout(()=>{
-    const ml=document.getElementById('members-list');
-    if(ml&&ml.innerHTML.includes('class="loading"')){
-      const avatarHtml=avatar?`<img src="${avatar}" alt="">`:'👤';
-      ml.innerHTML=`<div class="member-row">
-        <div class="member-dot"></div>
-        <div class="member-avatar">${avatarHtml}</div>
-        <span class="member-name">${name} (you)</span>
-      </div>`;
-    }
-  },8000);
+    .subscribe();
 }
 
-function updateMembersList(state){
+function updateMembersList(members){
   const el=document.getElementById("members-list");
-  if(!el)return;
-  // Flatten presence state — each key can have multiple presences (tabs)
-  const seen=new Set();
-  const members=[];
-  Object.values(state).forEach(presences=>{
-    presences.forEach(p=>{
-      if(!seen.has(p.user_id)){
-        seen.add(p.user_id);
-        members.push(p);
-      }
-    });
-  });
-  if(members.length===0){el.innerHTML=`<div class="loading">just you…</div>`;return;}
+  if(!el) return;
+  if(!members||members.length===0){
+    el.innerHTML=`<div class="loading">just you…</div>`;
+    return;
+  }
   el.innerHTML=members.map(m=>{
     const avatarHtml=m.user_avatar?`<img src="${m.user_avatar}" alt="">`:"👤";
     const isMe=currentUser&&m.user_id===currentUser.id;
     return`<div class="member-row">
       <div class="member-dot"></div>
       <div class="member-avatar">${avatarHtml}</div>
-      <span class="member-name">${m.user_name}${isMe?" (you)":""}</span>
+      <span class="member-name">${m.user_name||'traveler'}${isMe?" (you)":""}</span>
     </div>`;
   }).join("");
 }
@@ -776,6 +744,40 @@ async function saveMuMessage(sentence,cardLine){
 }
 
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
+
+// ── DB-based presence ────────────────────────────────────────────────────────
+async function trackPresence(){
+  if(!currentUser) return;
+  const name=currentUser.user_metadata?.full_name||currentUser.user_metadata?.name||currentUser.user_metadata?.user_name||'traveler';
+  const avatar=currentUser.user_metadata?.avatar_url||null;
+  try{
+    await db.from('lodge_presence').upsert({
+      user_id:currentUser.id,
+      user_name:name,
+      user_avatar:avatar,
+      last_seen:new Date().toISOString()
+    });
+  }catch(e){ console.warn('Presence track failed:',e.message); }
+}
+
+async function loadPresence(){
+  try{
+    // Remove stale presence (older than 3 min)
+    const cutoff=new Date(Date.now()-3*60*1000).toISOString();
+    await db.from('lodge_presence').delete().lt('last_seen',cutoff);
+    // Load current members
+    const{data}=await db.from('lodge_presence').select('*').order('last_seen',{ascending:false});
+    updateMembersList(data||[]);
+  }catch(e){ console.warn('Presence load failed:',e.message); }
+}
+
+function subscribeToPresence(){
+  db.channel('lodge-presence')
+    .on('postgres_changes',{event:'*',schema:'public',table:'lodge_presence'},()=>{
+      loadPresence();
+    })
+    .subscribe();
+}
 
 // ── Realtime reconnection ─────────────────────────────────────────────────────
 function checkAndReconnect(){
