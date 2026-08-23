@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Systems · TricknoLodge</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+if(window.self!==window.top){
+  document.addEventListener('DOMContentLoaded',()=>{const h=document.querySelector('header');if(h)h.style.display='none';});
+}
+</script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --green:rgb(144,171,153);--green2:rgb(110,135,118);--green3:rgb(80,105,90);
+    --brown:rgb(43,28,16);--brown2:rgb(60,42,26);--brown3:rgb(80,58,36);
+    --purple:rgb(76,46,87);--purple2:rgb(100,65,112);
+    --parchment:rgb(220,210,190);--parchment2:rgb(200,188,168);
+    --dim:rgb(120,100,80);--gold:rgb(201,169,110);
+    --archmage:#9955cc;--practitioner:#4477cc;--apprentice:rgb(144,171,153);
+    --mono:'Courier New',Courier,monospace;--serif:Georgia,'Times New Roman',serif;
+  }
+  body{background:var(--brown);color:var(--parchment);font-family:var(--serif);font-size:14px;min-height:100vh;}
+  header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:12px 24px;display:flex;align-items:center;gap:14px;}
+  .back-link{color:var(--green);text-decoration:none;font-family:var(--mono);font-size:12px;}
+  .back-link:hover{color:var(--parchment);}
+  .page-title{font-size:18px;color:var(--green);font-weight:normal;letter-spacing:0.08em;}
+  .page-sub{font-size:11px;color:var(--dim);font-family:var(--mono);}
+
+  .wrap{max-width:860px;margin:0 auto;padding:24px 20px;}
+
+  /* Section headers */
+  .section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--brown3);}
+  .section-title{font-size:14px;color:var(--green);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase;}
+  .section-count{font-size:11px;color:var(--dim);font-family:var(--mono);}
+
+  /* Member rows */
+  .member-list{display:flex;flex-direction:column;gap:6px;margin-bottom:32px;}
+  .member-row{background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:12px;}
+  .member-avatar{width:36px;height:36px;border-radius:50%;border:1px solid var(--brown3);background:var(--brown3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;overflow:hidden;}
+  .member-avatar img{width:100%;height:100%;object-fit:cover;}
+  .member-info{flex:1;min-width:0;}
+  .member-name{font-size:14px;color:var(--parchment);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .member-uuid{font-size:10px;color:var(--dim);font-family:var(--mono);cursor:pointer;transition:color .15s;}
+  .member-uuid:hover{color:var(--parchment);}
+  .role-badge{font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+  .role-badge.archmage{background:rgba(153,85,204,.2);color:var(--archmage);border:1px solid rgba(153,85,204,.3);}
+  .role-badge.practitioner{background:rgba(68,119,204,.2);color:var(--practitioner);border:1px solid rgba(68,119,204,.3);}
+  .role-badge.apprentice{background:rgba(80,105,90,.2);color:var(--apprentice);border:1px solid rgba(80,105,90,.3);}
+  .role-badge.none{background:var(--brown3);color:var(--dim);border:1px solid var(--brown3);}
+
+  /* Role select */
+  .role-select{background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;cursor:pointer;outline:none;flex-shrink:0;}
+  .role-select:focus{border-color:var(--green3);}
+  .role-select option{background:var(--brown2);}
+  .save-role-btn{background:var(--brown3);border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;flex-shrink:0;transition:all .15s;}
+  .save-role-btn:hover{border-color:var(--green3);color:var(--green);}
+  .save-role-btn.changed{border-color:var(--green);color:var(--green);background:rgba(80,105,90,.15);}
+  .save-confirm{font-size:11px;font-family:var(--mono);color:var(--green);margin-left:4px;display:none;}
+
+  /* Add member form */
+  .add-form{background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;padding:16px 18px;}
+  .field-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .field{flex:1;min-width:180px;}
+  .field-label{font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;}
+  .field input,.field select{width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:7px 10px;border-radius:4px;outline:none;}
+  .field input:focus,.field select:focus{border-color:var(--green3);}
+  .field input::placeholder{color:var(--dim);}
+  .field select option{background:var(--brown2);}
+  .add-btn{background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:7px 16px;border-radius:4px;cursor:pointer;flex-shrink:0;}
+  .add-btn:hover{background:var(--purple2);}
+  .add-status{font-size:12px;font-family:var(--mono);margin-top:8px;min-height:18px;color:var(--green);}
+  .hint{font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:6px;line-height:1.5;}
+
+  .loading{color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:20px;text-align:center;}
+
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-track{background:var(--brown);}
+  ::-webkit-scrollbar-thumb{background:var(--brown3);border-radius:3px;}
+</style>
+</head>
+<body>
+<header>
+  <a class="back-link" href="index.html">← Lodge</a>
+  <div>
+    <div class="page-title">⚙ Systems</div>
+    <div class="page-sub">roles · members · administration</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Members -->
+  <div class="section-hdr">
+    <span class="section-title">lodge members</span>
+    <span class="section-count" id="member-count"></span>
+    <button onclick="loadAll()" style="margin-left:auto;background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;" onmouseover="this.style.borderColor='var(--green3)'" onmouseout="this.style.borderColor='var(--brown3)'">↺ refresh</button>
+  </div>
+  <div class="member-list" id="member-list">
+    <div class="loading">*gathering records…*</div>
+  </div>
+
+  <!-- Add member -->
+  <div class="section-hdr">
+    <span class="section-title">add member by UUID</span>
+  </div>
+  <div class="add-form">
+    <div class="field-row">
+      <div class="field">
+        <div class="field-label">UUID *</div>
+        <input type="text" id="add-uuid" placeholder="paste from Supabase → Auth → Users">
+      </div>
+      <div class="field" style="max-width:160px;">
+        <div class="field-label">Display Name</div>
+        <input type="text" id="add-name" placeholder="optional">
+      </div>
+      <div class="field" style="max-width:160px;">
+        <div class="field-label">Role</div>
+        <select id="add-role">
+          <option value="apprentice">apprentice</option>
+          <option value="practitioner">practitioner</option>
+          <option value="archmage">archmage</option>
+        </select>
+      </div>
+      <button class="add-btn" onclick="addMember()">add</button>
+    </div>
+    <div class="add-status" id="add-status"></div>
+    <div class="hint">Find UUIDs in: <strong>Supabase → Authentication → Users</strong><br>Anyone who has logged in with Discord appears there.</div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL='https://tngvginwtsldulqgufoe.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const ROLE_ORDER={archmage:0,practitioner:1,apprentice:2};
+
+let currentUser=null;
+
+db.auth.onAuthStateChange(async(_e,session)=>{
+  currentUser=session?.user||null;
+  if(currentUser){
+    const{data}=await db.from('user_roles').select('role').eq('user_id',currentUser.id).maybeSingle();
+    if(data?.role!=='archmage'){
+      document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:var(--mono);color:var(--dim)">archmage access required</div>';
+      return;
+    }
+    loadAll();
+  } else {
+    document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:var(--mono);color:var(--dim)">sign in to the Lodge first</div>';
+  }
+});
+
+async function loadAll(){
+  document.getElementById('member-list').innerHTML='<div class="loading">*gathering records…*</div>';
+  
+  // 1. Get all user_roles
+  const{data:roles}=await db.from('user_roles').select('*');
+  const roleMap={};
+  (roles||[]).forEach(r=>{ roleMap[r.user_id]=r; });
+
+  // 2. Discover users from messages (most recent name+avatar per user)
+  const{data:msgs}=await db.from('messages').select('user_id,user_name,user_avatar')
+    .eq('is_mu',false).eq('is_system',false)
+    .not('user_id','eq','system').order('created_at',{ascending:false}).limit(500);
+  const userMap={};
+  (msgs||[]).forEach(m=>{
+    if(!m.user_id||userMap[m.user_id]) return;
+    userMap[m.user_id]={user_id:m.user_id,user_name:m.user_name,user_avatar:m.user_avatar};
+  });
+
+  // 3. Include users from lodge_presence (recent visitors)
+  const{data:presence}=await db.from('lodge_presence').select('*');
+  (presence||[]).forEach(p=>{
+    if(!userMap[p.user_id]) userMap[p.user_id]={user_id:p.user_id,user_name:p.user_name,user_avatar:p.user_avatar};
+    else if(!userMap[p.user_id].user_avatar&&p.user_avatar) userMap[p.user_id].user_avatar=p.user_avatar;
+  });
+
+  // 4. Include all users from user_roles even if no messages
+  (roles||[]).forEach(r=>{
+    if(!userMap[r.user_id]) userMap[r.user_id]={user_id:r.user_id,user_name:r.user_name||'unknown',user_avatar:null};
+  });
+
+  const members=Object.values(userMap);
+  // Sort by role rank, then name
+  members.sort((a,b)=>{
+    const ra=ROLE_ORDER[roleMap[a.user_id]?.role]??3;
+    const rb=ROLE_ORDER[roleMap[b.user_id]?.role]??3;
+    if(ra!==rb) return ra-rb;
+    return (a.user_name||'').localeCompare(b.user_name||'');
+  });
+
+  document.getElementById('member-count').textContent=`${members.length} found`;
+  document.getElementById('member-list').innerHTML=members.map(m=>{
+    const role=roleMap[m.user_id]?.role||'';
+    const avatarHtml=m.user_avatar?`<img src="${m.user_avatar}" alt="">`:"👤";
+    const shortId=m.user_id.slice(0,8)+'…';
+    return`<div class="member-row" id="mr-${m.user_id}">
+      <div class="member-avatar">${avatarHtml}</div>
+      <div class="member-info">
+        <div class="member-name">${m.user_name||'unknown'}</div>
+        <div class="member-uuid" onclick="copyUuid('${m.user_id}',this)" title="Click to copy UUID">${shortId}</div>
+      </div>
+      <span class="role-badge ${role||'none'}">${role||'no role'}</span>
+      <select class="role-select" id="sel-${m.user_id}" onchange="markChanged('${m.user_id}')">
+        <option value="">— no role —</option>
+        <option value="apprentice" ${role==='apprentice'?'selected':''}>apprentice</option>
+        <option value="practitioner" ${role==='practitioner'?'selected':''}>practitioner</option>
+        <option value="archmage" ${role==='archmage'?'selected':''}>archmage</option>
+      </select>
+      <button class="save-role-btn" id="savebtn-${m.user_id}" onclick="saveRole('${m.user_id}','${(m.user_name||'').replace(/'/g,"\\'")}')">save</button>
+      <span class="save-confirm" id="conf-${m.user_id}">✓</span>
+    </div>`;
+  }).join('');
+}
+
+function markChanged(uid){
+  const btn=document.getElementById('savebtn-'+uid);
+  if(btn) btn.classList.add('changed');
+}
+
+async function saveRole(uid,name){
+  const sel=document.getElementById('sel-'+uid);
+  const role=sel?.value||'';
+  const btn=document.getElementById('savebtn-'+uid);
+  const conf=document.getElementById('conf-'+uid);
+  const badge=document.querySelector(`#mr-${uid} .role-badge`);
+  if(!sel) return;
+
+  if(!role){
+    // Remove role
+    await db.from('user_roles').delete().eq('user_id',uid);
+  } else {
+    // Upsert role
+    await db.from('user_roles').upsert({user_id:uid,user_name:name,role});
+  }
+
+  // Update badge
+  if(badge){
+    badge.className='role-badge '+(role||'none');
+    badge.textContent=role||'no role';
+  }
+  if(btn) btn.classList.remove('changed');
+  if(conf){ conf.style.display='inline'; setTimeout(()=>conf.style.display='none',1500); }
+}
+
+function copyUuid(uid,el){
+  navigator.clipboard.writeText(uid).then(()=>{
+    const orig=el.textContent;
+    el.textContent='copied!';
+    el.style.color='var(--green)';
+    setTimeout(()=>{ el.textContent=uid.slice(0,8)+'…'; el.style.color=''; },1500);
+  });
+}
+
+async function addMember(){
+  const uuid=document.getElementById('add-uuid').value.trim();
+  const name=document.getElementById('add-name').value.trim()||null;
+  const role=document.getElementById('add-role').value;
+  const statusEl=document.getElementById('add-status');
+  if(!uuid||uuid.length<30){ statusEl.textContent='Paste a valid UUID (36 chars).'; statusEl.style.color='#e06060'; return; }
+  statusEl.textContent='saving…'; statusEl.style.color='var(--dim)';
+  const{error}=await db.from('user_roles').upsert({user_id:uuid,user_name:name,role});
+  if(error){ statusEl.textContent=`Error: ${error.message}`; statusEl.style.color='#e06060'; return; }
+  statusEl.textContent=`✓ Added as ${role}.`; statusEl.style.color='var(--green)';
+  document.getElementById('add-uuid').value='';
+  document.getElementById('add-name').value='';
+  setTimeout(()=>{ statusEl.textContent=''; loadAll(); },1200);
+}
+</script>
+</body>
+</html>

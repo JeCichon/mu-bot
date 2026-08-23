@@ -221,6 +221,7 @@
       <span class="sidebar-link" onclick="openContent('simulations.html','🎮 Slide Rules')">🎮 Slide Rules</span>
       <span class="sidebar-link" id="link-muflow" style="display:none" onclick="openContent('mu-flow.html','🔬 Mu Flow')">🔬 Mu Flow</span>
       <span class="sidebar-link" id="link-feedback" style="display:none" onclick="openContent('feedback.html','✎ Feedback')">✎ Feedback</span>
+      <span class="sidebar-link" id="link-systems" style="display:none" onclick="openContent('systems.html','⚙ Systems')">⚙ Systems</span>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">recent entries</div>
@@ -558,6 +559,8 @@ async function showApp(user){
       if(ac) ac.style.display='block';
       const fb=document.getElementById('link-feedback');
       if(fb) fb.style.display='block';
+      const sy=document.getElementById('link-systems');
+      if(sy) sy.style.display='block';
     }
   }catch(err){ console.warn('Role check failed:',err.message); }
 
