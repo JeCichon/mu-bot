@@ -695,7 +695,7 @@ function renderMessage(msg){
       <div class="msg-bubble">
         <div style="font-size:11px;letter-spacing:0.1em;color:var(--dim);font-family:var(--mono);margin-bottom:5px;text-transform:uppercase">${header}</div>
         <div style="font-size:14px;color:var(--parchment);margin-bottom:${details?'5px':'0'}">${subtitle}</div>
-        ${details?`<div style="font-size:12px;color:var(--parchment2);font-style:normal;line-height:1.5;white-space:pre-line">${details}</div>`:''}
+        ${details?`<div style="font-size:12px;color:var(--parchment2);font-style:normal;line-height:1.5;white-space:pre-line;text-align:left;margin-top:4px">${details}</div>`:''}
       </div>
       <div class="msg-cards" style="text-align:center">${time}</div>
     </div>`;
@@ -1038,8 +1038,14 @@ async function submitFeedback(){
 // ── Changelog modal ───────────────────────────────────────────────────────────
 function showChangelogModal(){
   document.getElementById('cl-title').value='';
-  document.getElementById('cl-version').value='';
   document.getElementById('cl-body').value='';
+  // Auto-fill next version number
+  (async()=>{
+    const{data}=await db.from('changelog').select('version').order('created_at',{ascending:false}).limit(20);
+    let max=0;
+    (data||[]).forEach(r=>{const m=r.version&&r.version.match(/trickno\.(\d+)/i);if(m)max=Math.max(max,parseInt(m[1]));});
+    document.getElementById('cl-version').value='trickno.'+String(max+1).padStart(4,'0');
+  })();
   document.getElementById('cl-status').textContent='';
   document.getElementById('changelog-modal-bg').classList.add('open');
 }

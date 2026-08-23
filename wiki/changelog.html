@@ -154,10 +154,25 @@ async function loadEntries(){
   }).join('');
 }
 
+
+
+async function getNextVersion(){
+  const{data}=await db.from('changelog').select('version').order('created_at',{ascending:false}).limit(20);
+  let max=0;
+  (data||[]).forEach(r=>{
+    const m=r.version&&r.version.match(/trickno\.(\d+)/i);
+    if(m) max=Math.max(max,parseInt(m[1]));
+  });
+  return 'trickno.'+String(max+1).padStart(4,'0');
+}
+
 function toggleForm(){
   const fw=document.getElementById('form-wrap');
   fw.classList.toggle('open');
-  if(fw.classList.contains('open')) document.getElementById('f-title').focus();
+  if(fw.classList.contains('open')){
+    document.getElementById('f-title').focus();
+    getNextVersion().then(v=>{ document.getElementById('f-version').value=v; });
+  }
 }
 
 async function saveEntry(){
@@ -170,11 +185,19 @@ async function saveEntry(){
   const author=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'unknown';
   const{error}=await db.from('changelog').insert({title,body,version,author});
   if(error){statusEl.textContent=`Error: ${error.message}`;statusEl.style.color='#e06060';return;}
-  statusEl.textContent='✓ Entry saved.';statusEl.style.color='var(--green)';
+  // Post to Lodge chat
+  try{
+    const lines=["What's new",version?version+' — '+title:title];
+    if(body) lines.push(body);
+    await db.from('messages').insert({
+      user_id:'system',user_name:'update',user_avatar:null,
+      content:lines.join('\n'),is_mu:false,card_line:null,is_system:true,
+    });
+  }catch(e){ console.warn('Chat post failed:',e.message); }
+  statusEl.textContent='✓ Saved + shared to chat.';statusEl.style.color='var(--green)';
   document.getElementById('f-title').value='';
   document.getElementById('f-body').value='';
-  document.getElementById('f-version').value='';
-  setTimeout(()=>{toggleForm();loadEntries();},800);
+  setTimeout(()=>{toggleForm();loadEntries();},900);
 }
 
 loadEntries();
