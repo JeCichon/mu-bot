@@ -1060,10 +1060,11 @@ async function saveChangelogEntry(){
   const chatLines=['What\'s new',version?`${version} — ${title}`:title,...(body?[body]:[])];
   const chatMsg=chatLines.join('\n');
   try{
-    await db.from('messages').insert({
+    const{data:sysMsg}=await db.from('messages').insert({
       user_id:'system',user_name:'update',user_avatar:null,
       content:chatMsg,is_mu:false,card_line:null,is_system:true,
-    });
+    }).select().single();
+    if(sysMsg) renderMessage(sysMsg); // render immediately; Realtime will skip the duplicate
   }catch(e){ console.warn('System message post failed (run is_system SQL):', e.message); }
   loadSidebarChangelog();
   statusEl.textContent='✓ Shared to chat.';
