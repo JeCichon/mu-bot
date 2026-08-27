@@ -143,10 +143,6 @@ header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:10
     <div class="page-sub">what is · what grows · what is coming</div>
   </div>
   <div class="header-right">
-    <div class="view-toggle">
-      <button class="vt-btn on" id="vt-list" onclick="setView('list')">≡ List</button>
-      <button class="vt-btn" id="vt-map" onclick="setView('map')">◈ Map</button>
-    </div>
   </div>
 </header>
 
@@ -166,6 +162,11 @@ header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:10
     <button class="f-btn sys-engine on" id="fs-engine" onclick="toggleSys('engine',this)">Engine</button>
   </div>
   <span class="counts" id="counts"></span>
+  <div class="filter-sep"></div>
+  <div class="view-toggle">
+    <button class="vt-btn on" id="vt-list" onclick="setView('list')">≡ List</button>
+    <button class="vt-btn" id="vt-map" onclick="setView('map')">◈ Map</button>
+  </div>
 </div>
 
 <!-- LIST VIEW -->
