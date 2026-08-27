@@ -361,8 +361,7 @@ async function promoteToRoadmap(id){
   if(item.page&&item.page!=='General') parts.push(`From: ${item.page}`);
   if(item.submitter) parts.push(`Submitted by: ${item.submitter}`);
   const{error}=await db.from('roadmap').insert({
-    title, description:parts.filter(Boolean).join('
-'),
+    title, description:parts.filter(Boolean).join('\n'),
     system:sys, status, sort_order:999
   });
   if(error){if(msg){msg.textContent=`Error: ${error.message}`;msg.style.color='#e06060';}return;}
