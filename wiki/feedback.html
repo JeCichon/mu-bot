@@ -208,7 +208,7 @@ function render(){
             <span class="fb-status ${f.status}">${f.status}</span>
           </div>
           <div style="font-weight:bold;font-size:14px;color:var(--parchment);margin-bottom:3px;">${f.title||''}</div>
-          ${f.description?`<div class="fb-desc">${f.description}</div>`:''}
+          ${f.description ? '<div class="fb-desc">'+f.description+'</div>' : ''}
           <div class="fb-meta">by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()}${f.notes?` · <em>has notes</em>`:''}</div>
         </div>
         <div class="fb-expand">›</div>
