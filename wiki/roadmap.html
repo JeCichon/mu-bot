@@ -113,6 +113,12 @@ header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:10
 .map-ctrl-btn{background:var(--brown2);border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:4px;cursor:pointer;}
 .map-ctrl-btn:hover{border-color:var(--green3);color:var(--green);}
 .map-hint{position:absolute;bottom:12px;left:14px;font-size:10px;font-family:var(--mono);color:rgba(120,100,80,.6);}
+#minimap{position:absolute;bottom:36px;right:12px;width:170px;height:115px;background:rgba(40,26,12,.92);border:1px solid var(--brown3);border-radius:5px;overflow:hidden;cursor:crosshair;z-index:15;user-select:none;}
+#minimap-label{position:absolute;top:4px;left:7px;font-family:var(--mono);font-size:9px;color:rgba(120,100,80,.7);pointer-events:none;}
+#zoom-bar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;background:rgba(40,26,12,.75);border:1px solid var(--brown3);border-radius:10px;padding:4px 10px;z-index:15;}
+#zoom-track{width:80px;height:3px;background:rgba(80,58,36,.8);border-radius:2px;cursor:pointer;}
+#zoom-fill{height:100%;background:rgba(201,169,110,.6);border-radius:2px;transition:width .1s;}
+#zoom-pct{font-family:var(--mono);font-size:10px;color:var(--dim);width:30px;text-align:right;}
 /* Map detail panel */
 #map-panel{position:absolute;top:0;right:0;width:280px;height:100%;background:var(--brown2);border-left:1px solid var(--brown3);padding:16px;overflow-y:auto;display:none;flex-direction:column;gap:10px;z-index:20;}
 #map-panel.open{display:flex;}
@@ -188,7 +194,20 @@ header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:10
     </defs>
     <g id="map-transform"></g>
   </svg>
-  <div id="map-panel">
+  <div id="minimap">
+  <div id="minimap-label">overview</div>
+  <svg id="minimap-svg" width="170" height="115" style="display:block;">
+    <g id="minimap-nodes"></g>
+    <rect id="minimap-vp" fill="rgba(201,169,110,.08)" stroke="rgba(201,169,110,.45)" stroke-width="1" rx="2" x="0" y="0" width="0" height="0"/>
+  </svg>
+</div>
+<div id="zoom-bar">
+  <button onclick="mapZoomStep(-1)" style="background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:13px;cursor:pointer;line-height:1;padding:0;">−</button>
+  <div id="zoom-track" onclick="zoomBarClick(event)"><div id="zoom-fill" style="width:40%;"></div></div>
+  <button onclick="mapZoomStep(1)" style="background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:13px;cursor:pointer;line-height:1;padding:0;">+</button>
+  <span id="zoom-pct">100%</span>
+</div>
+<div id="map-panel">
     <button class="mp-close" onclick="closeMapPanel()">×</button>
     <div class="mp-sys" id="mp-sys"></div>
     <div class="mp-title" id="mp-title"></div>
@@ -378,6 +397,8 @@ async function saveItem(sys){
 }
 
 // ── MAP VIEW ─────────────────────────────────────────────────────────────────
+const ARM=155, RDONE=235, RACTIVE=305, RIDEA=375, SECTOR=52*Math.PI/180;
+const MM_W=170, MM_H=115, MAP_EXTENT=430;
 function renderMap(){
   const svg=document.getElementById('roadmap-svg');
   const g=document.getElementById('map-transform');
@@ -387,11 +408,7 @@ function renderMap(){
   const items=filteredItems();
   document.getElementById('counts').textContent=`${items.length} item${items.length===1?'':'s'}`;
 
-  const ARM=155;      // center → system node
-  const RDONE=235;    // center → done items
-  const RACTIVE=305;  // center → active items
-  const RIDEA=375;    // center → idea items
-  const SECTOR=52*Math.PI/180; // angular spread per system
+  // ARM, RDONE, RACTIVE, RIDEA, SECTOR defined at module level
 
   // Draw center node
   const cx=0, cy=0;
@@ -509,6 +526,7 @@ function renderMap(){
   // Apply default transform (center map in SVG)
   mapT={x:W/2,y:H/2,scale:1};
   applyMapTransform();
+  renderMinimap();
 }
 
 function svgEl(tag){ return document.createElementNS(NS,tag); }
@@ -547,6 +565,104 @@ async function setStatusMap(id,status){
 
 function closeMapPanel(){ document.getElementById('map-panel').classList.remove('open'); }
 
+// ── Minimap ──────────────────────────────────────────────────────────────────
+function renderMinimap(){
+  const mmg=document.getElementById('minimap-nodes');
+  if(!mmg) return;
+  mmg.innerHTML='';
+  const scl=Math.min(MM_W,MM_H)/(MAP_EXTENT*2);
+  const cx=MM_W/2, cy=MM_H/2;
+  // Center dot
+  const cd=svgEl('circle'); cd.setAttribute('cx',cx); cd.setAttribute('cy',cy);
+  cd.setAttribute('r','4'); cd.setAttribute('fill','rgba(201,169,110,.3)'); mmg.appendChild(cd);
+  SYSTEMS.filter(s=>visibleSys.has(s.id)).forEach(sys=>{
+    const rad=sys.angle*Math.PI/180;
+    const sx=Math.cos(rad)*ARM, sy=Math.sin(rad)*ARM;
+    // Arm
+    const ln=svgEl('line'); ln.setAttribute('x1',cx); ln.setAttribute('y1',cy);
+    ln.setAttribute('x2',cx+sx*scl); ln.setAttribute('y2',cy+sy*scl);
+    ln.setAttribute('stroke',sys.color); ln.setAttribute('stroke-width','0.7');
+    ln.setAttribute('stroke-opacity','0.25'); mmg.appendChild(ln);
+    // System dot
+    const sd=svgEl('circle'); sd.setAttribute('cx',cx+sx*scl); sd.setAttribute('cy',cy+sy*scl);
+    sd.setAttribute('r','3'); sd.setAttribute('fill',sys.color); sd.setAttribute('opacity','0.7');
+    mmg.appendChild(sd);
+    // Item dots
+    const items=filteredItems().filter(i=>i.system===sys.id);
+    const groups={done:[],active:[],idea:[]};
+    items.forEach(i=>groups[i.status]&&groups[i.status].push(i));
+    Object.entries(groups).forEach(([status,gItems])=>{
+      const r=status==='done'?RDONE:status==='active'?RACTIVE:RIDEA;
+      gItems.forEach((item,idx)=>{
+        const t=gItems.length>1?(idx/(gItems.length-1)-0.5):0;
+        const iAngle=rad+t*SECTOR;
+        const ix=Math.cos(iAngle)*r, iy=Math.sin(iAngle)*r;
+        const dot=svgEl('circle'); dot.setAttribute('cx',cx+ix*scl); dot.setAttribute('cy',cy+iy*scl);
+        dot.setAttribute('r','1.8'); dot.setAttribute('fill',sys.color);
+        dot.setAttribute('opacity',status==='idea'?'0.25':status==='active'?'0.7':'0.45');
+        mmg.appendChild(dot);
+      });
+    });
+  });
+  updateMinimapVp();
+}
+
+function updateMinimapVp(){
+  const vp=document.getElementById('minimap-vp');
+  const svg=document.getElementById('roadmap-svg');
+  if(!vp||!svg) return;
+  const W=svg.clientWidth, H=svg.clientHeight;
+  const scl=Math.min(MM_W,MM_H)/(MAP_EXTENT*2);
+  const cx=MM_W/2, cy=MM_H/2;
+  const left=(0-mapT.x)/mapT.scale, top=(0-mapT.y)/mapT.scale;
+  const right=(W-mapT.x)/mapT.scale, bottom=(H-mapT.y)/mapT.scale;
+  vp.setAttribute('x',cx+left*scl); vp.setAttribute('y',cy+top*scl);
+  vp.setAttribute('width',(right-left)*scl); vp.setAttribute('height',(bottom-top)*scl);
+}
+
+// Minimap drag navigation
+let mmDragging=false;
+const mmEl=document.getElementById('minimap');
+function mmNavigate(mx,my){
+  const svg=document.getElementById('roadmap-svg');
+  const W=svg.clientWidth,H=svg.clientHeight;
+  const scl=Math.min(MM_W,MM_H)/(MAP_EXTENT*2);
+  const localX=(mx-MM_W/2)/scl, localY=(my-MM_H/2)/scl;
+  mapT.x=W/2-localX*mapT.scale; mapT.y=H/2-localY*mapT.scale;
+  applyMapTransform();
+}
+mmEl.addEventListener('mousedown',e=>{
+  mmDragging=true; e.stopPropagation();
+  const r=mmEl.getBoundingClientRect();
+  mmNavigate(e.clientX-r.left,e.clientY-r.top);
+});
+document.addEventListener('mousemove',e=>{
+  if(!mmDragging) return;
+  const r=mmEl.getBoundingClientRect();
+  mmNavigate(e.clientX-r.left,e.clientY-r.top);
+});
+document.addEventListener('mouseup',()=>mmDragging=false);
+
+// Zoom bar
+const MIN_SCALE=0.25, MAX_SCALE=4;
+function updateZoomBar(){
+  const pct=(Math.log(mapT.scale)-Math.log(MIN_SCALE))/(Math.log(MAX_SCALE)-Math.log(MIN_SCALE));
+  const fill=document.getElementById('zoom-fill');
+  if(fill) fill.style.width=(pct*100)+'%';
+  const lbl=document.getElementById('zoom-pct');
+  if(lbl) lbl.textContent=Math.round(mapT.scale*100)+'%';
+}
+function zoomBarClick(e){
+  const r=e.currentTarget.getBoundingClientRect();
+  const pct=(e.clientX-r.left)/r.width;
+  mapT.scale=Math.exp(Math.log(MIN_SCALE)+pct*(Math.log(MAX_SCALE)-Math.log(MIN_SCALE)));
+  applyMapTransform();
+}
+function mapZoomStep(dir){
+  mapT.scale=Math.max(MIN_SCALE,Math.min(MAX_SCALE,mapT.scale*(dir>0?1.15:0.87)));
+  applyMapTransform();
+}
+
 // Pan & zoom
 const mapSvg=document.getElementById('roadmap-svg');
 mapSvg.addEventListener('mousedown',e=>{if(e.button===0){mapDragging=true;mapLast={x:e.clientX,y:e.clientY};}});
@@ -560,19 +676,22 @@ mapSvg.addEventListener('mouseup',()=>mapDragging=false);
 mapSvg.addEventListener('mouseleave',()=>mapDragging=false);
 mapSvg.addEventListener('wheel',e=>{
   e.preventDefault();
-  const factor=e.deltaY>0?0.88:1.12;
+  const factor=e.deltaY>0?0.94:1.06;
   mapT.scale=Math.max(0.25,Math.min(4,mapT.scale*factor));
   applyMapTransform();
 },{passive:false});
 
 function applyMapTransform(){
   document.getElementById('map-transform').setAttribute('transform',`translate(${mapT.x},${mapT.y}) scale(${mapT.scale})`);
+  updateMinimapVp();
+  updateZoomBar();
 }
 function resetMapView(){
   const svg=document.getElementById('roadmap-svg');
   mapT={x:svg.clientWidth/2,y:svg.clientHeight/2,scale:1};
   applyMapTransform();
   closeMapPanel();
+  updateZoomBar();
 }
 
 // Initial load
