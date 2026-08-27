@@ -701,16 +701,24 @@ function renderMessage(msg){
   const div=document.createElement("div");
 
   if(isSystem){
-    // Centered system message — parse lines into header/title/body
+    // Centered system message — parse lines into header/version/title/body
     const lines=msg.content.split('\n').filter(Boolean);
     const header=lines[0]||'';
-    const subtitle=lines[1]||'';
+    const subtitleRaw=lines[1]||'';
     const details=lines.slice(2).join('\n');
+    // Split "trickno.0012 — Title" into version + title if separator present
+    let version='', title=subtitleRaw;
+    if(subtitleRaw.includes(' — ')){
+      const idx=subtitleRaw.indexOf(' — ');
+      version=subtitleRaw.slice(0,idx);
+      title=subtitleRaw.slice(idx+3);
+    }
     div.className="msg system-msg";
     div.innerHTML=`<div class="msg-body" style="width:100%">
       <div class="msg-bubble">
-        <div style="font-size:11px;letter-spacing:0.1em;color:var(--dim);font-family:var(--mono);margin-bottom:5px;text-transform:uppercase">${header}</div>
-        <div style="font-size:14px;color:var(--parchment);margin-bottom:${details?'5px':'0'}">${subtitle}</div>
+        <div style="font-size:16px;letter-spacing:0.1em;color:var(--dim);font-family:var(--mono);margin-bottom:4px;text-transform:uppercase;font-style:normal">${header}</div>
+        ${version?`<div style="font-size:14px;color:var(--dim);font-family:var(--mono);margin-bottom:4px;font-style:normal">${version}</div>`:''}
+        <div style="font-size:16px;color:var(--parchment);font-style:normal;margin-bottom:${details?'6px':'0'}">${title}</div>
         ${details?`<div style="font-size:12px;color:var(--parchment2);font-style:normal;line-height:1.5;white-space:pre-line;text-align:left;margin-top:4px">${details}</div>`:''}
       </div>
       <div class="msg-cards" style="text-align:center">${time}</div>
