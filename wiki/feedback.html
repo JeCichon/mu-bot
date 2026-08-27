@@ -207,7 +207,8 @@ function render(){
             <span class="fb-type ${f.type}">${TYPE_EMOJI[f.type]||''} ${f.type}</span>
             <span class="fb-status ${f.status}">${f.status}</span>
           </div>
-          <div class="fb-desc">${f.description}</div>
+          <div style="font-weight:bold;font-size:14px;color:var(--parchment);margin-bottom:3px;">${f.title||''}</div>
+          ${f.description?`<div class="fb-desc">${f.description}</div>`:''}
           <div class="fb-meta">by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()}${f.notes?` · <em>has notes</em>`:''}</div>
         </div>
         <div class="fb-expand">›</div>
@@ -222,6 +223,24 @@ function render(){
           `).join('')}
           <button class="save-note-btn" onclick="saveNote(${f.id})">save notes</button>
           <span class="note-saved" id="saved-${f.id}"></span>
+          <button class="save-note-btn" id="promote-btn-${f.id}" onclick="togglePromote(${f.id})" style="margin-left:auto;border-color:rgba(80,105,90,.6);color:var(--green);">→ roadmap</button>
+        </div>
+        <div id="promote-form-${f.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--brown3);">
+          <div style="font-size:11px;font-family:var(--mono);color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">add to roadmap as</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <select id="pr-sys-${f.id}" style="background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;flex:1;">
+              <option value="lodge">Lodge</option><option value="organ">Organ</option>
+              <option value="library">Library</option><option value="cards">Cards</option><option value="engine">Engine</option>
+            </select>
+            <select id="pr-status-${f.id}" style="background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;">
+              <option value="idea">○ idea</option><option value="active">→ active</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="promoteToRoadmap(${f.id})" style="background:var(--brown3);border:1px solid var(--green3);color:var(--green);font-family:var(--mono);font-size:12px;padding:5px 14px;border-radius:4px;cursor:pointer;">confirm →</button>
+            <button onclick="togglePromote(${f.id})" style="background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:4px;cursor:pointer;">cancel</button>
+            <span id="pr-msg-${f.id}" style="font-size:11px;font-family:var(--mono);color:var(--green);"></span>
+          </div>
         </div>
       </div>
     </div>`).join('');
@@ -294,6 +313,34 @@ function copyExport(){
     c.style.display='inline';
     setTimeout(()=>c.style.display='none',2000);
   });
+}
+
+function togglePromote(id){
+  const f=document.getElementById('promote-form-'+id);
+  if(f) f.style.display=f.style.display==='none'?'block':'none';
+}
+
+async function promoteToRoadmap(id){
+  const item=all.find(f=>f.id===id);
+  if(!item) return;
+  const sys=document.getElementById('pr-sys-'+id)?.value||'lodge';
+  const status=document.getElementById('pr-status-'+id)?.value||'idea';
+  const msg=document.getElementById('pr-msg-'+id);
+  if(msg){msg.textContent='promoting…';msg.style.color='var(--dim)';}
+  const title=item.title||item.description?.slice(0,60)||'Untitled';
+  const parts=[item.description];
+  if(item.page&&item.page!=='General') parts.push(`From: ${item.page}`);
+  if(item.submitter) parts.push(`Submitted by: ${item.submitter}`);
+  const{error}=await db.from('roadmap').insert({
+    title, description:parts.filter(Boolean).join('
+'),
+    system:sys, status, sort_order:999
+  });
+  if(error){if(msg){msg.textContent=`Error: ${error.message}`;msg.style.color='#e06060';}return;}
+  if(msg){msg.textContent='✓ Added to roadmap!';msg.style.color='var(--green)';}
+  const btn=document.getElementById('promote-btn-'+id);
+  if(btn){btn.textContent='✓ on roadmap';btn.style.color='var(--green)';btn.disabled=true;}
+  setTimeout(()=>{const f=document.getElementById('promote-form-'+id);if(f)f.style.display='none';},1800);
 }
 
 load();

@@ -676,7 +676,7 @@ mapSvg.addEventListener('mouseup',()=>mapDragging=false);
 mapSvg.addEventListener('mouseleave',()=>mapDragging=false);
 mapSvg.addEventListener('wheel',e=>{
   e.preventDefault();
-  const factor=e.deltaY>0?0.94:1.06;
+  const factor=e.deltaY>0?0.97:1.03;
   mapT.scale=Math.max(0.25,Math.min(4,mapT.scale*factor));
   applyMapTransform();
 },{passive:false});

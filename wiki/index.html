@@ -300,8 +300,10 @@
       <button class="fb-type-btn bug" onclick="selectFbType('bug',this)">🐛 bug</button>
       <button class="fb-type-btn question" onclick="selectFbType('question',this)">❓ question</button>
     </div>
-    <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">description *</div>
-    <textarea id="fb-desc" placeholder="Describe the bug, suggestion, or question…" style="width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--serif);font-size:13px;padding:8px 10px;border-radius:4px;outline:none;resize:vertical;min-height:80px;"></textarea>
+    <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">title *</div>
+    <input type="text" id="fb-title" placeholder="Short title for this suggestion…" style="width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:13px;padding:7px 10px;border-radius:4px;outline:none;margin-bottom:10px;">
+    <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">description</div>
+    <textarea id="fb-desc" placeholder="More detail if needed…" style="width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--serif);font-size:13px;padding:8px 10px;border-radius:4px;outline:none;resize:vertical;min-height:70px;"></textarea>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button onclick="closeFeedback()">cancel</button>
       <button onclick="submitFeedback()" style="background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);flex:1;">submit</button>
@@ -1041,6 +1043,7 @@ function openFeedback(){
   document.getElementById('fb-page-text').textContent=page;
   document.getElementById('fb-page-picker').style.display='none';
   document.getElementById('fb-desc').value='';
+  document.getElementById('fb-title').value='';
   document.getElementById('fb-status').textContent='';
   fbType='suggestion';
   document.querySelectorAll('.fb-type-btn').forEach(b=>{
@@ -1061,14 +1064,15 @@ function selectFbType(type,btn){
 }
 
 async function submitFeedback(){
-  const desc=document.getElementById('fb-desc').value.trim();
+  const title=document.getElementById('fb-title').value.trim();
+  const desc=document.getElementById('fb-desc').value.trim()||null;
   const page=document.getElementById('fb-page-text').textContent;
   const statusEl=document.getElementById('fb-status');
-  if(!desc){statusEl.textContent='Please describe the issue first.';statusEl.style.color='#e06060';return;}
+  if(!title){statusEl.textContent='Please add a title first.';statusEl.style.color='#e06060';return;}
   statusEl.textContent='submitting…';statusEl.style.color='var(--dim)';
   const submitter=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'anonymous';
   const{error}=await db.from('feedback').insert({
-    page,type:fbType,description:desc,
+    title,page,type:fbType,description:desc,
     submitter,user_id:currentUser?.id||null,status:'new'
   });
   if(error){statusEl.textContent=`Error: ${error.message}`;statusEl.style.color='#e06060';return;}
