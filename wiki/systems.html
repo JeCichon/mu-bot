@@ -230,12 +230,18 @@ async function saveRole(uid,name){
   const badge=document.querySelector(`#mr-${uid} .role-badge`);
   if(!sel) return;
 
+  let saveError;
   if(!role){
-    // Remove role
-    await db.from('user_roles').delete().eq('user_id',uid);
+    const{error}=await db.from('user_roles').delete().eq('user_id',uid);
+    saveError=error;
   } else {
-    // Upsert role
-    await db.from('user_roles').upsert({user_id:uid,user_name:name,role},{onConflict:'user_id'});
+    const{error}=await db.from('user_roles').upsert({user_id:uid,user_name:name,role},{onConflict:'user_id'});
+    saveError=error;
+  }
+  if(saveError){
+    if(conf){ conf.style.display='inline'; conf.textContent='✗ failed: '+saveError.message; conf.style.color='#e06060'; }
+    console.error('Role save failed:',saveError);
+    return;
   }
 
   // Update badge
@@ -264,7 +270,7 @@ async function addMember(){
   if(!uuid||uuid.length<30){ statusEl.textContent='Paste a valid UUID (36 chars).'; statusEl.style.color='#e06060'; return; }
   statusEl.textContent='saving…'; statusEl.style.color='var(--dim)';
   const{error}=await db.from('user_roles').upsert({user_id:uuid,user_name:name,role},{onConflict:'user_id'});
-  if(error){ statusEl.textContent=`Error: ${error.message}`; statusEl.style.color='#e06060'; return; }
+  if(error){ statusEl.textContent=`Error: ${error.message} (check RLS policies)`; statusEl.style.color='#e06060'; return; }
   statusEl.textContent=`✓ Added as ${role}.`; statusEl.style.color='var(--green)';
   document.getElementById('add-uuid').value='';
   document.getElementById('add-name').value='';
