@@ -159,7 +159,19 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let all=[], activeFilter='all', activeSearch='';
+let currentUser=null, userRole='';
 const TYPE_EMOJI={bug:'🐛',suggestion:'💡',question:'❓'};
+
+async function init(){
+  // getSession() is more reliable than onAuthStateChange inside iframes
+  const{data:{session}}=await db.auth.getSession();
+  currentUser=session?.user||null;
+  if(currentUser){
+    const{data}=await db.from('user_roles').select('role').eq('user_id',currentUser.id).maybeSingle();
+    userRole=data?.role||'';
+  }
+  load();
+}
 
 async function load(){
   const{data}=await db.from('feedback').select('*').order('created_at',{ascending:false});
@@ -360,7 +372,7 @@ async function promoteToRoadmap(id){
   setTimeout(()=>{const f=document.getElementById('promote-form-'+id);if(f)f.style.display='none';},1800);
 }
 
-load();
+init();
 </script>
 </body>
 </html>

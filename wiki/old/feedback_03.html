@@ -193,57 +193,74 @@ function render(){
   if(activeSearch) items=items.filter(f=>
     f.description?.toLowerCase().includes(activeSearch)||
     f.page?.toLowerCase().includes(activeSearch)||
-    f.notes?.toLowerCase().includes(activeSearch)
+    f.notes?.toLowerCase().includes(activeSearch)||
+    f.title?.toLowerCase().includes(activeSearch)
   );
-  document.getElementById('item-count').textContent=`${items.length} item${items.length===1?'':'s'}`;
-  if(!items.length){ document.getElementById('feedback-list').innerHTML=`<div class="empty">nothing here yet</div>`; return; }
-  document.getElementById('feedback-list').innerHTML=items.map(f=>`
-    <div class="fb-card" id="fbc-${f.id}">
-      <div class="fb-main" onclick="toggleDetail(${f.id})">
-        <div class="fb-type-dot" style="background:${f.type==='bug'?'var(--bug)':f.type==='suggestion'?'var(--suggest)':'var(--question)'}"></div>
-        <div class="fb-body">
-          <div class="fb-header">
-            ${f.page?`<span class="fb-page">${f.page}</span>`:''}
-            <span class="fb-type ${f.type}">${TYPE_EMOJI[f.type]||''} ${f.type}</span>
-            <span class="fb-status ${f.status}">${f.status}</span>
-          </div>
-          <div style="font-weight:bold;font-size:14px;color:var(--parchment);margin-bottom:3px;">${f.title||''}</div>
-          ${f.description ? '<div class="fb-desc">'+f.description+'</div>' : ''}
-          <div class="fb-meta">by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()}${f.notes?` · <em>has notes</em>`:''}</div>
+  const countEl=document.getElementById('item-count');
+  if(countEl) countEl.textContent=`${items.length} item${items.length===1?'':'s'}`;
+  const listEl=document.getElementById('feedback-list');
+  if(!listEl) return;
+  if(!items.length){ listEl.innerHTML=`<div class="empty">nothing here yet</div>`; return; }
+  try{
+    listEl.innerHTML=items.map(f=>buildCard(f)).join('');
+  }catch(err){
+    listEl.innerHTML=`<div class="empty" style="color:#e06060">Render error: ${err.message}</div>`;
+    console.error('Feedback render error:',err);
+  }
+}
+
+function buildCard(f){
+  const typeColor=f.type==='bug'?'var(--bug)':f.type==='suggestion'?'var(--suggest)':'var(--question)';
+  const pageSpan=f.page?`<span class="fb-page">${f.page}</span>`:'';
+  const titleDiv=`<div style="font-weight:bold;font-size:14px;color:var(--parchment);margin-bottom:3px;">${f.title||''}</div>`;
+  const descDiv=f.description?`<div class="fb-desc">${f.description}</div>`:'';
+  const notesNote=f.notes?' · <em>has notes</em>':'';
+  const meta=`<div class="fb-meta">by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()}${notesNote}</div>`;
+  const statusBtns=['new','noted','planned','done'].map(s=>
+    `<button class="status-btn ${f.status===s?'active-status':''}" onclick="setStatus(${f.id},'${s}',this)">${s}</button>`
+  ).join('');
+  const promoteForm=`<div id="promote-form-${f.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--brown3);">
+    <div style="font-size:11px;font-family:var(--mono);color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">add to roadmap as</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <select id="pr-sys-${f.id}" style="background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;flex:1;">
+        <option value="lodge">Lodge</option><option value="organ">Organ</option>
+        <option value="library">Library</option><option value="cards">Cards</option><option value="engine">Engine</option>
+      </select>
+      <select id="pr-status-${f.id}" style="background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;">
+        <option value="idea">idea</option><option value="active">active</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="promoteToRoadmap(${f.id})" style="background:var(--brown3);border:1px solid var(--green3);color:var(--green);font-family:var(--mono);font-size:12px;padding:5px 14px;border-radius:4px;cursor:pointer;">confirm</button>
+      <button onclick="togglePromote(${f.id})" style="background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:4px;cursor:pointer;">cancel</button>
+      <span id="pr-msg-${f.id}" style="font-size:11px;font-family:var(--mono);color:var(--green);"></span>
+    </div>
+  </div>`;
+  return `<div class="fb-card" id="fbc-${f.id}">
+    <div class="fb-main" onclick="toggleDetail(${f.id})">
+      <div class="fb-type-dot" style="background:${typeColor}"></div>
+      <div class="fb-body">
+        <div class="fb-header">${pageSpan}
+          <span class="fb-type ${f.type}">${TYPE_EMOJI[f.type]||''} ${f.type}</span>
+          <span class="fb-status ${f.status}">${f.status}</span>
         </div>
-        <div class="fb-expand">›</div>
+        ${titleDiv}${descDiv}${meta}
       </div>
-      <div class="fb-detail" id="fbd-${f.id}">
-        <div class="fb-notes-label">archmage notes</div>
-        <textarea class="fb-notes" id="fbn-${f.id}" placeholder="Add notes here…">${f.notes||''}</textarea>
-        <div class="fb-actions">
-          <span style="font-size:11px;color:var(--dim);font-family:var(--mono)">status:</span>
-          ${['new','noted','planned','done'].map(s=>`
-            <button class="status-btn ${f.status===s?'active-status':''}" onclick="setStatus(${f.id},'${s}',this)">${s}</button>
-          `).join('')}
-          <button class="save-note-btn" onclick="saveNote(${f.id})">save notes</button>
-          <span class="note-saved" id="saved-${f.id}"></span>
-          <button class="save-note-btn" id="promote-btn-${f.id}" onclick="togglePromote(${f.id})" style="margin-left:auto;border-color:rgba(80,105,90,.6);color:var(--green);">→ roadmap</button>
-        </div>
-        <div id="promote-form-${f.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--brown3);">
-          <div style="font-size:11px;font-family:var(--mono);color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">add to roadmap as</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <select id="pr-sys-${f.id}" style="background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;flex:1;">
-              <option value="lodge">Lodge</option><option value="organ">Organ</option>
-              <option value="library">Library</option><option value="cards">Cards</option><option value="engine">Engine</option>
-            </select>
-            <select id="pr-status-${f.id}" style="background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;">
-              <option value="idea">○ idea</option><option value="active">→ active</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button onclick="promoteToRoadmap(${f.id})" style="background:var(--brown3);border:1px solid var(--green3);color:var(--green);font-family:var(--mono);font-size:12px;padding:5px 14px;border-radius:4px;cursor:pointer;">confirm →</button>
-            <button onclick="togglePromote(${f.id})" style="background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:4px;cursor:pointer;">cancel</button>
-            <span id="pr-msg-${f.id}" style="font-size:11px;font-family:var(--mono);color:var(--green);"></span>
-          </div>
-        </div>
+      <div class="fb-expand">›</div>
+    </div>
+    <div class="fb-detail" id="fbd-${f.id}">
+      <div class="fb-notes-label">archmage notes</div>
+      <textarea class="fb-notes" id="fbn-${f.id}" placeholder="Add notes here...">${f.notes||''}</textarea>
+      <div class="fb-actions">
+        <span style="font-size:11px;color:var(--dim);font-family:var(--mono)">status:</span>
+        ${statusBtns}
+        <button class="save-note-btn" onclick="saveNote(${f.id})">save notes</button>
+        <span class="note-saved" id="saved-${f.id}"></span>
+        <button class="save-note-btn" id="promote-btn-${f.id}" onclick="togglePromote(${f.id})" style="margin-left:auto;border-color:rgba(80,105,90,.6);color:var(--green);">to roadmap</button>
       </div>
-    </div>`).join('');
+      ${promoteForm}
+    </div>
+  </div>`;
 }
 
 function toggleDetail(id){

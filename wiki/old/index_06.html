@@ -1072,7 +1072,7 @@ async function submitFeedback(){
   statusEl.textContent='submitting…';statusEl.style.color='var(--dim)';
   const submitter=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'anonymous';
   const{error}=await db.from('feedback').insert({
-    title,page,type:fbType,description:desc||'',
+    title,page,type:fbType,description:desc,
     submitter,user_id:currentUser?.id||null,status:'new'
   });
   if(error){statusEl.textContent=`Error: ${error.message}`;statusEl.style.color='#e06060';return;}
