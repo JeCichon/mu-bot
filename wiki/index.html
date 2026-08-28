@@ -87,6 +87,8 @@
   .msg-cards { font-size:11px; color:var(--dim); font-family:var(--mono); margin-top:5px; }
   /* Slide Rules chat widget */
   .sim-chat-wrap{display:flex;justify-content:center;margin-top:8px;}
+  .msg.sim-msg{justify-content:center;}
+  .msg.sim-msg .msg-body{max-width:520px;width:100%;align-items:center;}
   .sim-chat-widget{border-radius:6px;position:relative;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(80,58,36,.6);transition:border-color .2s;}
   .sim-chat-widget:hover{border-color:rgba(80,105,90,.5);}
   .sim-chat-widget iframe{position:absolute;transform-origin:0 0;border:none;pointer-events:none;z-index:1;}
@@ -770,8 +772,38 @@ function renderMessage(msg){
   const time=new Date(msg.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
   const{html:msgHtml,media:msgMedia}=parseMessageContent(msg.content);
   const div=document.createElement("div");
+  // Detect slide_rules for centered render
+  let srData=null;
+  try{if(msg.card_line){const cl=JSON.parse(msg.card_line);if(cl.type==='slide_rules')srData=cl;}}catch(e){}
 
-  if(isSystem){
+  if(srData){
+    // Slide Rules — centered block with attribution
+    const d=getCropDims(srData.size,srData.crop);
+    const bg=simHashColor(srData.code);
+    const enc=encodeURIComponent(srData.code);
+    const encName=encodeURIComponent(srData.name||'');
+    div.className='msg system-msg';
+    div.innerHTML=`<div class="msg-body" style="width:100%">
+      <div class="msg-bubble" style="padding:12px 16px 14px;">
+        <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:10px;font-style:normal;">
+          🎮 ${msg.user_name||'traveler'} shared a simulation
+        </div>
+        <div style="display:flex;justify-content:center;">
+          <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:${bg};"
+            data-code="${enc}" data-name="${encName}"
+            onmouseenter="startChatSim(this)"
+            onmouseleave="stopChatSim(this)"
+            onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
+            <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
+              style="width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
+            <div class="sim-chat-name">${srData.name||'simulation'}</div>
+            <div class="sim-chat-hint">hover to play · click to open</div>
+          </div>
+        </div>
+      </div>
+      <div class="msg-cards" style="text-align:center">${time}</div>
+    </div>`;
+  } else if(isSystem){
     // Centered system message — parse lines into header/version/title/body
     const lines=msg.content.split('\n').filter(Boolean);
     const header=lines[0]||'';
@@ -1024,13 +1056,13 @@ function buildCardLine(cardLine){
       const size=cl.size||190;
       const crop=cl.crop||'full';
       const d=getCropDims(size,crop);
-      return`<div class="sim-chat-wrap" style="display:flex;justify-content:center;width:100%;margin-top:8px;">
+      return`<div class="sim-chat-wrap">
         <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:${bg}"
           data-code="${enc}" data-name="${encName}"
           onmouseenter="startChatSim(this)"
           onmouseleave="stopChatSim(this)"
           onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
-          <iframe src="" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
+          <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
             style="width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
           <div class="sim-chat-name">${cl.name||'simulation'}</div>
           <div class="sim-chat-hint">hover to play · click to open</div>
@@ -1050,7 +1082,7 @@ function startChatSim(div){
 }
 function stopChatSim(div){
   const fr=div.querySelector('iframe');
-  if(fr){fr.src='';} // stop simulation by unloading
+  if(fr) fr.src='about:blank'; // unload without triggering breakout guard
   if(activeChatSim===div) activeChatSim=null;
 }
 
