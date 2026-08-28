@@ -62,8 +62,8 @@
   .fb-status.done{background:rgba(51,102,51,.3);color:#66bb66;}
   /* Planned: outdented + glowing border to signal "needs attention" */
   @keyframes plannedPulse{
-    0%,100%{box-shadow:0 0 6px rgba(102,153,204,.4),0 0 12px rgba(102,153,204,.2);}
-    50%{box-shadow:0 0 12px rgba(102,153,204,.7),0 0 24px rgba(102,153,204,.35);}
+    0%,100%{box-shadow:0 0 6px rgba(201,169,110,.45),0 0 14px rgba(201,169,110,.2);}
+    50%{box-shadow:0 0 14px rgba(201,169,110,.8),0 0 28px rgba(201,169,110,.4);}
   }
   .fb-desc{font-size:13px;color:var(--parchment);line-height:1.5;margin-bottom:4px;}
   .fb-meta{font-size:11px;color:var(--dim);font-family:var(--mono);}
@@ -260,10 +260,12 @@ function buildCard(f){
     </div>
   </div>`;
   const doneWrap=f.status==='done'
-    ? 'margin-left:22px;background:rgba(80,105,90,.1);border-color:rgba(80,105,90,.4);'
+    ? 'margin-left:28px;background:rgba(80,105,90,.1);border-color:rgba(80,105,90,.4);'
     : f.status==='planned'
-      ? 'margin-right:22px;border-color:rgba(68,119,204,.6);animation:plannedPulse 2.5s ease-in-out infinite;'
-      : '';
+      ? 'margin-left:0;border-color:rgba(201,169,110,.55);animation:plannedPulse 2.5s ease-in-out infinite;'
+      : (f.status==='new'||f.status==='noted')
+        ? 'margin-left:14px;'
+        : '';
   return `<div class="fb-card" id="fbc-${f.id}" style="${doneWrap}">
     <div class="fb-main" onclick="toggleDetail(${f.id})">
       <div class="fb-type-dot" style="background:${typeColor}"></div>
