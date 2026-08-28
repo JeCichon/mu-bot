@@ -296,6 +296,38 @@ function sendToChat(code,name){
   }
 }
 
+// ── Generation-200 preview thumbnails ────────────────────────────────────────
+async function generateThumbnails(sims){
+  for(const s of sims){
+    await captureThumbnail(s.id, s.code, s.name);
+  }
+}
+
+function captureThumbnail(id, code, name){
+  return new Promise(resolve=>{
+    const fr=document.createElement('iframe');
+    fr.style.cssText='position:fixed;left:-9999px;top:-9999px;width:600px;height:600px;visibility:hidden;pointer-events:none;';
+    fr.src=`slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}&play=false&frame=200`;
+    fr.onload=()=>{
+      // Wait one extra frame for WebGL to finish painting
+      setTimeout(()=>{
+        try{
+          const canvas=fr.contentDocument?.querySelector('canvas');
+          if(canvas){
+            const dataUrl=canvas.toDataURL('image/jpeg',0.85);
+            const img=document.getElementById('thumb-'+id);
+            if(img){ img.src=dataUrl; img.style.display='block'; }
+          }
+        }catch(e){ console.warn('Thumbnail capture failed:',e); }
+        fr.remove();
+        resolve();
+      },80);
+    };
+    fr.onerror=()=>{ fr.remove(); resolve(); };
+    document.body.appendChild(fr);
+  });
+}
+
 async function loadSims(){
   const{data,error}=await db.from('slide_rules').select('*').eq('published',true).order('created_at',{ascending:false});
   const grid = document.getElementById('sim-grid');
@@ -306,6 +338,8 @@ async function loadSims(){
   }
   sims = data;
   document.getElementById('sim-count').textContent = `${data.length} simulation${data.length===1?'':'s'}`;
+  // Generate gen-200 still thumbnails sequentially
+  setTimeout(()=>generateThumbnails(data), 200);
   grid.innerHTML = data.map(s=>`
     <div class="sim-card">
       <div class="sim-preview"
@@ -315,6 +349,7 @@ async function loadSims(){
         onmouseenter="startPreview(this)"
         onmouseleave="stopPreview(this)"
         onclick="playInLodge('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">
+        <img id="thumb-${s.id}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;">
         <div class="sim-preview-label">${s.name}</div>
         <div class="sim-hint">hover to preview · click to open</div>
       </div>

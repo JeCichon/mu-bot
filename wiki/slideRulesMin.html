@@ -37,8 +37,9 @@
    ========================================================================= */
 
 const SIZE      = 600;    // grid cells AND canvas pixels (1 cell = 1 px)
-const FRAME     = 200;    // generations to run before the first paint
-const PLAY      = true;   // false = freeze on frame FRAME
+const _sp       = new URLSearchParams(location.search);
+const FRAME     = parseInt(_sp.get('frame') || '200');  // generations before first paint
+const PLAY      = _sp.get('play') !== 'false';          // false = freeze on frame FRAME
 const SPEED     = 1;      // sim ticks per rendered frame
 const SCANLINES = true;   // CRT-style dim on alternate rows (Slide Rules look)
 const SCAN_A    = 0.92;   // 1 = off, lower = stronger
