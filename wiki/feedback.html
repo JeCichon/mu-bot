@@ -88,6 +88,35 @@
   .btn-copy{background:var(--green3);border:1px solid var(--green3);color:var(--parchment);}
   .btn-copy:hover{background:var(--green2);}
 
+  /* Phases strip */
+  .phases-strip{background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;padding:10px 14px;margin-bottom:12px;}
+  .phases-hdr{font-size:11px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+  .phases-hdr:hover{color:var(--parchment);}
+  .phase-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .phase-chip{background:var(--brown);border:1px solid var(--brown3);border-radius:5px;padding:5px 10px;font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:7px;}
+  .phase-chip.done{opacity:.45;filter:grayscale(.5);}
+  .phase-chip-lbl{color:var(--gold);font-weight:bold;}
+  .phase-chip-title{color:var(--parchment2);}
+  .phase-chip-count{color:var(--dim);}
+  .chip-done-btn{background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:0;line-height:1;}
+  .chip-done-btn:hover{color:var(--green);}
+  .chip-new{background:none;border:1px dashed var(--brown3);color:var(--dim);cursor:pointer;padding:5px 10px;border-radius:5px;font-family:var(--mono);font-size:11px;}
+  .chip-new:hover{border-color:var(--green3);color:var(--green);}
+  .history-section{margin-top:16px;border-top:1px solid var(--brown3);padding-top:10px;}
+  .history-hdr{font-size:11px;color:var(--dim);font-family:var(--mono);cursor:pointer;user-select:none;letter-spacing:.06em;}
+  .history-hdr:hover{color:var(--parchment);}
+  /* Phase tag on planned items */
+  .phase-tag{font-size:10px;font-family:var(--mono);background:rgba(201,169,110,.12);color:var(--gold);border:1px solid rgba(201,169,110,.3);padding:1px 7px;border-radius:8px;margin-left:2px;}
+  /* Phase picker */
+  .phase-picker{margin-top:8px;padding:10px 0 4px;border-top:1px solid var(--brown3);display:none;}
+  .phase-picker.open{display:block;}
+  .phase-picker-title{font-size:11px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;}
+  .phase-opts{display:flex;flex-wrap:wrap;gap:6px;}
+  .phase-opt{background:var(--brown);border:1px solid var(--brown3);color:var(--parchment2);font-family:var(--mono);font-size:11px;padding:4px 11px;border-radius:4px;cursor:pointer;transition:border-color .15s;}
+  .phase-opt:hover,.phase-opt.active-phase{border-color:var(--gold);color:var(--gold);}
+  .phase-opt.create{border-style:dashed;color:var(--dim);}
+  .phase-opt.create:hover{border-color:var(--green3);color:var(--green);}
+
   .empty{color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:30px;text-align:center;}
 
   ::-webkit-scrollbar{width:5px;}
@@ -141,6 +170,21 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
     </div>
   </div>
 
+  <!-- Phases strip (archmage only) -->
+  <div class="phases-strip" id="phases-strip" style="display:none;">
+    <div class="phases-hdr" onclick="togglePhasesStrip()">
+      <span id="phases-hdr-text">ACTIVE PHASES</span>
+      <span id="phases-toggle" style="color:var(--dim);font-size:10px;">▾</span>
+    </div>
+    <div id="phases-body">
+      <div class="phase-chips" id="phase-chips"></div>
+      <div class="history-section" id="history-section" style="display:none;">
+        <div class="history-hdr" onclick="toggleHistory()">◈ history <span id="hist-toggle">▸</span></div>
+        <div id="history-chips" style="display:none;margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Filters -->
   <div class="filter-bar">
     <button class="tab active" onclick="setFilter('all',this)">all <span class="count-badge" id="cnt-all">0</span></button>
@@ -165,6 +209,7 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let all=[], activeFilter='all', activeSearch='';
 let currentUser=null, userRole='';
+let allPhases=[];
 const TYPE_EMOJI={bug:'🐛',suggestion:'💡',question:'❓'};
 
 async function init(){
@@ -179,10 +224,15 @@ async function init(){
 }
 
 async function load(){
-  const{data}=await db.from('feedback').select('*').order('created_at',{ascending:false});
-  all=data||[];
+  const[fbRes,phRes]=await Promise.all([
+    db.from('feedback').select('*').order('created_at',{ascending:false}),
+    db.from('feedback_phases').select('*').order('group_num').order('phase_letter')
+  ]);
+  all=fbRes.data||[];
+  allPhases=phRes.data||[];
   updateCounts();
   render();
+  if(userRole==='archmage') renderPhases();
 }
 
 function updateCounts(){
@@ -239,8 +289,11 @@ function buildCard(f){
   const descDiv=f.description?`<div class="fb-desc">${f.description}</div>`:'';
   const notesNote=f.notes?' · <em>has notes</em>':'';
   const meta=`<div class="fb-meta">by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()}${notesNote}</div>`;
+  const phaseMap=allPhases.reduce((m,p)=>{m[p.id]=p;return m;},{});
+  const fPhase=f.phase_id&&phaseMap[f.phase_id]?phaseMap[f.phase_id]:null;
+  const phaseTag=fPhase?`<span class="phase-tag">G${fPhase.group_num}·${fPhase.phase_letter}</span>`:'';
   const statusBtns=['new','noted','planned','done'].map(s=>
-    `<button class="status-btn ${f.status===s?'active-status':''}" onclick="setStatus(${f.id},'${s}',this)">${s}</button>`
+    `<button class="status-btn ${f.status===s?'active-status':''}" onclick="handleStatusClick(${f.id},'${s}',this)">${s}</button>`
   ).join('');
   const promoteForm=`<div id="promote-form-${f.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--brown3);">
     <div style="font-size:11px;font-family:var(--mono);color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">add to roadmap as</div>
@@ -273,6 +326,7 @@ function buildCard(f){
         <div class="fb-header">${pageSpan}
           <span class="fb-type ${f.type}">${TYPE_EMOJI[f.type]||''} ${f.type}</span>
           <span class="fb-status ${f.status}">${f.status}</span>
+          ${phaseTag}
         </div>
         ${titleDiv}${descDiv}${meta}
       </div>
@@ -289,6 +343,10 @@ function buildCard(f){
         <button class="save-note-btn" id="promote-btn-${f.id}" onclick="togglePromote(${f.id})" style="margin-left:auto;border-color:rgba(80,105,90,.6);color:var(--green);">to roadmap</button>
       </div>
       ${promoteForm}
+      <div class="phase-picker" id="ppick-${f.id}">
+        <div class="phase-picker-title">assign to phase</div>
+        <div class="phase-opts" id="popts-${f.id}"></div>
+      </div>
     </div>
   </div>`;
 }
@@ -303,6 +361,177 @@ async function saveTitle(id){
   const item=all.find(f=>f.id===id);
   if(item) item.title=title;
   render();
+}
+
+// ── Phase system ─────────────────────────────────────────────────────────────
+function handleStatusClick(id,status,btn){
+  if(status==='planned'){
+    // Show phase picker instead of directly setting status
+    const picker=document.getElementById('ppick-'+id);
+    if(!picker) return;
+    const isOpen=picker.classList.contains('open');
+    document.querySelectorAll('.phase-picker').forEach(p=>p.classList.remove('open'));
+    if(isOpen) return;
+    renderPhasePicker(id);
+    picker.classList.add('open');
+  } else {
+    document.querySelectorAll('.phase-picker').forEach(p=>p.classList.remove('open'));
+    setStatus(id,status,btn);
+  }
+}
+
+function renderPhasePicker(feedbackId){
+  const optsEl=document.getElementById('popts-'+feedbackId);
+  if(!optsEl) return;
+  const active=allPhases.filter(p=>p.status==='active');
+  const item=all.find(f=>f.id===feedbackId);
+  optsEl.innerHTML='';
+  active.forEach(p=>{
+    const btn=document.createElement('button');
+    btn.className='phase-opt'+(item&&item.phase_id===p.id?' active-phase':'');
+    btn.textContent=`G${p.group_num}·${p.phase_letter}${p.title?' — '+p.title:''}`;
+    btn.onclick=()=>assignPhase(feedbackId,p.id);
+    optsEl.appendChild(btn);
+  });
+  // Create new phase in latest active group
+  const maxGroup=active.length>0?Math.max(...active.map(p=>p.group_num)):0;
+  if(maxGroup>0){
+    const nb=document.createElement('button');
+    nb.className='phase-opt create';
+    nb.textContent=`+ New Phase in Group ${maxGroup}`;
+    nb.onclick=()=>createPhase(maxGroup,feedbackId);
+    optsEl.appendChild(nb);
+  }
+  const gb=document.createElement('button');
+  gb.className='phase-opt create';
+  gb.textContent='+ New Phase Group';
+  gb.onclick=()=>createGroup(feedbackId);
+  optsEl.appendChild(gb);
+}
+
+async function assignPhase(feedbackId,phaseId){
+  await db.from('feedback').update({status:'planned',phase_id:phaseId}).eq('id',feedbackId);
+  const item=all.find(f=>f.id===feedbackId); if(item){item.status='planned';item.phase_id=phaseId;}
+  document.querySelectorAll('.phase-picker').forEach(p=>p.classList.remove('open'));
+  updateCounts(); render(); renderPhases();
+}
+
+async function createPhase(groupNum,feedbackId){
+  // Find next letter for this group
+  const existing=allPhases.filter(p=>p.group_num===groupNum);
+  const nextLetter=existing.length===0?'A':String.fromCharCode(Math.max(...existing.map(p=>p.phase_letter.charCodeAt(0)))+1);
+  const title=prompt(`Name for Group ${groupNum} Phase ${nextLetter} (optional):`)||null;
+  const{data,error}=await db.from('feedback_phases').insert({group_num:groupNum,phase_letter:nextLetter,title}).select().single();
+  if(error||!data) return;
+  allPhases.push(data);
+  if(feedbackId) await assignPhase(feedbackId,data.id);
+  else{ render(); renderPhases(); }
+}
+
+async function createGroup(feedbackId){
+  const maxGroup=allPhases.length>0?Math.max(...allPhases.map(p=>p.group_num)):0;
+  const newGroup=maxGroup+1;
+  const title=prompt(`Name for Group ${newGroup} Phase A (optional):`)||null;
+  const{data,error}=await db.from('feedback_phases').insert({group_num:newGroup,phase_letter:'A',title}).select().single();
+  if(error||!data) return;
+  allPhases.push(data);
+  if(feedbackId) await assignPhase(feedbackId,data.id);
+  else{ render(); renderPhases(); }
+}
+
+async function markPhaseDone(phaseId){
+  await db.from('feedback_phases').update({status:'done'}).eq('id',phaseId);
+  const p=allPhases.find(x=>x.id===phaseId); if(p) p.status='done';
+  renderPhases();
+}
+
+async function markGroupDone(groupNum){
+  const phases=allPhases.filter(p=>p.group_num===groupNum);
+  await Promise.all(phases.map(p=>db.from('feedback_phases').update({status:'done'}).eq('id',p.id)));
+  phases.forEach(p=>p.status='done');
+  renderPhases();
+}
+
+// ── Phases strip rendering ────────────────────────────────────────────────────
+let phasesCollapsed=false, historyOpen=false;
+function togglePhasesStrip(){
+  phasesCollapsed=!phasesCollapsed;
+  document.getElementById('phases-body').style.display=phasesCollapsed?'none':'block';
+  document.getElementById('phases-toggle').textContent=phasesCollapsed?'▸':'▾';
+}
+function toggleHistory(){
+  historyOpen=!historyOpen;
+  document.getElementById('history-chips').style.display=historyOpen?'flex':'none';
+  document.getElementById('hist-toggle').textContent=historyOpen?'▾':'▸';
+  if(historyOpen) document.getElementById('history-chips').style.flexWrap='wrap';
+}
+
+function renderPhases(){
+  const strip=document.getElementById('phases-strip');
+  const chipsEl=document.getElementById('phase-chips');
+  const historyEl=document.getElementById('history-chips');
+  const histSection=document.getElementById('history-section');
+  if(!strip||!chipsEl) return;
+  strip.style.display='block';
+
+  const active=allPhases.filter(p=>p.status==='active');
+  const done=allPhases.filter(p=>p.status==='done');
+  const phaseCounts={};
+  all.forEach(f=>{ if(f.phase_id&&f.status==='planned') phaseCounts[f.phase_id]=(phaseCounts[f.phase_id]||0)+1; });
+
+  // Group active phases by group_num
+  const groups={};
+  active.forEach(p=>{ if(!groups[p.group_num]) groups[p.group_num]=[]; groups[p.group_num].push(p); });
+
+  chipsEl.innerHTML='';
+  Object.entries(groups).forEach(([gn,phases])=>{
+    const gDiv=document.createElement('div');
+    gDiv.style.cssText='display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px;';
+    const gLabel=document.createElement('span');
+    gLabel.style.cssText='font-size:10px;color:var(--dim);font-family:var(--mono);';
+    gLabel.textContent=`G${gn}:`;
+    gDiv.appendChild(gLabel);
+    phases.forEach(p=>{
+      const chip=document.createElement('div');
+      chip.className='phase-chip';
+      const count=phaseCounts[p.id]||0;
+      chip.innerHTML=`<span class="phase-chip-lbl">${p.phase_letter}</span>
+        ${p.title?`<span class="phase-chip-title">${p.title}</span>`:''}
+        <span class="phase-chip-count">(${count})</span>
+        <button class="chip-done-btn" onclick="markPhaseDone(${p.id})" title="Mark Phase ${p.phase_letter} done">✓</button>`;
+      gDiv.appendChild(chip);
+    });
+    // + New Phase button
+    const np=document.createElement('button');
+    np.className='chip-new'; np.textContent='+ Phase';
+    np.onclick=()=>createPhase(parseInt(gn),null);
+    gDiv.appendChild(np);
+    // Group done button
+    const gd=document.createElement('button');
+    gd.className='chip-new'; gd.style.borderColor='rgba(80,105,90,.5)'; gd.style.color='var(--green2)';
+    gd.textContent='Group done';
+    gd.onclick=()=>{ if(confirm(`Mark all of Group ${gn} as done?`)) markGroupDone(parseInt(gn)); };
+    gDiv.appendChild(gd);
+    chipsEl.appendChild(gDiv);
+  });
+
+  // + New Group button
+  const ng=document.createElement('button');
+  ng.className='chip-new'; ng.textContent='+ New Group';
+  ng.onclick=()=>createGroup(null);
+  chipsEl.appendChild(ng);
+
+  // History section
+  if(done.length>0){
+    histSection.style.display='block';
+    const doneGroups={};
+    done.forEach(p=>{ if(!doneGroups[p.group_num]) doneGroups[p.group_num]=[]; doneGroups[p.group_num].push(p); });
+    historyEl.innerHTML=Object.entries(doneGroups).map(([gn,phases])=>
+      `<div class="phase-chip done" style="gap:5px;">
+        <span class="phase-chip-lbl" style="color:var(--dim)">G${gn}</span>
+        <span class="phase-chip-title" style="color:var(--dim)">${phases.map(p=>p.phase_letter).join(',')} ✓</span>
+      </div>`).join('');
+  } else { histSection.style.display='none'; }
 }
 
 function toggleDetail(id){
