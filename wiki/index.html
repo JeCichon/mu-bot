@@ -796,14 +796,18 @@ function renderMessage(msg){
     widgetEl.onmouseenter=()=>startChatSim(widgetEl);
     widgetEl.onmouseleave=()=>stopChatSim(widgetEl);
     widgetEl.onclick=()=>{stopChatSim(widgetEl);openContent('simulations.html','🎮 Slide Rules');};
-    widgetEl.innerHTML=`<iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
-      style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
-      <div class="sim-chat-name">${srData.name||'simulation'}</div>
-      <div class="sim-chat-hint">hover to play · click to open</div>`;
+    widgetEl.innerHTML=`<img class="sim-chat-thumb" alt=""
+      style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;">
+      <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
+        style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);z-index:1;"></iframe>
+      <div class="sim-chat-name" style="position:relative;z-index:2;">${srData.name||'simulation'}</div>
+      <div class="sim-chat-hint" style="position:relative;z-index:2;">hover to play · click to open</div>`;
     const timeEl=document.createElement('div');
     timeEl.style.cssText='font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:6px;';
     timeEl.textContent=time;
     div.append(usernameEl,widgetEl,timeEl);
+    // Queue gen-200 still thumbnail (deferred so DOM is ready)
+    setTimeout(()=>queueChatThumb(widgetEl,srData.code,srData.name||''),0);
   } else if(isSystem){
     // Centered system message — parse lines into header/version/title/body
     const lines=msg.content.split('\n').filter(Boolean);
@@ -1072,6 +1076,46 @@ function buildCardLine(cardLine){
     }
   }catch(e){}
   return`<div class="msg-cards">${cardLine}</div>`;
+}
+
+// ── Chat sim thumbnail queue ─────────────────────────────────────────────────
+const _thumbQ=[];
+let _thumbRunning=false;
+
+function queueChatThumb(widgetEl,code,name){
+  _thumbQ.push({widgetEl,code,name});
+  if(!_thumbRunning) _processThumbQ();
+}
+
+async function _processThumbQ(){
+  _thumbRunning=true;
+  while(_thumbQ.length){
+    const{widgetEl,code,name}=_thumbQ.shift();
+    if(document.contains(widgetEl)) await _captureThumb(widgetEl,code,name);
+  }
+  _thumbRunning=false;
+}
+
+function _captureThumb(widgetEl,code,name){
+  return new Promise(resolve=>{
+    const fr=document.createElement('iframe');
+    fr.style.cssText='position:fixed;left:-9999px;top:-9999px;width:600px;height:600px;visibility:hidden;pointer-events:none;';
+    fr.src=`slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}&play=false&frame=200`;
+    fr.onload=()=>{
+      setTimeout(()=>{
+        try{
+          const canvas=fr.contentDocument?.querySelector('canvas');
+          if(canvas){
+            const img=widgetEl.querySelector('.sim-chat-thumb');
+            if(img){img.src=canvas.toDataURL('image/jpeg',0.85);img.style.display='block';}
+          }
+        }catch(e){console.warn('Chat thumb failed:',e);}
+        fr.remove(); resolve();
+      },80);
+    };
+    fr.onerror=()=>{fr.remove();resolve();};
+    document.body.appendChild(fr);
+  });
 }
 
 let activeChatSim=null;
