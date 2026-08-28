@@ -89,6 +89,8 @@
   .sim-chat-wrap{display:flex;justify-content:center;margin-top:8px;}
   .msg.sim-msg{justify-content:center;}
   .msg.sim-msg .msg-body{max-width:520px;width:100%;align-items:center;}
+  /* Slide rules chat posts — always full width, content centered */
+  .msg.sim-post{width:100%;display:block;padding:4px 0 8px;margin-bottom:4px;text-align:center;}
   .sim-chat-widget{border-radius:6px;position:relative;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(80,58,36,.6);transition:border-color .2s;}
   .sim-chat-widget:hover{border-color:rgba(80,105,90,.5);}
   .sim-chat-widget iframe{position:absolute;left:0;top:0;transform-origin:0 0;border:none;pointer-events:none;z-index:1;}
@@ -782,13 +784,12 @@ function renderMessage(msg){
     const bg=simHashColor(srData.code);
     const enc=encodeURIComponent(srData.code);
     const encName=encodeURIComponent(srData.name||'');
-    div.className='msg system-msg';
-    div.innerHTML=`<div class="msg-body" style="width:100%">
-      <div style="text-align:center;padding:4px 0 2px;">
-        <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:8px;font-style:normal;">
-          🎮 ${msg.user_name||'traveler'}
-        </div>
-        <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:rgba(0,0,0,.35);border-color:transparent;display:inline-flex;"
+    div.className='msg sim-post';
+    div.innerHTML=`<div style="width:100%;text-align:center;">
+      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:8px;font-style:normal;">
+        🎮 ${msg.user_name||'traveler'}
+      </div>
+      <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:rgba(0,0,0,.35);border-color:transparent;display:inline-flex;"
           data-code="${enc}" data-name="${encName}"
           onmouseenter="startChatSim(this)"
           onmouseleave="stopChatSim(this)"
@@ -798,8 +799,7 @@ function renderMessage(msg){
           <div class="sim-chat-name">${srData.name||'simulation'}</div>
           <div class="sim-chat-hint">hover to play · click to open</div>
         </div>
-      </div>
-      <div style="text-align:center;font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:4px;">${time}</div>
+      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:6px;">${time}</div>
     </div>`;
   } else if(isSystem){
     // Centered system message — parse lines into header/version/title/body
