@@ -886,12 +886,13 @@ async function sendSlideRulesMessage(code,name){
   if(!currentUser) return;
   const uName=currentUser.user_metadata?.full_name||currentUser.user_metadata?.name||'traveler';
   const avatar=currentUser.user_metadata?.avatar_url||null;
-  await db.from('messages').insert({
+  const{data:msg}=await db.from('messages').insert({
     user_id:currentUser.id, user_name:uName, user_avatar:avatar,
     content:`🎮 ${name}`, is_mu:false,
     card_line:JSON.stringify({type:'slide_rules',code,name}),
     is_system:false
-  });
+  }).select().single();
+  if(msg) renderMessage(msg); // render immediately; Realtime skips duplicate via shownIds
 }
 
 // ── DB-based presence ────────────────────────────────────────────────────────
