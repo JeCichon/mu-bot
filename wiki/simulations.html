@@ -284,6 +284,18 @@ function stopPreview(div){
   if(fr) fr.remove();
 }
 
+function sendToChat(code,name){
+  // Call parent Lodge's sendSlideRulesMessage if available
+  if(window.parent&&window.parent.sendSlideRulesMessage){
+    window.parent.sendSlideRulesMessage(code,name);
+    // Brief visual feedback
+    event.target.textContent='✓ sent';
+    setTimeout(()=>event.target.textContent='→ chat',1500);
+  } else {
+    alert('Open this page inside the Lodge to send to chat.');
+  }
+}
+
 async function loadSims(){
   const{data,error}=await db.from('slide_rules').select('*').eq('published',true).order('created_at',{ascending:false});
   const grid = document.getElementById('sim-grid');
@@ -311,7 +323,10 @@ async function loadSims(){
         ${s.description?`<div class="sim-desc">${s.description}</div>`:''}
         <div class="sim-meta">by ${s.author_name||'unknown'} · ${new Date(s.created_at).toLocaleDateString()}</div>
       </div>
-      <button class="sim-play" onclick="playInLodge('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">▶ run</button>
+      <div style="display:flex;">
+        <button class="sim-play" style="flex:1;border-right:1px solid var(--brown3);border-radius:0 0 0 5px;" onclick="playInLodge('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">▶ run</button>
+        <button class="sim-play" style="flex:1;border-radius:0 0 5px 0;" onclick="sendToChat('${s.code.replace(/'/g,"\\'")}','${s.name.replace(/'/g,"\\'")}')">→ chat</button>
+      </div>
     </div>`).join('');
 }
 
