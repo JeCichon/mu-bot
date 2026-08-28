@@ -364,7 +364,7 @@
     <div class="sr-section-label">size (px)</div>
     <div class="sr-size-row">
       <button class="sr-size-btn" onclick="adjustSRSize(-10)">−</button>
-      <input class="sr-size-input" id="sr-size-input" type="number" value="190" min="80" max="420" step="10" oninput="updateSRPreview()">
+      <input class="sr-size-input" id="sr-size-input" type="number" value="190" min="80" max="840" step="10" oninput="updateSRPreview()">
       <button class="sr-size-btn" onclick="adjustSRSize(10)">+</button>
       <span style="font-size:11px;color:var(--dim);font-family:var(--mono);">× <span id="sr-dim-h">190</span></span>
     </div>
@@ -946,7 +946,7 @@ function selectSRCrop(crop,el){
 
 function adjustSRSize(delta){
   const inp=document.getElementById('sr-size-input');
-  inp.value=Math.max(80,Math.min(420,parseInt(inp.value||190)+delta));
+  inp.value=Math.max(80,Math.min(840,parseInt(inp.value||190)+delta));
   updateSRPreview();
 }
 
@@ -965,7 +965,8 @@ function updateSRPreview(){
     const fr=document.getElementById('sr-preview-frame');
     wrap.style.width=d.cw+'px'; wrap.style.height=d.ch+'px';
     fr.style.width='600px'; fr.style.height='600px';
-    fr.style.transform=`scale(${d.sc}) translate(${d.tx/d.sc}px,${d.ty/d.sc}px)`;
+    fr.style.transformOrigin='0 0';
+    fr.style.transform=`scale(${d.sc}) translate(${d.tx}px,${d.ty}px)`;
     fr.src=`slideRulesMin.html?c=${encodeURIComponent(sim.code)}&n=${encodeURIComponent(sim.name)}`;
   },300);
 }
@@ -999,13 +1000,16 @@ const CROP_ICONS={
 function getCropDims(size,crop){
   const s=parseInt(size)||190;
   const t=Math.round(s/3);
-  const r={cw:s,ch:s,iw:600,ih:600,sc:s/600,tx:0,ty:0};
+  const sc=s/600;
+  // tx/ty are pre-scale offsets (in the 600x600 simulation coordinate space)
+  // CSS: scale(sc) translate(tx, ty) → translate happens first in pre-scale space
+  const r={cw:s,ch:s,sc:sc,tx:0,ty:0};
   if(crop==='top')      {r.ch=t;}
-  else if(crop==='middle_h'){r.ch=t;r.ty=-(s/600*200);}  // offset 1/3 in scaled space
-  else if(crop==='bottom')  {r.ch=t;r.ty=-(s/600*400);}
+  else if(crop==='middle_h'){r.ch=t;r.ty=-200;}
+  else if(crop==='bottom')  {r.ch=t;r.ty=-400;}
   else if(crop==='left')    {r.cw=t;}
-  else if(crop==='center_v'){r.cw=t;r.tx=-(s/600*200);}
-  else if(crop==='right')   {r.cw=t;r.tx=-(s/600*400);}
+  else if(crop==='center_v'){r.cw=t;r.tx=-200;}
+  else if(crop==='right')   {r.cw=t;r.tx=-400;}
   return r;
 }
 
@@ -1020,14 +1024,14 @@ function buildCardLine(cardLine){
       const size=cl.size||190;
       const crop=cl.crop||'full';
       const d=getCropDims(size,crop);
-      return`<div class="sim-chat-wrap">
+      return`<div class="sim-chat-wrap" style="display:flex;justify-content:center;width:100%;margin-top:8px;">
         <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:${bg}"
           data-code="${enc}" data-name="${encName}"
           onmouseenter="startChatSim(this)"
           onmouseleave="stopChatSim(this)"
           onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
           <iframe src="" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
-            style="width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx/d.sc}px,${d.ty/d.sc}px)"></iframe>
+            style="width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
           <div class="sim-chat-name">${cl.name||'simulation'}</div>
           <div class="sim-chat-hint">hover to play · click to open</div>
         </div>
