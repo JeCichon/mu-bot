@@ -86,12 +86,37 @@
   .msg-bubble em { color:var(--green2); }
   .msg-cards { font-size:11px; color:var(--dim); font-family:var(--mono); margin-top:5px; }
   /* Slide Rules chat widget */
-  .sim-chat-widget{width:190px;height:190px;border-radius:6px;position:relative;overflow:hidden;cursor:pointer;margin-top:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(80,58,36,.6);transition:border-color .2s;}
+  .sim-chat-wrap{display:flex;justify-content:center;margin-top:8px;}
+  .sim-chat-widget{border-radius:6px;position:relative;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(80,58,36,.6);transition:border-color .2s;}
   .sim-chat-widget:hover{border-color:rgba(80,105,90,.5);}
-  .sim-chat-widget iframe{position:absolute;inset:0;width:100%;height:100%;border:none;pointer-events:none;z-index:1;}
-  .sim-chat-name{font-family:var(--mono);font-size:12px;color:rgba(201,169,110,.85);z-index:2;text-align:center;padding:0 10px;pointer-events:none;transition:opacity .2s;}
-  .sim-chat-hint{font-family:var(--mono);font-size:10px;color:rgba(120,100,80,.6);z-index:2;margin-top:4px;text-align:center;pointer-events:none;transition:opacity .2s;}
+  .sim-chat-widget iframe{position:absolute;transform-origin:0 0;border:none;pointer-events:none;z-index:1;}
+  .sim-chat-name{font-family:var(--mono);font-size:12px;color:rgba(201,169,110,.85);z-index:2;text-align:center;padding:0 10px;pointer-events:none;transition:opacity .2s;position:relative;}
+  .sim-chat-hint{font-family:var(--mono);font-size:10px;color:rgba(120,100,80,.6);z-index:2;margin-top:4px;text-align:center;pointer-events:none;transition:opacity .2s;position:relative;}
   .sim-chat-widget:hover .sim-chat-name,.sim-chat-widget:hover .sim-chat-hint{opacity:0;}
+  /* + button & menu */
+  .plus-wrap{position:relative;flex-shrink:0;}
+  .plus-btn{background:none;border:1px solid var(--brown3);color:var(--dim);font-size:16px;width:32px;height:32px;border-radius:6px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s;}
+  .plus-btn:hover{color:var(--parchment);border-color:var(--green3);}
+  .plus-menu{position:absolute;bottom:calc(100% + 8px);left:0;background:var(--brown2);border:1px solid var(--purple);border-radius:6px;padding:6px 0;min-width:180px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,.5);display:none;}
+  .plus-menu.open{display:block;}
+  .plus-menu-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-family:var(--mono);font-size:12px;color:var(--parchment2);cursor:pointer;}
+  .plus-menu-item:hover{background:var(--brown3);color:var(--parchment);}
+  /* SR post modal */
+  .sr-section-label{font-size:11px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;margin-top:12px;}
+  .sr-section-label:first-child{margin-top:0;}
+  .sr-select{width:100%;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:6px 8px;border-radius:4px;outline:none;cursor:pointer;}
+  .sr-select option{background:var(--brown2);}
+  .sr-size-row{display:flex;align-items:center;gap:8px;}
+  .sr-size-input{width:70px;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:13px;padding:5px 8px;border-radius:4px;outline:none;text-align:center;}
+  .sr-size-input:focus{border-color:var(--green3);}
+  .sr-size-btn{background:var(--brown3);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:14px;width:28px;height:28px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .sr-size-btn:hover{border-color:var(--green3);}
+  .crop-grid{display:flex;flex-wrap:wrap;gap:6px;}
+  .crop-opt{width:38px;height:38px;border:1px solid var(--brown3);border-radius:4px;cursor:pointer;padding:3px;background:var(--brown3);transition:border-color .15s;}
+  .crop-opt:hover,.crop-opt.selected{border-color:var(--gold);}
+  .sr-preview-outer{display:flex;justify-content:center;margin-top:4px;}
+  .sr-preview-wrap{position:relative;overflow:hidden;border-radius:4px;border:1px solid var(--brown3);}
+  .sr-preview-wrap iframe{position:absolute;transform-origin:0 0;border:none;pointer-events:none;}
 
   /* date divider */
   .date-divider { text-align:center; font-size:11px; color:var(--dim); font-family:var(--mono); margin:4px 0; letter-spacing:0.06em; }
@@ -270,6 +295,12 @@
     <div class="chat-messages" id="chat-messages"></div>
     <div class="chat-input-wrap">
       <div class="input-row">
+        <div class="plus-wrap">
+          <button class="plus-btn" onclick="togglePlusMenu(event)" title="Add to chat">+</button>
+          <div class="plus-menu" id="plus-menu">
+            <div class="plus-menu-item" onclick="openSRPostModal()">🎮 Add Slide Rules</div>
+          </div>
+        </div>
         <textarea class="chat-input" id="chat-input" placeholder="Say something… mention 'mu' and he'll respond." rows="1"
           onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button onclick="sendMessage()">send</button>
@@ -318,6 +349,37 @@
       <button onclick="submitFeedback()" style="background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);flex:1;">submit</button>
     </div>
     <div id="fb-status" style="font-size:12px;font-family:var(--mono);margin-top:8px;min-height:18px;color:var(--green);"></div>
+  </div>
+</div>
+
+<!-- Slide Rules Post Modal -->
+<div class="modal-bg" id="sr-modal-bg" onclick="if(event.target===this)closeSRModal()">
+  <div class="fb-modal" style="max-width:400px;width:92%;">
+    <button class="modal-close" onclick="closeSRModal()">×</button>
+    <div class="modal-title" style="margin-bottom:14px;">🎮 Post Slide Rules to Chat</div>
+    <div class="sr-section-label">simulation</div>
+    <select class="sr-select" id="sr-sim-select" onchange="updateSRPreview()">
+      <option value="">loading…</option>
+    </select>
+    <div class="sr-section-label">size (px)</div>
+    <div class="sr-size-row">
+      <button class="sr-size-btn" onclick="adjustSRSize(-10)">−</button>
+      <input class="sr-size-input" id="sr-size-input" type="number" value="190" min="80" max="420" step="10" oninput="updateSRPreview()">
+      <button class="sr-size-btn" onclick="adjustSRSize(10)">+</button>
+      <span style="font-size:11px;color:var(--dim);font-family:var(--mono);">× <span id="sr-dim-h">190</span></span>
+    </div>
+    <div class="sr-section-label">crop</div>
+    <div class="crop-grid" id="crop-grid"></div>
+    <div class="sr-section-label">preview</div>
+    <div class="sr-preview-outer">
+      <div class="sr-preview-wrap" id="sr-preview-wrap">
+        <iframe id="sr-preview-frame" src="about:blank"></iframe>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button onclick="closeSRModal()">cancel</button>
+      <button onclick="postFromSRModal()" style="background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);flex:1;">post to chat</button>
+    </div>
   </div>
 </div>
 
@@ -833,11 +895,118 @@ async function saveMuMessage(sentence,cardLine){
 
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
 
+// ── + button & SR post modal ─────────────────────────────────────────────────
+function togglePlusMenu(e){
+  e.stopPropagation();
+  document.getElementById('plus-menu').classList.toggle('open');
+}
+document.addEventListener('click',()=>document.getElementById('plus-menu')?.classList.remove('open'));
+
+const SR_CROPS=[
+  {id:'full',label:'Full'},
+  {id:'top',label:'Top'},
+  {id:'middle_h',label:'Mid'},
+  {id:'bottom',label:'Bot'},
+  {id:'left',label:'Left'},
+  {id:'center_v',label:'Ctr'},
+  {id:'right',label:'Right'},
+];
+let srActiveCrop='full', srSims=[], srPreviewTimer=null;
+
+async function openSRPostModal(){
+  document.getElementById('plus-menu').classList.remove('open');
+  // Build crop grid
+  const grid=document.getElementById('crop-grid');
+  grid.innerHTML=SR_CROPS.map(c=>`
+    <div title="${c.label}" class="crop-opt${srActiveCrop===c.id?' selected':''}" onclick="selectSRCrop('${c.id}',this)">
+      ${CROP_ICONS[c.id]||''}
+    </div>`).join('');
+  // Load sims
+  const{data}=await db.from('slide_rules').select('id,name,code').eq('published',true).order('created_at',{ascending:false});
+  srSims=data||[];
+  const sel=document.getElementById('sr-sim-select');
+  sel.innerHTML=srSims.length
+    ? srSims.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')
+    : '<option value="">no published simulations yet</option>';
+  document.getElementById('sr-modal-bg').classList.add('open');
+  updateSRPreview();
+}
+
+function closeSRModal(){
+  document.getElementById('sr-modal-bg').classList.remove('open');
+  document.getElementById('sr-preview-frame').src='about:blank';
+}
+
+function selectSRCrop(crop,el){
+  srActiveCrop=crop;
+  document.querySelectorAll('.crop-opt').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  updateSRPreview();
+}
+
+function adjustSRSize(delta){
+  const inp=document.getElementById('sr-size-input');
+  inp.value=Math.max(80,Math.min(420,parseInt(inp.value||190)+delta));
+  updateSRPreview();
+}
+
+function updateSRPreview(){
+  clearTimeout(srPreviewTimer);
+  srPreviewTimer=setTimeout(()=>{
+    const sel=document.getElementById('sr-sim-select');
+    const sim=srSims.find(s=>s.id==sel.value)||srSims[0];
+    if(!sim) return;
+    const size=parseInt(document.getElementById('sr-size-input').value)||190;
+    const d=getCropDims(size,srActiveCrop);
+    // Update dimension hint
+    document.getElementById('sr-dim-h').textContent=d.ch;
+    // Update preview
+    const wrap=document.getElementById('sr-preview-wrap');
+    const fr=document.getElementById('sr-preview-frame');
+    wrap.style.width=d.cw+'px'; wrap.style.height=d.ch+'px';
+    fr.style.width='600px'; fr.style.height='600px';
+    fr.style.transform=`scale(${d.sc}) translate(${d.tx/d.sc}px,${d.ty/d.sc}px)`;
+    fr.src=`slideRulesMin.html?c=${encodeURIComponent(sim.code)}&n=${encodeURIComponent(sim.name)}`;
+  },300);
+}
+
+async function postFromSRModal(){
+  const sel=document.getElementById('sr-sim-select');
+  const sim=srSims.find(s=>s.id==sel.value)||srSims[0];
+  if(!sim){alert('Select a simulation first.');return;}
+  const size=parseInt(document.getElementById('sr-size-input').value)||190;
+  closeSRModal();
+  await sendSlideRulesMessage(sim.code,sim.name,size,srActiveCrop);
+}
+
 // ── Slide Rules chat integration ─────────────────────────────────────────────
 function simHashColor(code){
   let h=0;
   for(let i=0;i<Math.min(code.length,80);i++) h=((h<<5)-h)+code.charCodeAt(i)|0;
   return`hsl(${Math.abs(h)%360},35%,11%)`;
+}
+
+const CROP_ICONS={
+  full:     '<svg viewBox="0 0 30 30" width="30" height="30"><rect x="1" y="1" width="28" height="28" fill="rgba(201,169,110,.75)" rx="2"/></svg>',
+  top:      '<svg viewBox="0 0 30 30" width="30" height="30"><rect x="1" y="1" width="28" height="9" fill="rgba(201,169,110,.75)" rx="1"/><rect x="1" y="12" width="28" height="17" fill="rgba(80,58,36,.7)" rx="1"/></svg>',
+  middle_h: '<svg viewBox="0 0 30 30" width="30" height="30"><rect x="1" y="1" width="28" height="9" fill="rgba(80,58,36,.7)" rx="1"/><rect x="1" y="11" width="28" height="8" fill="rgba(201,169,110,.75)" rx="1"/><rect x="1" y="20" width="28" height="9" fill="rgba(80,58,36,.7)" rx="1"/></svg>',
+  bottom:   '<svg viewBox="0 0 30 30" width="30" height="30"><rect x="1" y="1" width="28" height="17" fill="rgba(80,58,36,.7)" rx="1"/><rect x="1" y="19" width="28" height="10" fill="rgba(201,169,110,.75)" rx="1"/></svg>',
+  left:     '<svg viewBox="0 0 30 30" width="30" height="30"><rect x="1" y="1" width="9" height="28" fill="rgba(201,169,110,.75)" rx="1"/><rect x="12" y="1" width="17" height="28" fill="rgba(80,58,36,.7)" rx="1"/></svg>',
+  center_v: '<svg viewBox="0 0 30 30" width="30" height="30"><rect x="1" y="1" width="9" height="28" fill="rgba(80,58,36,.7)" rx="1"/><rect x="11" y="1" width="8" height="28" fill="rgba(201,169,110,.75)" rx="1"/><rect x="20" y="1" width="9" height="28" fill="rgba(80,58,36,.7)" rx="1"/></svg>',
+  right:    '<svg viewBox="0 0 30 30" width="30" height="30"><rect x="1" y="1" width="17" height="28" fill="rgba(80,58,36,.7)" rx="1"/><rect x="19" y="1" width="10" height="28" fill="rgba(201,169,110,.75)" rx="1"/></svg>',
+};
+
+function getCropDims(size,crop){
+  const s=parseInt(size)||190;
+  const t=Math.round(s/3);
+  const r={cw:s,ch:s,iw:600,ih:600,sc:s/600,tx:0,ty:0};
+  if(crop==='top')      {r.ch=t;}
+  else if(crop==='middle_h'){r.ch=t;r.ty=-(s/600*200);}  // offset 1/3 in scaled space
+  else if(crop==='bottom')  {r.ch=t;r.ty=-(s/600*400);}
+  else if(crop==='left')    {r.cw=t;}
+  else if(crop==='center_v'){r.cw=t;r.tx=-(s/600*200);}
+  else if(crop==='right')   {r.cw=t;r.tx=-(s/600*400);}
+  return r;
 }
 
 function buildCardLine(cardLine){
@@ -848,17 +1017,23 @@ function buildCardLine(cardLine){
       const bg=simHashColor(cl.code);
       const enc=encodeURIComponent(cl.code);
       const encName=encodeURIComponent(cl.name||'');
-      return`<div class="sim-chat-widget" style="background:${bg}"
-        data-code="${enc}" data-name="${encName}"
-        onmouseenter="startChatSim(this)"
-        onmouseleave="stopChatSim(this)"
-        onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
-        <div class="sim-chat-name">${cl.name||'simulation'}</div>
-        <div class="sim-chat-hint">hover to play · click to open</div>
+      const size=cl.size||190;
+      const crop=cl.crop||'full';
+      const d=getCropDims(size,crop);
+      return`<div class="sim-chat-wrap">
+        <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:${bg}"
+          data-code="${enc}" data-name="${encName}"
+          onmouseenter="startChatSim(this)"
+          onmouseleave="stopChatSim(this)"
+          onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
+          <iframe src="" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
+            style="width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx/d.sc}px,${d.ty/d.sc}px)"></iframe>
+          <div class="sim-chat-name">${cl.name||'simulation'}</div>
+          <div class="sim-chat-hint">hover to play · click to open</div>
+        </div>
       </div>`;
     }
   }catch(e){}
-  // fallback: plain card text
   return`<div class="msg-cards">${cardLine}</div>`;
 }
 
@@ -866,33 +1041,25 @@ let activeChatSim=null;
 function startChatSim(div){
   if(activeChatSim&&activeChatSim!==div) stopChatSim(activeChatSim);
   activeChatSim=div;
-  if(div.querySelector('iframe')) return;
-  const code=decodeURIComponent(div.dataset.code||'');
-  const name=decodeURIComponent(div.dataset.name||'');
-  if(!code) return;
-  const fr=document.createElement('iframe');
-  fr.src=`slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`;
-  fr.setAttribute('sandbox','allow-scripts allow-same-origin');
-  Object.assign(fr.style,{position:'absolute',inset:'0',width:'100%',height:'100%',border:'none',pointerEvents:'none',zIndex:'1'});
-  div.appendChild(fr);
+  const fr=div.querySelector('iframe');
+  if(fr&&fr.dataset.src){fr.src=fr.dataset.src;}
 }
 function stopChatSim(div){
   const fr=div.querySelector('iframe');
-  if(fr) fr.remove();
+  if(fr){fr.src='';} // stop simulation by unloading
   if(activeChatSim===div) activeChatSim=null;
 }
 
-async function sendSlideRulesMessage(code,name){
+async function sendSlideRulesMessage(code,name,size,crop){
   if(!currentUser) return;
   const uName=currentUser.user_metadata?.full_name||currentUser.user_metadata?.name||'traveler';
   const avatar=currentUser.user_metadata?.avatar_url||null;
+  const cl=JSON.stringify({type:'slide_rules',code,name,size:size||190,crop:crop||'full'});
   const{data:msg}=await db.from('messages').insert({
     user_id:currentUser.id, user_name:uName, user_avatar:avatar,
-    content:`🎮 ${name}`, is_mu:false,
-    card_line:JSON.stringify({type:'slide_rules',code,name}),
-    is_system:false
+    content:`🎮 ${name}`, is_mu:false, card_line:cl, is_system:false
   }).select().single();
-  if(msg) renderMessage(msg); // render immediately; Realtime skips duplicate via shownIds
+  if(msg) renderMessage(msg);
 }
 
 // ── DB-based presence ────────────────────────────────────────────────────────
