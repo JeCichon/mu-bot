@@ -785,22 +785,25 @@ function renderMessage(msg){
     const enc=encodeURIComponent(srData.code);
     const encName=encodeURIComponent(srData.name||'');
     div.className='msg sim-post';
-    div.innerHTML=`<div style="width:100%;text-align:center;">
-      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:8px;font-style:normal;text-align:center;">
-        🎮 ${msg.user_name||'traveler'}
-      </div>
-      <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:rgba(0,0,0,.35);border-color:transparent;"
-          data-code="${enc}" data-name="${encName}"
-          onmouseenter="startChatSim(this)"
-          onmouseleave="stopChatSim(this)"
-          onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
-          <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
-            style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
-          <div class="sim-chat-name">${srData.name||'simulation'}</div>
-          <div class="sim-chat-hint">hover to play · click to open</div>
-        </div>
-      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:6px;text-align:center;">${time}</div>
-    </div>`;
+    // Direct children — flex column with align-items:center on parent will center each one
+    const usernameEl=document.createElement('div');
+    usernameEl.style.cssText='font-size:11px;color:var(--dim);font-family:var(--mono);margin-bottom:8px;';
+    usernameEl.textContent='🎮 '+( msg.user_name||'traveler');
+    const widgetEl=document.createElement('div');
+    widgetEl.className='sim-chat-widget';
+    widgetEl.style.cssText=`width:${d.cw}px;height:${d.ch}px;background:rgba(0,0,0,.35);border-color:transparent;`;
+    widgetEl.dataset.code=enc; widgetEl.dataset.name=encName;
+    widgetEl.onmouseenter=()=>startChatSim(widgetEl);
+    widgetEl.onmouseleave=()=>stopChatSim(widgetEl);
+    widgetEl.onclick=()=>{stopChatSim(widgetEl);openContent('simulations.html','🎮 Slide Rules');};
+    widgetEl.innerHTML=`<iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
+      style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
+      <div class="sim-chat-name">${srData.name||'simulation'}</div>
+      <div class="sim-chat-hint">hover to play · click to open</div>`;
+    const timeEl=document.createElement('div');
+    timeEl.style.cssText='font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:6px;';
+    timeEl.textContent=time;
+    div.append(usernameEl,widgetEl,timeEl);
   } else if(isSystem){
     // Centered system message — parse lines into header/version/title/body
     const lines=msg.content.split('\n').filter(Boolean);
