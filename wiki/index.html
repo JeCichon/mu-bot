@@ -1524,7 +1524,6 @@ const _DBG_TABS={
 let _dbgTab='colors',_dbgState={};
 
 function toggleDebug(){
-  if(userRole!=='archmage') return;
   const m=document.getElementById('debug-modal');
   if(!m) return;
   const show=m.style.display!=='block';
@@ -1605,7 +1604,7 @@ function copyDebugJSON(){
 }
 // Keyboard shortcut Alt+Shift+D (Ctrl+D conflicts with Firefox bookmark)
 document.addEventListener('keydown',e=>{
-  if(e.altKey&&e.shiftKey&&e.key.toLowerCase()==='d'&&userRole==='archmage'){
+  if(e.altKey&&e.shiftKey&&e.key.toLowerCase()==='d'){
     e.preventDefault();toggleDebug();
   }
 });
