@@ -167,6 +167,12 @@
 
   .loading { color:var(--dim); font-family:var(--mono); font-size:13px; font-style:italic; padding:40px; text-align:center; }
   .entry-image { width:100%; max-height:260px; object-fit:contain; border-radius:4px; margin-bottom:12px; display:block; background:var(--brown3); cursor:pointer; }
+  .img-strip { display:flex; gap:6px; margin-bottom:12px; }
+  .img-strip img { flex:1; min-width:0; max-height:180px; object-fit:cover; border-radius:4px; cursor:pointer; background:var(--brown3); }
+  .img-slot { width:80px; height:60px; border:1px dashed var(--brown3); border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--brown); cursor:pointer; transition:border-color .15s; }
+  .img-slot:hover { border-color:var(--green3); }
+  .img-slot-plus { font-size:20px; color:var(--brown3); pointer-events:none; }
+  .img-slot-label { font-size:9px; font-family:var(--mono); color:var(--dim); }
   .entry-url { display:block; font-size:12px; font-family:var(--mono); color:var(--green); margin-top:8px; word-break:break-all; }
   .entry-url:hover { color:var(--parchment); }
   .upload-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
@@ -297,12 +303,33 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
         <textarea id="f-content" placeholder="Describe this entry…" rows="4"></textarea>
       </div>
 
-      <!-- Image upload -->
-      <div class="form-upload-row">
-        <button type="button" class="form-upload-btn" onclick="document.getElementById('form-img-input').click()">⬆ upload image</button>
-        <input type="file" id="form-img-input" accept="image/*" style="display:none" onchange="handleFormImageSelect(event)">
-        <img class="form-img-preview" id="form-img-preview" src="" alt="preview">
-        <span class="form-upload-status" id="form-img-status"></span>
+      <!-- Image uploads (up to 3) -->
+      <div style="font-size:11px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">images (up to 3)</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+          <div class="img-slot" id="slot-0" onclick="document.getElementById('fii-0').click()">
+            <img id="fip-0" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+            <span class="img-slot-plus" id="fip-0-plus">＋</span>
+          </div>
+          <input type="file" id="fii-0" accept="image/*" style="display:none" onchange="handleFormImageSelect(event,0)">
+          <span class="img-slot-label" id="fis-0">image 1</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+          <div class="img-slot" id="slot-1" onclick="document.getElementById('fii-1').click()">
+            <img id="fip-1" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+            <span class="img-slot-plus" id="fip-1-plus">＋</span>
+          </div>
+          <input type="file" id="fii-1" accept="image/*" style="display:none" onchange="handleFormImageSelect(event,1)">
+          <span class="img-slot-label" id="fis-1">image 2</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+          <div class="img-slot" id="slot-2" onclick="document.getElementById('fii-2').click()">
+            <img id="fip-2" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+            <span class="img-slot-plus" id="fip-2-plus">＋</span>
+          </div>
+          <input type="file" id="fii-2" accept="image/*" style="display:none" onchange="handleFormImageSelect(event,2)">
+          <span class="img-slot-label" id="fis-2">image 3</span>
+        </div>
       </div>
 
       <!-- Card Groups -->
@@ -353,7 +380,7 @@ function cardRgb(c){ return `rgb(${c.r},${c.g},${c.b})`; }
 // ── Auth ──────────────────────────────────────────────────────────────────────
 let currentUser = null;
 let editingEntryId = null; // null = creating new, number = editing existing
-let pendingImageUrl = null;  // image uploaded in form, saved with entry
+let pendingImageUrls = [null, null, null]; // up to 3 images per entry
 let currentDetailId = null;  // tracks which entry is open in detail modal
 
 db.auth.onAuthStateChange((_e, session) => {
@@ -445,7 +472,12 @@ async function openDetail(id){
 
   let extra = '';
   // Image if present
-  if(entry.image_url) extra += `<img class="entry-image" src="${entry.image_url}" alt="${entry.title}" onclick="window.open(this.src,'_blank')" title="Click to open full size">`;
+  const imgUrls=[entry.image_url,entry.image_url_2,entry.image_url_3].filter(Boolean);
+  if(imgUrls.length===1){
+    extra+=`<img class="entry-image" src="${imgUrls[0]}" alt="${entry.title}" onclick="window.open(this.src,'_blank')" title="Click to open full size">`;
+  } else if(imgUrls.length>1){
+    extra+=`<div class="img-strip">${imgUrls.map(u=>`<img src="${u}" alt="" onclick="window.open(this.src,'_blank')" title="Click to open full size">`).join('')}</div>`;
+  }
   // Image upload now in create/edit form
   // URL link
   if(entry.url){
@@ -581,12 +613,22 @@ function openCreateModal(entryData=null, cardGroups=null){
   document.getElementById('f-tags').value    = entryData?.tags || '';
   document.getElementById('f-url').value       = entryData?.url       || '';
   document.getElementById('f-url-label').value = entryData?.url_label || '';
-  // Image: show existing if editing, reset if new
-  pendingImageUrl = entryData?.image_url || null;
-  const prevImg = document.getElementById('form-img-preview');
-  const prevStatus = document.getElementById('form-img-status');
-  if(prevImg){ if(pendingImageUrl){ prevImg.src=pendingImageUrl; prevImg.classList.add('visible'); }else{ prevImg.src=''; prevImg.classList.remove('visible'); } }
-  if(prevStatus) prevStatus.textContent='';
+  // Images: pre-fill if editing, reset if new
+  const urls=[entryData?.image_url||null, entryData?.image_url_2||null, entryData?.image_url_3||null];
+  pendingImageUrls=[...urls];
+  [0,1,2].forEach(i=>{
+    const prev=document.getElementById('fip-'+i);
+    const plus=document.getElementById('fip-'+i+'-plus');
+    const lbl=document.getElementById('fis-'+i);
+    if(urls[i]){
+      if(prev){prev.src=urls[i];prev.style.display='block';}
+      if(plus) plus.style.display='none';
+    } else {
+      if(prev){prev.src='';prev.style.display='none';}
+      if(plus) plus.style.display='';
+      if(lbl){lbl.textContent='image '+(i+1);lbl.style.color='';}
+    }
+  });
   document.getElementById('create-status').textContent = '';
   document.getElementById('btn-save').disabled = false;
   const saveBtn = document.getElementById('btn-save');
@@ -766,23 +808,25 @@ function toggleHelp(){
 
 // ── Library Image Upload
 // ── Form image selection (before entry exists) ───────────────────────────────
-async function handleFormImageSelect(event){
+async function handleFormImageSelect(event,slot){
   const file=event.target.files[0];
   if(!file) return;
-  const statusEl=document.getElementById('form-img-status');
-  const previewEl=document.getElementById('form-img-preview');
-  statusEl.textContent='uploading…'; statusEl.style.color='var(--dim)';
+  const labelEl=document.getElementById('fis-'+slot);
+  const previewEl=document.getElementById('fip-'+slot);
+  const plusEl=document.getElementById('fip-'+slot+'-plus');
+  if(labelEl) labelEl.textContent='uploading…';
   try{
     const ext=file.name.split('.').pop().toLowerCase();
-    const path=`library/new_${Date.now()}.${ext}`;
+    const path='library/new_'+Date.now()+'_'+slot+'.'+ext;
     const{error:upErr}=await db.storage.from('library-images').upload(path,file,{upsert:true});
     if(upErr) throw upErr;
     const{data:urlData}=db.storage.from('library-images').getPublicUrl(path);
-    pendingImageUrl=urlData.publicUrl;
-    previewEl.src=pendingImageUrl; previewEl.classList.add('visible');
-    statusEl.textContent='✓ ready'; statusEl.style.color='var(--green)';
+    pendingImageUrls[slot]=urlData.publicUrl;
+    if(previewEl){previewEl.src=urlData.publicUrl;previewEl.style.display='block';}
+    if(plusEl) plusEl.style.display='none';
+    if(labelEl){labelEl.textContent='✓ ready';labelEl.style.color='var(--green)';}
   }catch(err){
-    statusEl.textContent=`error: ${err.message}`; statusEl.style.color='#e06060';
+    if(labelEl){labelEl.textContent='error';labelEl.style.color='#e06060';}
   }
   event.target.value='';
 }
@@ -868,7 +912,7 @@ async function saveEntry(){
     // UPDATE existing entry
     const url = (document.getElementById('f-url').value||'').trim()||null;
     const{data:updated,error}=await db.from('library_entries')
-      .update({title,entry_type:type,content,subtype,tags,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrl||null})
+      .update({title,entry_type:type,content,subtype,tags,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrls[0]||null,image_url_2:pendingImageUrls[1]||null,image_url_3:pendingImageUrls[2]||null})
       .eq('id', editingEntryId).select().single();
     if(error||!updated){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
@@ -892,7 +936,7 @@ async function saveEntry(){
     // INSERT new entry
     const url=(document.getElementById('f-url')?.value||'').trim()||null;
   const{data:inserted,error}=await db.from('library_entries')
-      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrl||null})
+      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrls[0]||null,image_url_2:pendingImageUrls[1]||null,image_url_3:pendingImageUrls[2]||null})
       .select().single();
     if(error||!inserted){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
