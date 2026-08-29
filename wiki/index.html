@@ -206,6 +206,27 @@
   .content-popout:hover { border-color:var(--green3); color:var(--green); }
   .content-frame { flex:1; border:none; background:var(--brown); }
 
+  /* ── Debug Modal ── */
+  #debug-modal{position:fixed;z-index:9999;background:var(--brown2);border:1px solid var(--purple);border-radius:8px;width:310px;box-shadow:0 8px 40px rgba(0,0,0,.7);display:none;font-family:var(--mono);top:80px;right:20px;}
+  #debug-drag{padding:9px 14px;background:var(--purple);border-radius:7px 7px 0 0;cursor:grab;display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.75);letter-spacing:.06em;user-select:none;}
+  #debug-drag:active{cursor:grabbing;}
+  #debug-drag button{background:none;border:none;color:rgba(255,255,255,.6);font-size:16px;cursor:pointer;margin-left:auto;padding:0;line-height:1;}
+  #debug-drag button:hover{color:#fff;border-color:transparent;}
+  .debug-tabs{display:flex;border-bottom:1px solid var(--brown3);}
+  .dt{flex:1;border:none;border-radius:0;background:none;color:var(--dim);font-family:var(--mono);font-size:11px;padding:6px 2px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s;}
+  .dt:hover{color:var(--parchment);}
+  .dt.on{color:var(--parchment);border-bottom-color:var(--purple2);background:rgba(100,65,112,.1);}
+  #debug-body{padding:12px 14px;max-height:380px;overflow-y:auto;}
+  .debug-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+  .debug-label{font-size:11px;color:var(--dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .debug-color{width:32px;height:22px;border:1px solid var(--brown3);border-radius:3px;cursor:pointer;padding:1px;background:var(--brown3);}
+  .debug-swatch{width:32px;height:22px;border-radius:3px;border:1px solid var(--brown3);flex-shrink:0;}
+  .debug-range{flex:1;accent-color:var(--purple2);cursor:pointer;}
+  .debug-val{font-size:10px;color:var(--green);min-width:36px;text-align:right;flex-shrink:0;}
+  .debug-footer{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--brown3);align-items:center;}
+  .debug-footer button{flex:1;padding:5px 8px;font-size:11px;}
+  #debug-copy-ok{font-size:11px;color:var(--green);min-height:16px;}
+
   ::-webkit-scrollbar { width:6px; }
   ::-webkit-scrollbar-track { background:var(--brown); }
   ::-webkit-scrollbar-thumb { background:var(--brown3); border-radius:3px; }
@@ -1455,6 +1476,166 @@ document.addEventListener("click",e=>{
     if(p) p.style.display='none';
   }
 });
+
+// ── Debug Modal ──────────────────────────────────────────────────────────────
+const _DBG_DEFAULTS={
+  '--brown':'rgb(43,28,16)','--brown2':'rgb(60,42,26)','--brown3':'rgb(80,58,36)',
+  '--green':'rgb(144,171,153)','--green2':'rgb(110,135,118)','--green3':'rgb(80,105,90)',
+  '--purple':'rgb(76,46,87)','--purple2':'rgb(100,65,112)',
+  '--parchment':'rgb(220,210,190)','--parchment2':'rgb(200,188,168)',
+  '--dim':'rgb(120,100,80)','--gold':'rgb(201,169,110)',
+};
+const _DBG_TABS={
+  colors:[
+    {label:'Background',v:'--brown'},{label:'Surface',v:'--brown2'},{label:'Border/Raised',v:'--brown3'},
+    {label:'Green (primary)',v:'--green'},{label:'Green (mid)',v:'--green2'},{label:'Green (subtle)',v:'--green3'},
+    {label:'Purple',v:'--purple'},{label:'Purple 2',v:'--purple2'},
+    {label:'Parchment (text)',v:'--parchment'},{label:'Parchment (dim)',v:'--parchment2'},
+    {label:'Dim (muted)',v:'--dim'},{label:'Gold (Organ)',v:'--gold'},
+  ],
+  type:[
+    {label:'Body font size',key:'body-sz',min:10,max:20,step:1,def:14,unit:'px',
+      apply:v=>document.body.style.fontSize=v+'px'},
+    {label:'Sidebar font size',key:'side-sz',min:9,max:15,step:1,def:12,unit:'px',
+      apply:v=>{const s=document.querySelector('.sidebar');if(s)s.style.fontSize=v+'px';}},
+    {label:'Chat font size',key:'chat-sz',min:10,max:18,step:1,def:14,unit:'px',
+      apply:v=>{const c=document.getElementById('chat-messages');if(c)c.style.fontSize=v+'px';}},
+  ],
+  spacing:[
+    {label:'Sidebar width',key:'side-w',min:160,max:320,step:4,def:220,unit:'px',
+      apply:v=>{const s=document.querySelector('.sidebar');if(s)s.style.width=v+'px';}},
+    {label:'Chat gap',key:'chat-gap',min:1,max:16,step:1,def:4,unit:'px',
+      apply:v=>{const c=document.getElementById('chat-messages');if(c)c.style.gap=v+'px';}},
+    {label:'Chat padding',key:'chat-pad',min:8,max:32,step:2,def:16,unit:'px',
+      apply:v=>{const c=document.getElementById('chat-messages');if(c)c.style.padding=v+'px';}},
+    {label:'Header padding',key:'hdr-pad',min:6,max:24,step:2,def:12,unit:'px',
+      apply:v=>{const h=document.querySelector('header');if(h)h.style.padding=v+'px 20px';}},
+  ],
+  feedback:[
+    {label:'Planned left margin',key:'pl-ml',min:-30,max:0,step:2,def:0,unit:'px'},
+    {label:'New/Noted indent',key:'nw-ml',min:0,max:40,step:2,def:14,unit:'px'},
+    {label:'Done indent',key:'dn-ml',min:0,max:60,step:2,def:28,unit:'px'},
+  ],
+};
+let _dbgTab='colors',_dbgState={};
+
+function toggleDebug(){
+  if(userRole!=='archmage') return;
+  const m=document.getElementById('debug-modal');
+  if(!m) return;
+  const show=m.style.display!=='block';
+  m.style.display=show?'block':'none';
+  if(show) _renderDebugTab();
+}
+function switchDebugTab(tab){
+  _dbgTab=tab;
+  document.querySelectorAll('.dt').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  _renderDebugTab();
+}
+function _rgb2hex(rgb){
+  const m=(rgb||'').match(/\d+/g);
+  if(!m||m.length<3) return '#3c2a1a';
+  return '#'+m.slice(0,3).map(x=>parseInt(x).toString(16).padStart(2,'0')).join('');
+}
+function _hex2rgb(h){return `rgb(${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)})`;}
+function _getVar(v){return(getComputedStyle(document.documentElement).getPropertyValue(v)||'').trim()||_DBG_DEFAULTS[v]||'rgb(80,58,36)';}
+function _renderDebugTab(){
+  const body=document.getElementById('debug-body');if(!body)return;
+  const items=_DBG_TABS[_dbgTab]||[];
+  if(_dbgTab==='colors'){
+    body.innerHTML=items.map(it=>{
+      const cur=_dbgState[it.v]||_getVar(it.v);
+      const hex=_rgb2hex(cur);
+      const id='dsw'+it.v.replace(/[^a-z0-9]/gi,'');
+      return `<div class="debug-row">
+        <span class="debug-label" title="${it.v}">${it.label}</span>
+        <input type="color" class="debug-color" value="${hex}" oninput="_applyColor('${it.v}',this.value,'${id}')">
+        <span class="debug-swatch" id="${id}" style="background:${cur};"></span>
+      </div>`;
+    }).join('');
+  } else {
+    body.innerHTML=items.map(it=>{
+      const cur=_dbgState[it.key]!==undefined?_dbgState[it.key]:it.def;
+      const id='drv'+it.key.replace(/[^a-z0-9]/gi,'');
+      return `<div class="debug-row">
+        <span class="debug-label">${it.label}</span>
+        <input type="range" class="debug-range" min="${it.min}" max="${it.max}" step="${it.step||1}" value="${cur}"
+          oninput="_applyRange('${it.key}',parseFloat(this.value),'${id}')">
+        <span class="debug-val" id="${id}">${cur}${it.unit}</span>
+      </div>`;
+    }).join('');
+  }
+}
+function _applyColor(varName,hex,swId){
+  const rgb=_hex2rgb(hex);
+  document.documentElement.style.setProperty(varName,rgb);
+  _dbgState[varName]=rgb;
+  const sw=document.getElementById(swId);if(sw)sw.style.background=rgb;
+}
+function _applyRange(key,val,lblId){
+  _dbgState[key]=val;
+  const it=Object.values(_DBG_TABS).flat().find(i=>i.key===key);
+  const el=document.getElementById(lblId);
+  if(el&&it)el.textContent=val+it.unit;
+  if(it&&it.apply){try{it.apply(val);}catch(e){}}
+}
+function resetDebug(){
+  Object.keys(_DBG_DEFAULTS).forEach(v=>document.documentElement.style.removeProperty(v));
+  document.body.style.fontSize='';
+  try{document.querySelector('.sidebar').style.cssText='';}catch(e){}
+  try{const c=document.getElementById('chat-messages');c.style.gap='';c.style.padding='';}catch(e){}
+  try{document.querySelector('header').style.padding='';}catch(e){}
+  _dbgState={};_renderDebugTab();
+}
+function copyDebugJSON(){
+  const colors={},ranges={};
+  Object.entries(_dbgState).forEach(([k,v])=>{if(k.startsWith('--'))colors[k]=v;else ranges[k]=v;});
+  const out={};
+  if(Object.keys(colors).length) out['CSS variables']=colors;
+  if(Object.keys(ranges).length) out['Spacing & Type']=ranges;
+  if(!Object.keys(out).length) out.note='No changes from defaults';
+  navigator.clipboard.writeText(JSON.stringify(out,null,2)).then(()=>{
+    const el=document.getElementById('debug-copy-ok');
+    if(el){el.textContent='✓ copied!';setTimeout(()=>el.textContent='',2000);}
+  });
+}
+// Keyboard shortcut Ctrl/Cmd+D
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&userRole==='archmage'){
+    e.preventDefault();toggleDebug();
+  }
+});
+// Drag handle
+(()=>{
+  const m=document.getElementById('debug-modal');
+  const h=document.getElementById('debug-drag');
+  if(!m||!h)return;
+  let on=false,ox=0,oy=0;
+  h.addEventListener('mousedown',e=>{if(e.target.tagName==='BUTTON')return;on=true;ox=e.clientX-m.offsetLeft;oy=e.clientY-m.offsetTop;e.preventDefault();});
+  document.addEventListener('mousemove',e=>{if(!on)return;m.style.left=(e.clientX-ox)+'px';m.style.top=(e.clientY-oy)+'px';m.style.right='auto';});
+  document.addEventListener('mouseup',()=>on=false);
+})();
 </script>
+
+<!-- ── Debug Modal (Ctrl/Cmd+D · archmage only) ── -->
+<div id="debug-modal">
+  <div id="debug-drag">
+    ⚙ Debug Panel
+    <button onclick="toggleDebug()" title="close">×</button>
+  </div>
+  <div class="debug-tabs">
+    <button class="dt on" data-tab="colors" onclick="switchDebugTab('colors')">Colors</button>
+    <button class="dt" data-tab="type" onclick="switchDebugTab('type')">Type</button>
+    <button class="dt" data-tab="spacing" onclick="switchDebugTab('spacing')">Spacing</button>
+    <button class="dt" data-tab="feedback" onclick="switchDebugTab('feedback')">Feedback</button>
+  </div>
+  <div id="debug-body"></div>
+  <div class="debug-footer">
+    <button onclick="copyDebugJSON()">Copy JSON</button>
+    <button onclick="resetDebug()">Reset</button>
+    <span id="debug-copy-ok"></span>
+  </div>
+</div>
+
 </body>
 </html>
