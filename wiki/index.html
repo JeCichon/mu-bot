@@ -86,6 +86,17 @@
   .msg-bubble em { color:var(--green2); }
   .msg-cards { font-size:11px; color:var(--dim); font-family:var(--mono); margin-top:5px; }
   /* Slide Rules chat widget */
+  /* Library entry chat card */
+  .lib-chat-card{background:var(--brown2);border-radius:6px;overflow:hidden;cursor:pointer;max-width:420px;border:1px solid var(--brown3);transition:border-color .15s;}
+  .lib-chat-card:hover{border-color:var(--green3);}
+  .lib-chat-bar{height:4px;}
+  .lib-chat-body{display:flex;gap:10px;padding:10px 12px;}
+  .lib-chat-thumb{width:56px;height:56px;object-fit:cover;border-radius:4px;flex-shrink:0;background:var(--brown3);}
+  .lib-chat-text{flex:1;min-width:0;}
+  .lib-chat-title{font-size:14px;color:var(--parchment);font-weight:bold;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lib-chat-tags{display:flex;gap:4px;margin-bottom:5px;flex-wrap:wrap;}
+  .lib-chat-excerpt{font-size:11px;color:var(--parchment2);line-height:1.4;font-family:var(--serif);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
   .sim-chat-wrap{display:flex;justify-content:center;margin-top:8px;}
   .msg.sim-msg{justify-content:center;}
   .msg.sim-msg .msg-body{max-width:520px;width:100%;align-items:center;}
@@ -800,8 +811,8 @@ function renderMessage(msg){
   const{html:msgHtml,media:msgMedia}=parseMessageContent(msg.content);
   const div=document.createElement("div");
   // Detect slide_rules for centered render
-  let srData=null;
-  try{if(msg.card_line){const cl=JSON.parse(msg.card_line);if(cl.type==='slide_rules')srData=cl;}}catch(e){}
+  let srData=null, leData=null;
+  try{if(msg.card_line){const cl=JSON.parse(msg.card_line);if(cl.type==='slide_rules')srData=cl;else if(cl.type==='library_entry')leData=cl;}}catch(e){}
 
   if(srData){
     // Slide Rules — centered block with attribution
@@ -1042,6 +1053,24 @@ async function postFromSRModal(){
   await sendSlideRulesMessage(sim.code,sim.name,size,srActiveCrop);
 }
 
+// ── Library entry chat card ──────────────────────────────────────────────────
+async function sendLibraryMessage(entry){
+  if(!currentUser) return;
+  const uName=currentUser.user_metadata?.full_name||currentUser.user_metadata?.name||'traveler';
+  const avatar=currentUser.user_metadata?.avatar_url||null;
+  const cl=JSON.stringify({type:'library_entry',...entry});
+  const{data:msg}=await db.from('messages').insert({
+    user_id:currentUser.id, user_name:uName, user_avatar:avatar,
+    content:`📚 ${entry.title||'Library Entry'}`,
+    is_mu:false, card_line:cl, is_system:false
+  }).select().single();
+  if(msg) renderMessage(msg);
+}
+
+function openLibraryEntry(id){
+  openContent(`library.html?entry=${id}`,'📚 Library');
+}
+
 // ── Slide Rules chat integration ─────────────────────────────────────────────
 function simHashColor(code){
   let h=0;
@@ -1096,6 +1125,27 @@ function buildCardLine(cardLine){
             style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
           <div class="sim-chat-name">${cl.name||'simulation'}</div>
           <div class="sim-chat-hint">hover to play · click to open</div>
+        </div>
+      </div>`;
+    }
+    // Library entry card
+    if(cl.type==='library_entry'){
+      const le=cl;
+      const rgb=le.r!=null?`rgb(${le.r},${le.g},${le.b})`:'var(--dim)';
+      const typeTag=le.entry_type?`<span class="entry-type-badge ${le.entry_type}">${le.entry_type}</span>`:'';
+      const subTag=le.subtype?`<span class="entry-subtype-badge">${le.subtype}</span>`:'';
+      const thumb=le.image_url?`<img class="lib-chat-thumb" src="${le.image_url}" alt="">`:'';
+      const raw=(le.content||'').replace(/\[\[([^\]]+)\]\]/g,'$1');
+      const excerpt=raw?raw.slice(0,120)+'…':'';
+      return`<div class="lib-chat-card" onclick="openLibraryEntry(${le.id})">
+        <div class="lib-chat-bar" style="background:${rgb}"></div>
+        <div class="lib-chat-body">
+          ${thumb}
+          <div class="lib-chat-text">
+            <div class="lib-chat-title">${le.title||'Library Entry'}</div>
+            <div class="lib-chat-tags">${typeTag}${subTag}</div>
+            ${excerpt?`<div class="lib-chat-excerpt">${excerpt}</div>`:''}
+          </div>
         </div>
       </div>`;
     }

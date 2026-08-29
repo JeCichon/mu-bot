@@ -234,6 +234,10 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
   <div class="modal">
     <button class="modal-close" onclick="closeDetail()">×</button>
     <button class="modal-edit" id="detail-edit-btn" style="display:none" onclick="editCurrentEntry()">edit</button>
+    <button id="detail-chat-btn" onclick="shareCurrentEntryToChat()"
+      style="position:absolute;top:12px;right:80px;background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:4px;cursor:pointer;"
+      onmouseover="this.style.borderColor='var(--green3)';this.style.color='var(--green)'"
+      onmouseout="this.style.borderColor='var(--brown3)';this.style.color='var(--dim)'">→ chat</button>
     <div class="modal-swatch" id="detail-swatch"></div>
     <div class="modal-title" id="detail-title"></div>
     <div class="modal-meta-line" id="detail-meta"></div>
@@ -968,6 +972,35 @@ document.addEventListener('keydown', e=>{
 });
 
 init();
+
+// ── Share entry to Lodge chat ──────────────────────────────────────────────
+function shareCurrentEntryToChat(){
+  if(!currentDetailId) return;
+  const entry=entries.find(e=>e.id===currentDetailId);
+  if(!entry) return;
+  const btn=document.getElementById('detail-chat-btn');
+  if(window.parent&&window.parent.sendLibraryMessage){
+    window.parent.sendLibraryMessage({
+      id:entry.id, title:entry.title, entry_type:entry.entry_type,
+      subtype:entry.subtype||null, r:entry.r, g:entry.g, b:entry.b,
+      image_url:entry.image_url||null,
+      content:(entry.content||'').slice(0,200)
+    });
+    if(btn){const o=btn.textContent;btn.textContent='✓ sent!';setTimeout(()=>btn.textContent=o,1500);}
+  } else {
+    alert('Open this page inside the Lodge to share to chat.');
+  }
+}
+
+// URL param: auto-open a specific entry (?entry=ID)
+(function(){
+  const id=parseInt(new URLSearchParams(location.search).get('entry')||'');
+  if(!id) return;
+  const wait=setInterval(()=>{
+    if(entries.length>0){clearInterval(wait);openDetail(id);}
+  },80);
+  setTimeout(()=>clearInterval(wait),6000);
+})();
 </script>
 </body>
 </html>
