@@ -1599,9 +1599,9 @@ function copyDebugJSON(){
     if(el){el.textContent='✓ copied!';setTimeout(()=>el.textContent='',2000);}
   });
 }
-// Keyboard shortcut Ctrl/Cmd+D
+// Keyboard shortcut Alt+Shift+D (Ctrl+D conflicts with Firefox bookmark)
 document.addEventListener('keydown',e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&userRole==='archmage'){
+  if(e.altKey&&e.shiftKey&&e.key.toLowerCase()==='d'&&userRole==='archmage'){
     e.preventDefault();toggleDebug();
   }
 });
