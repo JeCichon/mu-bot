@@ -622,6 +622,8 @@ function updateHeader(user){
   document.getElementById("header-right").innerHTML=`
     ${avatar?`<img src="${avatar}" class="user-avatar" alt="">`:""}
     <span class="user-name">${name}</span>
+    <button id="debug-toggle-btn" onclick="toggleDebug()" title="Debug Panel (Alt+Shift+D)"
+      style="display:none;background:none;border:1px solid rgba(76,46,87,.6);color:rgba(130,90,150,.9);font-family:var(--mono);font-size:12px;padding:4px 9px;border-radius:4px;cursor:pointer;">⚙</button>
     <button class="btn-logout" onclick="signOut()">leave</button>`;
 }
 
@@ -668,6 +670,8 @@ async function showApp(user){
       if(fb) fb.style.display='block';
       const sy=document.getElementById('link-systems');
       if(sy) sy.style.display='block';
+      const dbg=document.getElementById('debug-toggle-btn');
+      if(dbg) dbg.style.display='inline-block';
     }
   }catch(err){ console.warn('Role check failed:',err.message); }
 
