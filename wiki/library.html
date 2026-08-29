@@ -991,7 +991,7 @@ init();
 // ── Share entry to Lodge chat ──────────────────────────────────────────────
 function showShareConfirm(){
   if(!currentDetailId) return;
-  const entry=entries.find(e=>e.id===currentDetailId);
+  const entry=allEntries.find(e=>e.id===currentDetailId);
   if(!entry) return;
   const sub=document.getElementById('share-confirm-sub');
   if(sub) sub.textContent=`"${entry.title}" will appear in Lodge Chat as a clickable card.`;
@@ -1003,7 +1003,7 @@ function closeShareConfirm(){
 }
 async function doShareEntry(){
   if(!currentDetailId) return;
-  const entry=entries.find(e=>e.id===currentDetailId);
+  const entry=allEntries.find(e=>e.id===currentDetailId);
   if(!entry) return;
   const statusEl=document.getElementById('share-confirm-status');
   if(statusEl){statusEl.textContent='posting…';statusEl.style.color='var(--dim)';}
