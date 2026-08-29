@@ -399,13 +399,13 @@ function renderPhasePicker(feedbackId){
     const nb=document.createElement('button');
     nb.className='phase-opt create';
     nb.textContent=`+ New Phase in Group ${maxGroup}`;
-    nb.onclick=()=>createPhase(maxGroup,feedbackId);
+    nb.onclick=()=>showPhaseCreateForm(feedbackId,'phase',maxGroup);
     optsEl.appendChild(nb);
   }
   const gb=document.createElement('button');
   gb.className='phase-opt create';
   gb.textContent='+ New Phase Group';
-  gb.onclick=()=>createGroup(feedbackId);
+  gb.onclick=()=>showPhaseCreateForm(feedbackId,'group',null);
   optsEl.appendChild(gb);
 }
 
@@ -416,27 +416,95 @@ async function assignPhase(feedbackId,phaseId){
   updateCounts(); render(); renderPhases();
 }
 
-async function createPhase(groupNum,feedbackId){
-  // Find next letter for this group
+// Show inline create form inside the phase picker (no browser prompt)
+function showPhaseCreateForm(feedbackId, mode, groupNum){
+  const optsEl=document.getElementById('popts-'+feedbackId);
+  if(!optsEl) return;
+  // Remove any existing form
+  const old=optsEl.querySelector('.phase-create-form');
+  if(old) old.remove();
+
   const existing=allPhases.filter(p=>p.group_num===groupNum);
-  const nextLetter=existing.length===0?'A':String.fromCharCode(Math.max(...existing.map(p=>p.phase_letter.charCodeAt(0)))+1);
-  const title=prompt(`Name for Group ${groupNum} Phase ${nextLetter} (optional):`)||null;
-  const{data,error}=await db.from('feedback_phases').insert({group_num:groupNum,phase_letter:nextLetter,title}).select().single();
-  if(error||!data) return;
+  const nextLetter=mode==='group'?'A':(existing.length===0?'A':String.fromCharCode(Math.max(...existing.map(p=>p.phase_letter.charCodeAt(0)))+1));
+  const targetGroup=mode==='group'?(allPhases.length>0?Math.max(...allPhases.map(p=>p.group_num))+1:1):groupNum;
+  const label=mode==='group'?`Group ${targetGroup} · Phase A`:`Group ${groupNum} · Phase ${nextLetter}`;
+
+  const form=document.createElement('div');
+  form.className='phase-create-form';
+  form.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;width:100%;';
+  const inp=document.createElement('input');
+  inp.type='text'; inp.placeholder=`Name for ${label} (optional)`;
+  inp.style.cssText='flex:1;min-width:140px;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:11px;padding:4px 8px;border-radius:4px;outline:none;';
+  inp.addEventListener('focus',()=>inp.style.borderColor='var(--green3)');
+  inp.addEventListener('blur',()=>inp.style.borderColor='var(--brown3)');
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')doCreatePhase(feedbackId,mode,groupNum,nextLetter,targetGroup,inp.value.trim()||null);});
+  const okBtn=document.createElement('button');
+  okBtn.textContent='Create'; okBtn.className='phase-opt';
+  okBtn.style.cssText='border-color:var(--green3);color:var(--green);';
+  okBtn.onclick=()=>doCreatePhase(feedbackId,mode,groupNum,nextLetter,targetGroup,inp.value.trim()||null);
+  const cancelBtn=document.createElement('button');
+  cancelBtn.textContent='cancel'; cancelBtn.className='phase-opt';
+  cancelBtn.onclick=()=>form.remove();
+  form.append(inp,okBtn,cancelBtn);
+  optsEl.appendChild(form);
+  setTimeout(()=>inp.focus(),50);
+}
+
+async function doCreatePhase(feedbackId,mode,groupNum,nextLetter,targetGroup,title){
+  const gn=mode==='group'?targetGroup:groupNum;
+  const letter=mode==='group'?'A':nextLetter;
+  const{data,error}=await db.from('feedback_phases').insert({group_num:gn,phase_letter:letter,title}).select().single();
+  if(error){console.error('Phase create error:',error);return;}
+  if(!data) return;
   allPhases.push(data);
   if(feedbackId) await assignPhase(feedbackId,data.id);
   else{ render(); renderPhases(); }
 }
 
+// Kept for the phases strip buttons (no feedbackId)
+async function createPhase(groupNum,feedbackId){
+  if(feedbackId){ showPhaseCreateForm(feedbackId,'phase',groupNum); return; }
+  // From strip button — use inline form in strip
+  const existing=allPhases.filter(p=>p.group_num===groupNum);
+  const nextLetter=existing.length===0?'A':String.fromCharCode(Math.max(...existing.map(p=>p.phase_letter.charCodeAt(0)))+1);
+  const title=await inlineStripPrompt(`Name for Group ${groupNum} Phase ${nextLetter} (optional)`);
+  const{data,error}=await db.from('feedback_phases').insert({group_num:groupNum,phase_letter:nextLetter,title}).select().single();
+  if(error||!data) return;
+  allPhases.push(data); render(); renderPhases();
+}
+
 async function createGroup(feedbackId){
+  if(feedbackId){ showPhaseCreateForm(feedbackId,'group',null); return; }
   const maxGroup=allPhases.length>0?Math.max(...allPhases.map(p=>p.group_num)):0;
   const newGroup=maxGroup+1;
-  const title=prompt(`Name for Group ${newGroup} Phase A (optional):`)||null;
+  const title=await inlineStripPrompt(`Name for Group ${newGroup} Phase A (optional)`);
   const{data,error}=await db.from('feedback_phases').insert({group_num:newGroup,phase_letter:'A',title}).select().single();
   if(error||!data) return;
-  allPhases.push(data);
-  if(feedbackId) await assignPhase(feedbackId,data.id);
-  else{ render(); renderPhases(); }
+  allPhases.push(data); render(); renderPhases();
+}
+
+// Inline prompt for the phases strip (returns a promise)
+function inlineStripPrompt(label){
+  return new Promise(resolve=>{
+    const chipsEl=document.getElementById('phase-chips');
+    const old=chipsEl.querySelector('.strip-prompt'); if(old) old.remove();
+    const wrap=document.createElement('div');
+    wrap.className='strip-prompt';
+    wrap.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;';
+    const lbl=document.createElement('span');
+    lbl.style.cssText='font-size:11px;color:var(--dim);font-family:var(--mono);';
+    lbl.textContent=label+':';
+    const inp=document.createElement('input');
+    inp.type='text'; inp.placeholder='optional name';
+    inp.style.cssText='background:var(--brown);border:1px solid var(--green3);color:var(--parchment);font-family:var(--mono);font-size:11px;padding:4px 8px;border-radius:4px;outline:none;flex:1;min-width:100px;';
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){wrap.remove();resolve(inp.value.trim()||null);} if(e.key==='Escape'){wrap.remove();resolve(null);} });
+    const ok=document.createElement('button'); ok.textContent='create'; ok.className='chip-new';
+    ok.onclick=()=>{wrap.remove();resolve(inp.value.trim()||null);};
+    const cx=document.createElement('button'); cx.textContent='cancel'; cx.className='chip-new';
+    cx.onclick=()=>{wrap.remove();resolve(null);};
+    wrap.append(lbl,inp,ok,cx); chipsEl.appendChild(wrap);
+    setTimeout(()=>inp.focus(),50);
+  });
 }
 
 async function markPhaseDone(phaseId){
