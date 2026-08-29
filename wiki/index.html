@@ -1068,7 +1068,8 @@ async function sendLibraryMessage(entry){
 }
 
 function openLibraryEntry(id){
-  openContent(`library.html?entry=${id}`,'📚 Library');
+  // Use the Lodge's own entry modal (same as Recent Entries sidebar)
+  openEntry(id);
 }
 
 // ── Slide Rules chat integration ─────────────────────────────────────────────
@@ -1396,7 +1397,10 @@ async function openEntry(id){
   const libBtn=document.createElement("button");
   libBtn.id="modal-lib-link";
   libBtn.textContent="→ Open in Library";
-  libBtn.onclick=()=>{ openLibrary(); closeModal(); };
+  libBtn.onclick=()=>{
+    closeModal();
+    openContent(`library.html?entry=${data.id}`,'📚 Library');
+  };
   libBtn.style.cssText="display:block;margin-top:10px;background:none;border:1px solid rgba(80,105,90,.5);color:rgb(144,171,153);font-family:'Courier New',monospace;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;";
   libBtn.onmouseover=()=>libBtn.style.borderColor="rgb(80,105,90)";
   libBtn.onmouseout=()=>libBtn.style.borderColor="rgba(80,105,90,.5)";

@@ -1016,14 +1016,16 @@ async function doShareEntry(){
     image_url:entry.image_url||null,
     content:(entry.content||'').slice(0,200)
   });
-  const{error}=await db.from('messages').insert({
+  const{data:newMsg,error}=await db.from('messages').insert({
     user_id:currentUser?.id||null, user_name:uName, user_avatar:avatar,
     content:`📚 ${entry.title}`, is_mu:false, card_line:cl, is_system:false
-  });
+  }).select().single();
   if(error){
     if(statusEl){statusEl.textContent=`Error: ${error.message}`;statusEl.style.color='#e06060';}
     return;
   }
+  // Render in parent immediately (bypasses Realtime cross-frame delay)
+  if(newMsg && window.parent?.renderMessage) window.parent.renderMessage(newMsg);
   if(statusEl){statusEl.textContent='✓ Posted!';statusEl.style.color='var(--green)';}
   setTimeout(()=>{
     closeShareConfirm();
@@ -1037,7 +1039,7 @@ async function doShareEntry(){
   const id=parseInt(new URLSearchParams(location.search).get('entry')||'');
   if(!id) return;
   const wait=setInterval(()=>{
-    if(entries.length>0){clearInterval(wait);openDetail(id);}
+    if(allEntries.length>0){clearInterval(wait);openDetail(id);}
   },80);
   setTimeout(()=>clearInterval(wait),6000);
 })();
