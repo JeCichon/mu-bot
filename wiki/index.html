@@ -695,9 +695,6 @@ async function showApp(user){
   try{ subscribeToMessages(); }
   catch(err){ console.warn('Realtime subscribe error:',err.message); }
 
-  // Load custom emojis
-  loadCustomEmojis().catch(()=>{});
-
   // DB-based presence (reliable alternative to WebSocket Presence)
   try{
     await trackPresence();
@@ -729,6 +726,9 @@ async function showApp(user){
       if(dbg) dbg.style.display='inline-block';
     }
   }catch(err){ console.warn('Role check failed:',err.message); }
+
+  // Load custom emojis now that role is known (archmage sees upload panel)
+  loadCustomEmojis().catch(()=>{});
 
   // Daily personal greeting (only once per day per user)
   setTimeout(()=>checkDailyGreeting(user), 800);
@@ -839,7 +839,7 @@ function parseMessageContent(raw){
     .replace(/\n/g,'<br>');
 
   // Emoji shortcodes :name:
-  html=parseEmojiShortcodes(html);
+  try{ html=parseEmojiShortcodes(html); }catch(e){ console.warn('emoji parse:',e); }
 
   // Clickable URLs
   const urlRe=new RegExp('https?://[^\\s<>"&]+','g');
@@ -856,7 +856,8 @@ function renderMessage(msg){
   const isSystem=msg.is_system||false;
   const time=new Date(msg.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
   const{html:msgHtml,media:msgMedia}=parseMessageContent(msg.content);
-  const emojiOnly=!srData&&!leData&&isEmojiOnlyText(msg.content||'');
+  let emojiOnly=false;
+  try{ emojiOnly=!srData&&!leData&&isEmojiOnlyText(msg.content||''); }catch(e){}
   const div=document.createElement("div");
   // Detect slide_rules for centered render
   let srData=null, leData=null;
@@ -1688,13 +1689,12 @@ function parseEmojiShortcodes(text){
 }
 
 function isEmojiOnlyText(raw){
-  const clean=raw.trim()
-    .replace(/:([a-z0-9_]+):/g,'E')
-    .replace(/[\u0023-\u0039]?\uFE0F?\u20E3/g,'E')
-    .replace(/\uD83C[\uDF00-\uDFFF]/g,'E').replace(/\uD83D[\uDC00-\uDE4F]/g,'E')
-    .replace(/\uD83D[\uDE80-\uDEFF]/g,'E').replace(/\uD83E[\uDD00-\uDDFF]/g,'E')
-    .replace(/[\u2600-\u27BF]/g,'E').replace(/\s/g,'');
-  return /^E+$/.test(clean)&&clean.length>0;
+  if(!raw||!raw.trim()) return false;
+  // Strip shortcodes and whitespace — if nothing's left, it's emoji-only
+  const stripped=raw.trim().replace(/:([a-z0-9_]+):/g,'').trim();
+  // Check if only unicode emoji remain (simplified)
+  const noEmoji=stripped.replace(/[\p{Emoji}]/gu,'').trim();
+  return stripped.length>0&&noEmoji.length===0;
 }
 
 // ── Debug Modal ──────────────────────────────────────────────────────────────
