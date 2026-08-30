@@ -1603,15 +1603,23 @@ async function loadCustomEmojis(){
         .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
       if(name) customEmojiMap[name]={url:f.download_url,animated:/\.gif$/i.test(f.name)};
     });
-    // Reprocess any already-rendered messages that have unresolved shortcodes
+    // Reprocess already-rendered messages that have unresolved shortcodes
+    // Uses TreeWalker to touch only text nodes — never corrupts img attributes
     document.querySelectorAll('.msg-bubble').forEach(bubble=>{
-      if(bubble.textContent.includes(':')){
-        bubble.innerHTML=bubble.innerHTML.replace(/:([a-z0-9_]+):/g,(match,name)=>{
+      if(!bubble.textContent.includes(':')) return;
+      const walker=document.createTreeWalker(bubble,NodeFilter.SHOW_TEXT);
+      const nodes=[];
+      let n; while((n=walker.nextNode())) nodes.push(n);
+      nodes.forEach(tn=>{
+        if(!/:([a-z0-9_]+):/.test(tn.textContent)) return;
+        const span=document.createElement('span');
+        span.innerHTML=tn.textContent.replace(/:([a-z0-9_]+):/g,(match,name)=>{
           if(customEmojiMap[name])
             return`<img src="${customEmojiMap[name].url}" alt=":${name}:" class="msg-emoji" title=":${name}:">`;
           return match;
         });
-      }
+        tn.parentNode.replaceChild(span,tn);
+      });
     });
   }catch(e){
     console.warn('Custom emoji load failed:',e);
