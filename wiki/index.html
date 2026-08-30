@@ -722,6 +722,9 @@ async function showApp(user){
       if(fb) fb.style.display='block';
       const sy=document.getElementById('link-systems');
       if(sy) sy.style.display='block';
+      // Show emoji upload panel for archmage
+      const eu=document.getElementById('ep-upload');
+      if(eu) eu.classList.add('visible');
       const dbg=document.getElementById('debug-toggle-btn');
       if(dbg) dbg.style.display='inline-block';
     }
