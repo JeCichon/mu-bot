@@ -1603,16 +1603,6 @@ async function loadCustomEmojis(){
         .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
       if(name) customEmojiMap[name]={url:f.download_url,animated:/\.gif$/i.test(f.name)};
     });
-    // Reprocess any already-rendered messages that have unresolved shortcodes
-    document.querySelectorAll('.msg-bubble').forEach(bubble=>{
-      if(bubble.textContent.includes(':')){
-        bubble.innerHTML=bubble.innerHTML.replace(/:([a-z0-9_]+):/g,(match,name)=>{
-          if(customEmojiMap[name])
-            return`<img src="${customEmojiMap[name].url}" alt=":${name}:" class="msg-emoji" title=":${name}:">`;
-          return match;
-        });
-      }
-    });
   }catch(e){
     console.warn('Custom emoji load failed:',e);
     customEmojiMap={};
