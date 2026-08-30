@@ -129,6 +129,27 @@ if(window.self!==window.top){
     <div class="hint">Find UUIDs in: <strong>Supabase → Authentication → Users</strong><br>Anyone who has logged in with Discord appears there.</div>
   </div>
 
+  <!-- Role Capabilities Panel -->
+  <div style="margin-top:36px;">
+    <div class="section-hdr">
+      <span class="section-title">Role Capabilities</span>
+      <span class="section-count">what each role can do</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px 12px;color:var(--dim);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Capability</th>
+            <th style="text-align:center;padding:8px 16px;color:var(--apprentice);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Apprentice</th>
+            <th style="text-align:center;padding:8px 16px;color:var(--practitioner);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Practitioner</th>
+            <th style="text-align:center;padding:8px 16px;color:var(--archmage);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Archmage</th>
+          </tr>
+        </thead>
+        <tbody id="capabilities-body"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -276,6 +297,58 @@ async function addMember(){
   document.getElementById('add-name').value='';
   setTimeout(()=>{ statusEl.textContent=''; loadAll(); },1200);
 }
+
+// ── Role Capabilities ────────────────────────────────────────────────────────
+function renderCapabilities(){
+  const YES='<span style="color:var(--green);font-size:16px;">✓</span>';
+  const NO ='<span style="color:var(--brown3);font-size:13px;">\u2014</span>';
+  const CAPS=[
+    // group, label, apprentice, practitioner, archmage
+    ['Chat',             'Read & send messages',      true,  true,  true ],
+    ['Chat',             'Use emoji & shortcodes',    true,  true,  true ],
+    ['Chat',             'Share library entries',     true,  true,  true ],
+    ['Chat',             'Share Slide Rules',         true,  true,  true ],
+    ['Chat',             "Post What\u2019s New",      false, false, true ],
+    ['Library',          'Browse & view entries',     true,  true,  true ],
+    ['Library',          'Create entries',            false, true,  true ],
+    ['Library',          'Edit own entries',          false, true,  true ],
+    ['Library',          'Edit any entry',            false, false, true ],
+    ['Slide Rules',      'View & play simulations',   true,  true,  true ],
+    ['Slide Rules',      'Post to chat',              true,  true,  true ],
+    ['Slide Rules',      'Publish new simulations',   false, false, true ],
+    ['Cards & Characters','View cards',               true,  true,  true ],
+    ['Cards & Characters','View characters',          true,  true,  true ],
+    ['Cards & Characters','Create characters',        false, true,  true ],
+    ['Organ',            'Play & save songs',         true,  true,  true ],
+    ['Organ',            'Publish songs',             true,  true,  true ],
+    ['Admin',            'Submit feedback',           true,  true,  true ],
+    ['Admin',            'Manage phases & feedback',  false, false, true ],
+    ['Admin',            'View roadmap',              true,  true,  true ],
+    ['Admin',            'Manage roadmap',            false, false, true ],
+    ['Admin',            'View & manage members',     false, false, true ],
+    ['Admin',            'Manage roles',              false, false, true ],
+    ['Admin',            'Debug panel (Alt+Shift+D)', false, false, true ],
+  ];
+  let lastGroup='';
+  const td='padding:6px 12px;border-bottom:1px solid rgba(80,58,36,.3);color:var(--parchment2);';
+  const tc='padding:6px 16px;border-bottom:1px solid rgba(80,58,36,.3);text-align:center;';
+  const rows=CAPS.map(([group,label,app,pra,arc])=>{
+    let grpRow='';
+    if(group!==lastGroup){
+      lastGroup=group;
+      grpRow=`<tr><td colspan="4" style="padding:10px 12px 2px;font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);">${group}</td></tr>`;
+    }
+    return grpRow+`<tr onmouseover="this.style.background='rgba(80,58,36,.3)'" onmouseout="this.style.background=''">
+      <td style="${td}">${label}</td>
+      <td style="${tc}">${app?YES:NO}</td>
+      <td style="${tc}">${pra?YES:NO}</td>
+      <td style="${tc}">${arc?YES:NO}</td>
+    </tr>`;
+  }).join('');
+  const body=document.getElementById('capabilities-body');
+  if(body) body.innerHTML=rows;
+}
+renderCapabilities();
 </script>
 </body>
 </html>

@@ -359,17 +359,7 @@
             <div class="ep-grid" id="ep-custom-grid"></div>
             <div class="ep-section">Standard</div>
             <div class="ep-grid" id="ep-std-grid"></div>
-            <div class="ep-upload" id="ep-upload">
-              <div style="font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Upload emoji (archmage)</div>
-              <div class="ep-upload-row">
-                <input class="ep-input" id="ep-name" placeholder="name (no spaces)" style="max-width:120px;">
-                <label style="background:var(--brown3);border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">
-                  choose file<input type="file" id="ep-file" accept="image/*,.gif" style="display:none" onchange="ep_previewFile(this)">
-                </label>
-                <button onclick="uploadCustomEmoji()" style="background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">upload</button>
-              </div>
-              <div id="ep-status" style="font-size:10px;font-family:var(--mono);color:var(--green);margin-top:4px;min-height:14px;"></div>
-            </div>
+
           </div>
         </div>
         <div class="plus-wrap">
@@ -722,9 +712,7 @@ async function showApp(user){
       if(fb) fb.style.display='block';
       const sy=document.getElementById('link-systems');
       if(sy) sy.style.display='block';
-      // Show emoji upload panel for archmage
-      const eu=document.getElementById('ep-upload');
-      if(eu) eu.classList.add('visible');
+      // Emoji managed via git — no upload panel needed
       const dbg=document.getElementById('debug-toggle-btn');
       if(dbg) dbg.style.display='inline-block';
     }
@@ -1604,9 +1592,21 @@ const UNICODE_EMOJIS=[
 let customEmojiMap={};
 
 async function loadCustomEmojis(){
-  const{data}=await db.from('custom_emojis').select('name,url,animated').order('name');
-  customEmojiMap={};
-  (data||[]).forEach(e=>customEmojiMap[e.name]=e);
+  try{
+    const resp=await fetch('https://api.github.com/repos/JeCichon/mu-bot/contents/wiki/images/emoji');
+    if(!resp.ok) throw new Error('GitHub API '+resp.status);
+    const files=await resp.json();
+    customEmojiMap={};
+    files.filter(f=>/\.(gif|png|jpg|jpeg|webp|apng)$/i.test(f.name)).forEach(f=>{
+      // Sanitize filename → shortcode: lowercase, spaces→underscore, strip non-alphanumeric
+      const name=f.name.replace(/\.[^.]+$/,'').toLowerCase()
+        .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+      if(name) customEmojiMap[name]={url:f.download_url,animated:/\.gif$/i.test(f.name)};
+    });
+  }catch(e){
+    console.warn('Custom emoji load failed:',e);
+    customEmojiMap={};
+  }
   buildEmojiPicker();
 }
 
@@ -1628,8 +1628,7 @@ function buildEmojiPicker(){
   if(stdGrid) stdGrid.innerHTML=UNICODE_EMOJIS.map(u=>
     `<div class="ep-item" title=":${u.n}:" onclick="insertEmoji('${u.e}')">${u.e}</div>`
   ).join('');
-  const upEl=document.getElementById('ep-upload');
-  if(upEl) upEl.classList.toggle('visible',userRole==='archmage');
+  // Upload panel removed — emojis managed via wiki/images/emoji/ in git
 }
 
 function toggleEmojiPicker(e){
