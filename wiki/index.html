@@ -238,6 +238,27 @@
   .debug-footer button{flex:1;padding:5px 8px;font-size:11px;}
   #debug-copy-ok{font-size:11px;color:var(--green);min-height:16px;}
 
+  /* ── Emoji system ── */
+  .emoji-btn{background:none;border:1px solid var(--brown3);color:var(--dim);font-size:16px;width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s;flex-shrink:0;}
+  .emoji-btn:hover{border-color:var(--green3);color:var(--parchment);}
+  #emoji-picker{position:absolute;bottom:calc(100% + 8px);left:0;width:300px;background:var(--brown2);border:1px solid var(--purple);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;z-index:100;overflow:hidden;}
+  #emoji-picker.open{display:block;}
+  .ep-section{padding:8px 10px 4px;font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;}
+  .ep-grid{display:flex;flex-wrap:wrap;gap:2px;padding:0 8px 8px;}
+  .ep-item{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;font-size:22px;transition:background .1s;position:relative;}
+  .ep-item:hover{background:var(--brown3);}
+  .ep-item img{width:26px;height:26px;object-fit:contain;}
+  .ep-item[title]:hover::after{content:attr(title);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--brown);border:1px solid var(--brown3);color:var(--parchment2);font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;white-space:nowrap;pointer-events:none;z-index:10;}
+  .ep-upload{border-top:1px solid var(--brown3);padding:8px 10px;display:none;}
+  .ep-upload.visible{display:block;}
+  .ep-upload-row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center;}
+  .ep-input{background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:11px;padding:4px 8px;border-radius:4px;outline:none;flex:1;min-width:80px;}
+  .ep-input:focus{border-color:var(--green3);}
+  /* Emoji in messages */
+  .msg-emoji{height:24px;width:auto;vertical-align:middle;display:inline-block;}
+  .msg-emoji-lg{height:52px;width:auto;vertical-align:middle;display:inline-block;}
+  .msg-emoji-only .msg-bubble{background:transparent!important;box-shadow:none!important;padding:4px 0!important;font-size:48px;}
+
   ::-webkit-scrollbar { width:6px; }
   ::-webkit-scrollbar-track { background:var(--brown); }
   ::-webkit-scrollbar-thumb { background:var(--brown3); border-radius:3px; }
@@ -331,6 +352,26 @@
     <div class="chat-messages" id="chat-messages"></div>
     <div class="chat-input-wrap">
       <div class="input-row">
+        <div class="plus-wrap" style="position:relative;">
+          <button class="emoji-btn" onclick="toggleEmojiPicker(event)" title="Emoji">😊</button>
+          <div id="emoji-picker">
+            <div class="ep-section" id="ep-custom-label" style="display:none;">Custom</div>
+            <div class="ep-grid" id="ep-custom-grid"></div>
+            <div class="ep-section">Standard</div>
+            <div class="ep-grid" id="ep-std-grid"></div>
+            <div class="ep-upload" id="ep-upload">
+              <div style="font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Upload emoji (archmage)</div>
+              <div class="ep-upload-row">
+                <input class="ep-input" id="ep-name" placeholder="name (no spaces)" style="max-width:120px;">
+                <label style="background:var(--brown3);border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">
+                  choose file<input type="file" id="ep-file" accept="image/*,.gif" style="display:none" onchange="ep_previewFile(this)">
+                </label>
+                <button onclick="uploadCustomEmoji()" style="background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">upload</button>
+              </div>
+              <div id="ep-status" style="font-size:10px;font-family:var(--mono);color:var(--green);margin-top:4px;min-height:14px;"></div>
+            </div>
+          </div>
+        </div>
         <div class="plus-wrap">
           <button class="plus-btn" onclick="togglePlusMenu(event)" title="Add to chat">+</button>
           <div class="plus-menu" id="plus-menu">
@@ -654,6 +695,9 @@ async function showApp(user){
   try{ subscribeToMessages(); }
   catch(err){ console.warn('Realtime subscribe error:',err.message); }
 
+  // Load custom emojis
+  loadCustomEmojis().catch(()=>{});
+
   // DB-based presence (reliable alternative to WebSocket Presence)
   try{
     await trackPresence();
@@ -794,6 +838,9 @@ function parseMessageContent(raw){
     .replace(/\*(.*?)\*/g,'<em>$1</em>')
     .replace(/\n/g,'<br>');
 
+  // Emoji shortcodes :name:
+  html=parseEmojiShortcodes(html);
+
   // Clickable URLs
   const urlRe=new RegExp('https?://[^\\s<>"&]+','g');
   html=html.replace(urlRe,url=>`<a class="msg-link" href="${url}" target="_blank" rel="noopener">${url.replace(/^https?:\/\//,'')}</a>`);
@@ -809,6 +856,7 @@ function renderMessage(msg){
   const isSystem=msg.is_system||false;
   const time=new Date(msg.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
   const{html:msgHtml,media:msgMedia}=parseMessageContent(msg.content);
+  const emojiOnly=!srData&&!leData&&isEmojiOnlyText(msg.content||'');
   const div=document.createElement("div");
   // Detect slide_rules for centered render
   let srData=null, leData=null;
@@ -870,7 +918,7 @@ function renderMessage(msg){
   } else {
     const cls=isMu?"mu-msg":isMine?"mine":"other";
     const avatarHtml=isMu?(msg.user_avatar?`<img src="${msg.user_avatar}" alt="Mu">`:"📦"):(msg.user_avatar?`<img src="${msg.user_avatar}" alt="">`:"👤");
-    div.className=`msg ${cls}`;
+    div.className=`msg ${cls}${emojiOnly?" msg-emoji-only":""}`;
     div.innerHTML=`
       <div class="msg-avatar">${avatarHtml}</div>
       <div class="msg-body">
@@ -1534,6 +1582,120 @@ document.addEventListener("click",e=>{
     if(p) p.style.display='none';
   }
 });
+
+// ── Emoji system ─────────────────────────────────────────────────────────────
+const UNICODE_EMOJIS=[
+  {n:'smile',e:'\u{1F600}'},{n:'joy',e:'\u{1F602}'},{n:'heart_eyes',e:'\u{1F60D}'},{n:'cry',e:'\u{1F62D}'},
+  {n:'think',e:'\u{1F914}'},{n:'cool',e:'\u{1F60E}'},{n:'worried',e:'\u{1F97A}'},{n:'salute',e:'\u{1FAF1}'},
+  {n:'fire',e:'\u{1F525}'},{n:'skull',e:'\u{1F480}'},{n:'sparkle',e:'\u2728'},{n:'hundred',e:'\u{1F4AF}'},
+  {n:'party',e:'\u{1F389}'},{n:'eyes',e:'\u{1F440}'},{n:'hands',e:'\u{1FAF6}'},{n:'muscle',e:'\u{1F4AA}'},
+  {n:'pray',e:'\u{1F64F}'},{n:'swirl',e:'\u{1F300}'},{n:'star',e:'\u2B50'},{n:'theater',e:'\u{1F3AD}'},
+  {n:'dice',e:'\u{1F3B2}'},{n:'cards',e:'\u{1F0CF}'},{n:'mage',e:'\u{1F9D9}'},{n:'moon',e:'\u{1F319}'},
+  {n:'leaf',e:'\u{1F33F}'},{n:'mushroom',e:'\u{1F344}'},{n:'butterfly',e:'\u{1F98B}'},{n:'dragon',e:'\u{1F409}'},
+  {n:'bolt',e:'\u26A1'},{n:'dizzy',e:'\u{1F4AB}'},{n:'wave',e:'\u{1F30A}'},{n:'notes',e:'\u{1F3B5}'},
+  {n:'crystal',e:'\u{1F52E}'},{n:'gem',e:'\u{1F48E}'},{n:'key',e:'\u{1F5DD}'},{n:'scroll',e:'\u{1F4DC}'},
+  {n:'heart',e:'\u2764'},{n:'ghost',e:'\u{1F47B}'},{n:'zzz',e:'\u{1F4A4}'},{n:'rainbow',e:'\u{1F308}'},
+];
+
+let customEmojiMap={};
+
+async function loadCustomEmojis(){
+  const{data}=await db.from('custom_emojis').select('name,url,animated').order('name');
+  customEmojiMap={};
+  (data||[]).forEach(e=>customEmojiMap[e.name]=e);
+  buildEmojiPicker();
+}
+
+function buildEmojiPicker(){
+  const customGrid=document.getElementById('ep-custom-grid');
+  const customLabel=document.getElementById('ep-custom-label');
+  const names=Object.keys(customEmojiMap);
+  if(names.length>0&&customGrid){
+    customLabel.style.display='block';
+    customGrid.innerHTML=names.map(n=>{
+      const e=customEmojiMap[n];
+      return`<div class="ep-item" title=":${n}:" onclick="insertEmoji(':${n}:')"><img src="${e.url}" alt="${n}"></div>`;
+    }).join('');
+  } else if(customLabel){
+    customLabel.style.display='none';
+    if(customGrid) customGrid.innerHTML='';
+  }
+  const stdGrid=document.getElementById('ep-std-grid');
+  if(stdGrid) stdGrid.innerHTML=UNICODE_EMOJIS.map(u=>
+    `<div class="ep-item" title=":${u.n}:" onclick="insertEmoji('${u.e}')">${u.e}</div>`
+  ).join('');
+  const upEl=document.getElementById('ep-upload');
+  if(upEl) upEl.classList.toggle('visible',userRole==='archmage');
+}
+
+function toggleEmojiPicker(e){
+  e.stopPropagation();
+  document.getElementById('emoji-picker')?.classList.toggle('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#emoji-picker')&&!e.target.closest('.emoji-btn')){
+    document.getElementById('emoji-picker')?.classList.remove('open');
+  }
+});
+
+function insertEmoji(code){
+  const inp=document.getElementById('chat-input');
+  if(!inp) return;
+  const s=inp.selectionStart,end=inp.selectionEnd;
+  const insert=code.startsWith(':')?(code+' '):code;
+  inp.value=inp.value.slice(0,s)+insert+inp.value.slice(end);
+  inp.selectionStart=inp.selectionEnd=s+insert.length;
+  inp.focus(); autoResize(inp);
+  document.getElementById('emoji-picker').classList.remove('open');
+}
+
+function ep_previewFile(input){
+  const st=document.getElementById('ep-status');
+  if(st) st.textContent=input.files[0]?input.files[0].name:'';
+}
+
+async function uploadCustomEmoji(){
+  const nameRaw=document.getElementById('ep-name')?.value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
+  const file=document.getElementById('ep-file')?.files[0];
+  const st=document.getElementById('ep-status');
+  if(!nameRaw){if(st){st.textContent='Name required.';st.style.color='#e06060';}return;}
+  if(!file){if(st){st.textContent='Choose a file.';st.style.color='#e06060';}return;}
+  if(st){st.textContent='uploading...';st.style.color='var(--dim)';}
+  const ext=file.name.split('.').pop().toLowerCase();
+  const path=`emojis/${nameRaw}.${ext}`;
+  const{error:upErr}=await db.storage.from('library-images').upload(path,file,{upsert:true});
+  if(upErr){if(st){st.textContent='Upload failed.';st.style.color='#e06060';}return;}
+  const{data:urlData}=db.storage.from('library-images').getPublicUrl(path);
+  const{error:dbErr}=await db.from('custom_emojis').upsert({
+    name:nameRaw,url:urlData.publicUrl,animated:ext==='gif',created_by:currentUser?.id||null
+  },{onConflict:'name'});
+  if(dbErr){if(st){st.textContent='DB error.';st.style.color='#e06060';}return;}
+  if(st){st.textContent='Added :'+nameRaw+':';st.style.color='var(--green)';}
+  document.getElementById('ep-name').value='';
+  document.getElementById('ep-file').value='';
+  await loadCustomEmojis();
+}
+
+function parseEmojiShortcodes(text){
+  return text.replace(/:([a-z0-9_]+):/g,(match,name)=>{
+    if(customEmojiMap[name]){
+      return`<img src="${customEmojiMap[name].url}" alt=":${name}:" class="msg-emoji" title=":${name}:">`;
+    }
+    const uni=UNICODE_EMOJIS.find(u=>u.n===name);
+    if(uni) return uni.e;
+    return match;
+  });
+}
+
+function isEmojiOnlyText(raw){
+  const clean=raw.trim()
+    .replace(/:([a-z0-9_]+):/g,'E')
+    .replace(/[\u0023-\u0039]?\uFE0F?\u20E3/g,'E')
+    .replace(/\uD83C[\uDF00-\uDFFF]/g,'E').replace(/\uD83D[\uDC00-\uDE4F]/g,'E')
+    .replace(/\uD83D[\uDE80-\uDEFF]/g,'E').replace(/\uD83E[\uDD00-\uDDFF]/g,'E')
+    .replace(/[\u2600-\u27BF]/g,'E').replace(/\s/g,'');
+  return /^E+$/.test(clean)&&clean.length>0;
+}
 
 // ── Debug Modal ──────────────────────────────────────────────────────────────
 const _DBG_DEFAULTS={
