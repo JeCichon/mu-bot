@@ -60,6 +60,20 @@
   .fb-status.noted{background:rgba(136,102,34,.3);color:#cc9944;}
   .fb-status.planned{background:rgba(34,85,136,.3);color:#6699cc;}
   .fb-status.done{background:rgba(51,102,51,.3);color:#66bb66;}
+  .fb-status.passive{background:rgba(100,0,30,.25);color:#cc4455;}
+  @keyframes passivePulse{
+    0%,100%{box-shadow:0 0 5px rgba(139,0,30,.3),0 0 10px rgba(139,0,30,.1);}
+    50%{box-shadow:0 0 10px rgba(139,0,30,.55),0 0 20px rgba(139,0,30,.25);}
+  }
+  /* Done card collapse */
+  .fb-card.done-card{transition:margin-left .2s,opacity .2s;}
+  .collapse-btn{background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:0 4px;margin-left:auto;line-height:1;}
+  .collapse-btn:hover{color:var(--parchment);}
+  .fb-card.collapsed .fb-desc,.fb-card.collapsed .fb-meta{display:none;}
+  .fb-card.collapsed .fb-detail{display:none!important;}
+  .fb-card.collapsed .fb-main{opacity:.55;}
+  /* Drag highlight */
+  .fb-card.drag-over{border-color:var(--gold)!important;box-shadow:0 0 8px rgba(201,169,110,.3);}
   /* Planned: outdented + glowing border to signal "needs attention" */
   @keyframes plannedPulse{
     0%,100%{box-shadow:0 0 6px rgba(201,169,110,.45),0 0 14px rgba(201,169,110,.2);}
@@ -191,6 +205,7 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
     <button class="tab" onclick="setFilter('new',this)">new <span class="count-badge" id="cnt-new">0</span></button>
     <button class="tab" onclick="setFilter('noted',this)">noted <span class="count-badge" id="cnt-noted">0</span></button>
     <button class="tab" onclick="setFilter('planned',this)">planned <span class="count-badge" id="cnt-planned">0</span></button>
+    <button class="tab" onclick="setFilter('passive',this)">passive <span class="count-badge" id="cnt-passive">0</span></button>
     <button class="tab" onclick="setFilter('done',this)">done <span class="count-badge" id="cnt-done">0</span></button>
     <button class="tab" onclick="setFilter('bug',this)">🐛 bugs</button>
     <button class="tab" onclick="setFilter('suggestion',this)">💡 suggestions</button>
@@ -237,7 +252,7 @@ async function load(){
 
 function updateCounts(){
   document.getElementById('cnt-all').textContent=all.length;
-  ['new','noted','planned','done'].forEach(s=>{
+  ['new','noted','passive','planned','done'].forEach(s=>{
     const el=document.getElementById('cnt-'+s);
     if(el) el.textContent=all.filter(f=>f.status===s).length;
   });
@@ -270,6 +285,8 @@ function render(){
   if(!items.length){ listEl.innerHTML=`<div class="empty">nothing here yet</div>`; return; }
   try{
     listEl.innerHTML=items.map(f=>buildCard(f)).join('');
+    checkAutoCollapse();
+    enableDragSort();
   }catch(err){
     listEl.innerHTML=`<div class="empty" style="color:#e06060">Render error: ${err.message}</div>`;
     console.error('Feedback render error:',err);
@@ -292,7 +309,9 @@ function buildCard(f){
   const phaseMap=allPhases.reduce((m,p)=>{m[p.id]=p;return m;},{});
   const fPhase=f.phase_id&&phaseMap[f.phase_id]?phaseMap[f.phase_id]:null;
   const phaseTag=fPhase?`<span class="phase-tag">G${fPhase.group_num}·${fPhase.phase_letter}</span>`:'';
-  const statusBtns=['new','noted','planned','done'].map(s=>
+  const collapseBtn=f.status==='done'
+    ?`<button class="collapse-btn" onclick="toggleCollapse(${f.id},this)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'›':'‹'}</button>`:'';
+  const statusBtns=['new','noted','passive','planned','done'].map(s=>
     `<button class="status-btn ${f.status===s?'active-status':''}" onclick="handleStatusClick(${f.id},'${s}',this)">${s}</button>`
   ).join('');
   const promoteForm=`<div id="promote-form-${f.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--brown3);">
@@ -312,14 +331,17 @@ function buildCard(f){
       <span id="pr-msg-${f.id}" style="font-size:11px;font-family:var(--mono);color:var(--green);"></span>
     </div>
   </div>`;
+  const isCollapsed=f.status==='done'&&localStorage.getItem('fc_'+f.id)==='1';
   const doneWrap=f.status==='done'
     ? 'margin-left:28px;background:rgba(80,105,90,.1);border-color:rgba(80,105,90,.4);'
     : f.status==='planned'
       ? 'margin-left:0;border-color:rgba(201,169,110,.55);animation:plannedPulse 2.5s ease-in-out infinite;'
-      : (f.status==='new'||f.status==='noted')
-        ? 'margin-left:14px;'
-        : '';
-  return `<div class="fb-card" id="fbc-${f.id}" style="${doneWrap}">
+      : f.status==='passive'
+        ? 'margin-left:21px;background:rgba(100,0,30,.12);border-color:rgba(139,0,30,.45);animation:passivePulse 3s ease-in-out infinite;'
+        : (f.status==='new'||f.status==='noted')
+          ? 'margin-left:14px;'
+          : '';
+  return `<div class="fb-card ${f.status==='done'?'done-card':''} ${isCollapsed?'collapsed':''}" id="fbc-${f.id}" data-id="${f.id}" draggable="true" style="${doneWrap}">
     <div class="fb-main" onclick="toggleDetail(${f.id})">
       <div class="fb-type-dot" style="background:${typeColor}"></div>
       <div class="fb-body">
@@ -330,7 +352,7 @@ function buildCard(f){
         </div>
         ${titleDiv}${descDiv}${meta}
       </div>
-      <div class="fb-expand">›</div>
+      <div style="display:flex;align-items:center;gap:2px;">${collapseBtn}<div class="fb-expand" onclick="event.stopPropagation()">›</div></div>
     </div>
     <div class="fb-detail" id="fbd-${f.id}">
       <div class="fb-notes-label">archmage notes</div>
@@ -602,6 +624,56 @@ function renderPhases(){
   } else { histSection.style.display='none'; }
 }
 
+// ── Collapse, auto-collapse, drag sort ───────────────────────────────────────
+function toggleCollapse(id,btn){
+  const card=document.getElementById('fbc-'+id);
+  if(!card) return;
+  const collapsed=card.classList.toggle('collapsed');
+  if(btn) btn.title=collapsed?'Expand':'Collapse';
+  // Store explicit user choice (prevents auto-collapse from fighting manual choice)
+  localStorage.setItem('fc_'+id, collapsed?'1':'0');
+}
+
+function checkAutoCollapse(){
+  const THRESHOLD=24*60*60*1000; // 24h default
+  const now=Date.now();
+  all.filter(f=>f.status==='done').forEach(f=>{
+    const storedPref=localStorage.getItem('fc_'+f.id);
+    if(storedPref!==null) return; // user made explicit choice — respect it
+    const doneTime=parseInt(localStorage.getItem('done_time_'+f.id)||'0');
+    if(doneTime&&(now-doneTime)>THRESHOLD){
+      const card=document.getElementById('fbc-'+f.id);
+      if(card){ card.classList.add('collapsed'); localStorage.setItem('fc_'+f.id,'1'); }
+    }
+  });
+}
+
+function enableDragSort(){
+  let dragEl=null;
+  document.querySelectorAll('.fb-card[draggable]').forEach(card=>{
+    card.addEventListener('dragstart',e=>{
+      dragEl=card; card.style.opacity='.4';
+      e.dataTransfer.effectAllowed='move';
+    });
+    card.addEventListener('dragend',()=>{
+      if(dragEl) dragEl.style.opacity='1';
+      dragEl=null;
+      document.querySelectorAll('.fb-card').forEach(c=>c.classList.remove('drag-over'));
+    });
+    card.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(!dragEl||card===dragEl) return;
+      document.querySelectorAll('.fb-card').forEach(c=>c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+      const rect=card.getBoundingClientRect();
+      if(e.clientY>rect.top+rect.height/2) card.after(dragEl);
+      else card.before(dragEl);
+    });
+    card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
+    card.addEventListener('drop',e=>{e.preventDefault();card.classList.remove('drag-over');});
+  });
+}
+
 function toggleDetail(id){
   const d=document.getElementById('fbd-'+id);
   const e=document.querySelector(`#fbc-${id} .fb-expand`);
@@ -613,6 +685,10 @@ async function setStatus(id, status, btn){
   await db.from('feedback').update({status}).eq('id',id);
   const item=all.find(f=>f.id===id);
   if(item) item.status=status;
+  // Track when item is first marked done (for auto-collapse)
+  if(status==='done'&&!localStorage.getItem('done_time_'+id)){
+    localStorage.setItem('done_time_'+id, Date.now().toString());
+  }
   // Update button styles in card
   btn.closest('.fb-actions').querySelectorAll('.status-btn').forEach(b=>b.classList.remove('active-status'));
   btn.classList.add('active-status');
