@@ -950,8 +950,6 @@ function renderMessage(msg){
   // Apply emoji shortcodes via DOM (must happen after innerHTML is set)
   try{ applyEmojisToElement(div); }catch(e){}
   document.getElementById("chat-messages").appendChild(div);
-  // Load reactions for this message
-  if(msg.id) loadReactions([msg.id]);
   scrollToBottom();
 }
 
@@ -1688,7 +1686,7 @@ function buildEmojiPicker(){
   }
   const stdGrid=document.getElementById('ep-std-grid');
   if(stdGrid) stdGrid.innerHTML=UNICODE_EMOJIS.map(u=>
-    `<div class="ep-item" title=":${u.n}:" onclick="insertEmoji('${u.e}')">${u.e}</div>`
+    `<div class="ep-item" title=":${u.n}:" onclick="insertEmoji(':${u.n}:')">${u.e}</div>`
   ).join('');
   // Upload panel removed — emojis managed via wiki/images/emoji/ in git
 }
@@ -1802,7 +1800,8 @@ let reactionMap = {}; // msgId → [{id,user_id,user_name,emoji}]
 async function loadReactions(msgIds){
   if(!msgIds||!msgIds.length) return;
   const{data}=await db.from('message_reactions').select('*').in('message_id',msgIds);
-  reactionMap={};
+  // Clear only the requested IDs — don't wipe the whole map
+  msgIds.forEach(id=>{ reactionMap[id]=[]; });
   (data||[]).forEach(r=>{
     if(!reactionMap[r.message_id]) reactionMap[r.message_id]=[];
     reactionMap[r.message_id].push(r);
@@ -1837,9 +1836,12 @@ function updateReactionBar(msgId){
   const isMine=e=>grouped[e]?.some(r=>r.user_id===currentUser?.id);
   const pillsHtml=Object.entries(grouped).map(([emoji,rs])=>{
     const mine=rs.some(r=>r.user_id===currentUser?.id);
-    const display=emoji.startsWith(':')&&customEmojiMap[emoji.slice(1,-1)]
-      ? `<img src="${customEmojiMap[emoji.slice(1,-1)].url}" alt="${emoji}">`
-      : emoji;
+    let display=emoji;
+    if(emoji.startsWith(':')){
+      const name=emoji.slice(1,-1);
+      if(customEmojiMap[name]) display=`<img src="${customEmojiMap[name].url}" alt="${emoji}" style="height:18px;width:auto;vertical-align:middle;">`;
+      else{ const uni=UNICODE_EMOJIS.find(u=>u.n===name); if(uni) display=uni.e; }
+    }
     const names=rs.map(r=>r.user_name||'traveler').join(', ');
     return`<span class="reaction-pill${mine?' mine':''}" title="${names}" onclick="toggleReaction(${msgId},'${emoji.replace(/'/g,"\'")}')">
       ${display} ${rs.length}
@@ -1874,7 +1876,7 @@ function openRxnPicker(msgId,btn){
     `<div class="rxn-item" title=":${e.name}:" onclick="toggleReaction(${msgId},':${e.name}:');document.getElementById('rxn-picker')?.remove()"><img src="${e.url}"></div>`
   ).join('');
   const stdItems=UNICODE_EMOJIS.map(u=>
-    `<div class="rxn-item" title=":${u.n}:" onclick="toggleReaction(${msgId},'${u.e}');document.getElementById('rxn-picker')?.remove()">${u.e}</div>`
+    `<div class="rxn-item" title=":${u.n}:" onclick="toggleReaction(${msgId},':${u.n}:');document.getElementById('rxn-picker')?.remove()">${u.e}</div>`
   ).join('');
   picker.innerHTML=`<div class="rxn-grid">${customItems}${stdItems}</div>`;
   document.body.appendChild(picker);
