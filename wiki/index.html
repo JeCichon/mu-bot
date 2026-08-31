@@ -693,13 +693,16 @@ async function showApp(user){
   loadSidebarEntries();
   loadSidebarChangelog();
 
+  // Load custom emojis FIRST — must be ready before messages and reactions render
+  await loadCustomEmojis().catch(()=>{});
+
   // Load messages safely — catch errors so later steps always run
   try{ await Promise.all([loadRecentMessages(), loadMuAvatar()]); }
   catch(err){ console.warn('Message/avatar load error (non-fatal):',err.message); }
 
   // Load reactions for all visible messages
   const _rIds=[...document.querySelectorAll('.reaction-bar[data-mid]')].map(el=>parseInt(el.dataset.mid)).filter(Boolean);
-  if(_rIds.length) loadReactions(_rIds);
+  if(_rIds.length) await loadReactions(_rIds);
   subscribeToReactions();
 
   // Subscribe to realtime — always runs now
@@ -738,9 +741,6 @@ async function showApp(user){
       if(dbg) dbg.style.display='inline-block';
     }
   }catch(err){ console.warn('Role check failed:',err.message); }
-
-  // Load custom emojis FIRST so emoji are ready when messages render
-  await loadCustomEmojis().catch(()=>{});
 
   // Daily personal greeting (only once per day per user)
   setTimeout(()=>checkDailyGreeting(user), 800);
