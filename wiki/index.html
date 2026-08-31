@@ -1739,6 +1739,15 @@ async function uploadCustomEmoji(){
   await loadCustomEmojis();
 }
 
+// Unified emoji lookup — searches _emojiGroups (same source as picker)
+function getEmojiUrl(name){
+  for(const group of Object.values(_emojiGroups)){
+    const e=group.find(e=>e.name===name);
+    if(e) return e.url;
+  }
+  return null;
+}
+
 // Apply emoji shortcodes via pure DOM manipulation — no innerHTML escaping issues
 function applyEmojisToElement(el){
   const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
@@ -1754,9 +1763,10 @@ function applyEmojisToElement(el){
       } else {
         const name=part;
         const uni=UNICODE_EMOJIS.find(u=>u.n===name);
-        if(customEmojiMap[name]){
+        const _eurl=getEmojiUrl(name);
+        if(_eurl){
           const img=document.createElement('img');
-          img.src=customEmojiMap[name].url;
+          img.src=_eurl;
           img.alt=':'+name+':'; img.title=':'+name+':';
           img.className='msg-emoji';
           frag.appendChild(img);
@@ -1770,6 +1780,26 @@ function applyEmojisToElement(el){
       }
     });
     tn.parentNode.replaceChild(frag,tn);
+  });
+  // Also wrap raw unicode emoji characters (directly typed) in msg-emoji-std spans
+  const emojiRe=/\p{Emoji_Presentation}/gu;
+  const walker2=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+  const nodes2=[]; let n2;
+  while((n2=walker2.nextNode())) nodes2.push(n2);
+  nodes2.forEach(tn=>{
+    if(!emojiRe.test(tn.textContent)) return;
+    emojiRe.lastIndex=0;
+    const frag2=document.createDocumentFragment();
+    let last=0; let m;
+    while((m=emojiRe.exec(tn.textContent))!==null){
+      if(m.index>last) frag2.appendChild(document.createTextNode(tn.textContent.slice(last,m.index)));
+      const sp=document.createElement('span');
+      sp.className='msg-emoji-std'; sp.textContent=m[0];
+      frag2.appendChild(sp);
+      last=m.index+m[0].length;
+    }
+    if(last<tn.textContent.length) frag2.appendChild(document.createTextNode(tn.textContent.slice(last)));
+    tn.parentNode.replaceChild(frag2,tn);
   });
 }
 
@@ -1839,7 +1869,8 @@ function updateReactionBar(msgId){
     let display=emoji;
     if(emoji.startsWith(':')){
       const name=emoji.slice(1,-1);
-      if(customEmojiMap[name]) display=`<img src="${customEmojiMap[name].url}" alt="${emoji}" style="height:18px;width:auto;vertical-align:middle;">`;
+      const eurl=getEmojiUrl(name);
+      if(eurl) display=`<img src="${eurl}" alt="${emoji}" style="height:18px;width:auto;vertical-align:middle;">`;
       else{ const uni=UNICODE_EMOJIS.find(u=>u.n===name); if(uni) display=uni.e; }
     }
     const names=rs.map(r=>r.user_name||'traveler').join(', ');
