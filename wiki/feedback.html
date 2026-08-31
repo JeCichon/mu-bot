@@ -309,6 +309,7 @@ function buildCard(f){
   const phaseMap=allPhases.reduce((m,p)=>{m[p.id]=p;return m;},{});
   const fPhase=f.phase_id&&phaseMap[f.phase_id]?phaseMap[f.phase_id]:null;
   const phaseTag=fPhase?`<span class="phase-tag">G${fPhase.group_num}·${fPhase.phase_letter}</span>`:'';
+  const isCollapsed=f.status==='done'&&localStorage.getItem('fc_'+f.id)==='1';
   const collapseBtn=f.status==='done'
     ?`<button class="collapse-btn" onclick="toggleCollapse(${f.id},this)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'›':'‹'}</button>`:'';
   const statusBtns=['new','noted','passive','planned','done'].map(s=>
@@ -331,7 +332,6 @@ function buildCard(f){
       <span id="pr-msg-${f.id}" style="font-size:11px;font-family:var(--mono);color:var(--green);"></span>
     </div>
   </div>`;
-  const isCollapsed=f.status==='done'&&localStorage.getItem('fc_'+f.id)==='1';
   const doneWrap=f.status==='done'
     ? 'margin-left:28px;background:rgba(80,105,90,.1);border-color:rgba(80,105,90,.4);'
     : f.status==='planned'
