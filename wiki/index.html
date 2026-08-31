@@ -828,8 +828,7 @@ function parseMessageContent(raw){
     .replace(/\*(.*?)\*/g,'<em>$1</em>')
     .replace(/\n/g,'<br>');
 
-  // Emoji shortcodes :name:
-  try{ html=parseEmojiShortcodes(html); }catch(e){ console.warn('emoji parse:',e); }
+  // Emoji shortcodes applied post-DOM via applyEmojisToElement()
 
   // Clickable URLs
   const urlRe=new RegExp('https?://[^\\s<>"&]+','g');
@@ -922,6 +921,8 @@ function renderMessage(msg){
         ${buildCardLine(msg.card_line)}
       </div>`;
   }
+  // Apply emoji shortcodes via DOM (must happen after innerHTML is set)
+  try{ applyEmojisToElement(div); }catch(e){}
   document.getElementById("chat-messages").appendChild(div);
   scrollToBottom();
 }
@@ -1635,6 +1636,10 @@ async function loadCustomEmojis(){
     customEmojiMap={};
   }
   buildEmojiPicker();
+  // Reprocess any messages already rendered before emoji map was ready
+  document.querySelectorAll('.msg-bubble').forEach(b=>{
+    try{ applyEmojisToElement(b); }catch(e){}
+  });
 }
 
 function buildEmojiPicker(){
@@ -1706,6 +1711,38 @@ async function uploadCustomEmoji(){
   document.getElementById('ep-name').value='';
   document.getElementById('ep-file').value='';
   await loadCustomEmojis();
+}
+
+// Apply emoji shortcodes via pure DOM manipulation — no innerHTML escaping issues
+function applyEmojisToElement(el){
+  const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+  const nodes=[]; let n;
+  while((n=walker.nextNode())) nodes.push(n);
+  nodes.forEach(tn=>{
+    if(!/:([a-z0-9_]+):/.test(tn.textContent)) return;
+    const frag=document.createDocumentFragment();
+    const parts=tn.textContent.split(/:([a-z0-9_]+):/);
+    parts.forEach((part,i)=>{
+      if(i%2===0){
+        if(part) frag.appendChild(document.createTextNode(part));
+      } else {
+        const name=part;
+        const uni=UNICODE_EMOJIS.find(u=>u.n===name);
+        if(customEmojiMap[name]){
+          const img=document.createElement('img');
+          img.src=customEmojiMap[name].url;
+          img.alt=':'+name+':'; img.title=':'+name+':';
+          img.className='msg-emoji';
+          frag.appendChild(img);
+        } else if(uni){
+          frag.appendChild(document.createTextNode(uni.e));
+        } else {
+          frag.appendChild(document.createTextNode(':'+name+':'));
+        }
+      }
+    });
+    tn.parentNode.replaceChild(frag,tn);
+  });
 }
 
 function parseEmojiShortcodes(text){
