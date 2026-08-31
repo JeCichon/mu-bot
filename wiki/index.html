@@ -695,12 +695,12 @@ async function showApp(user){
 
   // Load messages safely — catch errors so later steps always run
   try{ await Promise.all([loadRecentMessages(), loadMuAvatar()]); }
-  catch(e){ console.warn('Load error:',e); }
+  catch(err){ console.warn('Message/avatar load error (non-fatal):',err.message); }
+
   // Load reactions for all visible messages
   const _rIds=[...document.querySelectorAll('.reaction-bar[data-mid]')].map(el=>parseInt(el.dataset.mid)).filter(Boolean);
   if(_rIds.length) loadReactions(_rIds);
   subscribeToReactions();
-  catch(err){ console.warn('Message/avatar load error (non-fatal):',err.message); }
 
   // Subscribe to realtime — always runs now
   try{ subscribeToMessages(); }
