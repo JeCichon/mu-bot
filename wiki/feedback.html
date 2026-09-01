@@ -377,7 +377,9 @@ function buildCard(f){
         <button class="save-note-btn" onclick="saveNote(${f.id})">save notes</button>
         <span class="note-saved" id="saved-${f.id}"></span>
         <button class="save-note-btn" id="promote-btn-${f.id}" onclick="togglePromote(${f.id})" style="margin-left:auto;border-color:rgba(80,105,90,.6);color:var(--green);">to roadmap</button>
-        ${!f.branched_to?`<button class="save-note-btn" onclick="openBranchModal(${f.id})" style="border-color:rgba(80,105,90,.5);color:var(--green2);">🌿 branch</button>`:'<span class="branch-badge">🌿 branched</span>'}`
+        ${!f.branched_to
+          ?'<button class="save-note-btn" onclick="openBranchModal('+f.id+')" style="border-color:rgba(80,105,90,.5);color:var(--green2);">🌿 branch</button>'
+          :'<span class="branch-badge">🌿 branched</span>'}
       </div>
       ${promoteForm}
       <div class="phase-picker" id="ppick-${f.id}">
