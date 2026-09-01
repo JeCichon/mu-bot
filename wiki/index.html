@@ -62,7 +62,19 @@
 
   /* ── Chat ── */
   .chat-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
-  .chat-messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; scroll-behavior:smooth; }
+  .chat-messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; scroll-behavior:smooth; touch-action:pan-y; -webkit-overflow-scrolling:touch; }
+
+  /* ── Mobile ── */
+  .hamburger{display:none;background:none;border:none;color:var(--parchment);font-size:22px;cursor:pointer;padding:0 8px;line-height:1;flex-shrink:0;}
+  .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:149;}
+  .sidebar-backdrop.open{display:block;}
+  @media(max-width:680px){
+    .hamburger{display:flex;align-items:center;}
+    #sidebar{position:fixed!important;top:0;left:0;bottom:0;width:240px;z-index:150;transform:translateX(-100%);transition:transform .25s ease;display:flex!important;flex-direction:column;}
+    #sidebar.mobile-open{transform:translateX(0);}
+    .chat-messages{padding:12px;}
+    .msg-bubble{max-width:90%!important;}
+  }
 
   .msg { display:flex; gap:12px; max-width:700px; }
   .msg.mine { align-self:flex-end; flex-direction:row-reverse; }
@@ -284,6 +296,7 @@
 </head>
 <body>
 <header>
+  <button class="hamburger" onclick="toggleMobileSidebar()" title="Menu" aria-label="Toggle menu">☰</button>
   <div class="logo-wrap">
     <div class="logo-img">🌀</div>
     <div>
@@ -2060,7 +2073,33 @@ document.addEventListener('keydown',e=>{
   document.addEventListener('mousemove',e=>{if(!on)return;m.style.left=(e.clientX-ox)+'px';m.style.top=(e.clientY-oy)+'px';m.style.right='auto';});
   document.addEventListener('mouseup',()=>on=false);
 })();
+
+// ── Mobile sidebar ───────────────────────────────────────────────────────────
+function toggleMobileSidebar(){
+  const sb=document.getElementById('sidebar');
+  if(sb.classList.contains('mobile-open')) closeMobileSidebar();
+  else openMobileSidebar();
+}
+function openMobileSidebar(){
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sidebar-backdrop').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeMobileSidebar(){
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
+  document.body.style.overflow='';
+}
+// Close sidebar when a nav link is tapped on mobile
+document.addEventListener('click',e=>{
+  if(window.innerWidth<=680&&e.target.closest('#sidebar .sidebar-link,#sidebar .sidebar-entry-title')){
+    closeMobileSidebar();
+  }
+});
 </script>
+
+<!-- Mobile sidebar backdrop -->
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
 
 <!-- ── Debug Modal (Ctrl/Cmd+D · archmage only) ── -->
 <div id="debug-modal">
