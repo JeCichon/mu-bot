@@ -74,6 +74,10 @@
   .fb-card.collapsed .fb-main{opacity:.55;}
   /* Drag highlight */
   .fb-card.drag-over{border-color:var(--gold)!important;box-shadow:0 0 8px rgba(201,169,110,.3);}
+  .drag-handle{cursor:grab;color:var(--brown3);font-size:15px;padding:0 8px;display:flex;align-items:center;flex-shrink:0;user-select:none;border-right:1px solid var(--brown3);margin-right:2px;}
+  .drag-handle:hover{color:var(--dim);}
+  .drag-handle:active{cursor:grabbing;}
+  .fb-card-inner{flex:1;min-width:0;}
   /* Planned: outdented + glowing border to signal "needs attention" */
   @keyframes plannedPulse{
     0%,100%{box-shadow:0 0 6px rgba(201,169,110,.45),0 0 14px rgba(201,169,110,.2);}
@@ -341,7 +345,9 @@ function buildCard(f){
         : (f.status==='new'||f.status==='noted')
           ? 'margin-left:14px;'
           : '';
-  return `<div class="fb-card ${f.status==='done'?'done-card':''} ${isCollapsed?'collapsed':''}" id="fbc-${f.id}" data-id="${f.id}" draggable="true" style="${doneWrap}">
+  return `<div class="fb-card ${f.status==='done'?'done-card':''} ${isCollapsed?'collapsed':''}" id="fbc-${f.id}" data-id="${f.id}" style="${doneWrap};display:flex;align-items:stretch;">
+    <div class="drag-handle" title="Drag to reorder">⠿</div>
+    <div class="fb-card-inner">
     <div class="fb-main" onclick="toggleDetail(${f.id})">
       <div class="fb-type-dot" style="background:${typeColor}"></div>
       <div class="fb-body">
@@ -369,6 +375,7 @@ function buildCard(f){
         <div class="phase-picker-title">assign to phase</div>
         <div class="phase-opts" id="popts-${f.id}"></div>
       </div>
+    </div>
     </div>
   </div>`;
 }
@@ -650,16 +657,22 @@ function checkAutoCollapse(){
 
 function enableDragSort(){
   let dragEl=null;
-  document.querySelectorAll('.fb-card[draggable]').forEach(card=>{
-    card.addEventListener('dragstart',e=>{
-      dragEl=card; card.style.opacity='.4';
+  // Only the handle initiates drag — rest of card stays text-selectable
+  document.querySelectorAll('.drag-handle').forEach(handle=>{
+    handle.setAttribute('draggable','true');
+    const card=handle.closest('.fb-card');
+    handle.addEventListener('dragstart',e=>{
+      dragEl=card;
+      setTimeout(()=>card.style.opacity='.4',0);
       e.dataTransfer.effectAllowed='move';
     });
-    card.addEventListener('dragend',()=>{
+    handle.addEventListener('dragend',()=>{
       if(dragEl) dragEl.style.opacity='1';
       dragEl=null;
       document.querySelectorAll('.fb-card').forEach(c=>c.classList.remove('drag-over'));
     });
+  });
+  document.querySelectorAll('.fb-card').forEach(card=>{
     card.addEventListener('dragover',e=>{
       e.preventDefault();
       if(!dragEl||card===dragEl) return;
@@ -703,6 +716,14 @@ async function saveNote(id){
   await db.from('feedback').update({notes:text}).eq('id',id);
   const item=all.find(f=>f.id===id);
   if(item) item.notes=text;
+  // Auto-promote new → noted when a note is first saved
+  if(item&&item.status==='new'&&text.trim()){
+    await db.from('feedback').update({status:'noted'}).eq('id',id);
+    item.status='noted';
+    const badge=document.querySelector('#fbc-'+id+' .fb-status');
+    if(badge){badge.className='fb-status noted';badge.textContent='noted';}
+    updateCounts();
+  }
   const el=document.getElementById('saved-'+id);
   el.style.display='inline'; el.textContent='✓ saved';
   setTimeout(()=>el.style.display='none',2000);
