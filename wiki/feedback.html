@@ -244,7 +244,7 @@ async function init(){
 
 async function load(){
   const[fbRes,phRes]=await Promise.all([
-    db.from('feedback').select('*').order('created_at',{ascending:false}),
+    db.from('feedback').select('*').order('sort_order',{ascending:true}).order('created_at',{ascending:false}),
     db.from('feedback_phases').select('*').order('group_num').order('phase_letter')
   ]);
   all=fbRes.data||[];
@@ -655,6 +655,17 @@ function checkAutoCollapse(){
   });
 }
 
+async function saveDragOrder(){
+  const cards=[...document.querySelectorAll('.fb-card[data-id]')];
+  if(!cards.length) return;
+  // Space by 10 so future items can slot in without full renumber
+  const updates=cards.map((c,i)=>({id:parseInt(c.dataset.id),sort_order:i*10}));
+  // Update local array to match new order
+  updates.forEach(u=>{ const item=all.find(f=>f.id===u.id); if(item) item.sort_order=u.sort_order; });
+  // Persist to DB in parallel
+  await Promise.all(updates.map(u=>db.from('feedback').update({sort_order:u.sort_order}).eq('id',u.id)));
+}
+
 function enableDragSort(){
   let dragEl=null;
   // Only the handle initiates drag — rest of card stays text-selectable
@@ -683,7 +694,7 @@ function enableDragSort(){
       else card.before(dragEl);
     });
     card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
-    card.addEventListener('drop',e=>{e.preventDefault();card.classList.remove('drag-over');});
+    card.addEventListener('drop',e=>{e.preventDefault();card.classList.remove('drag-over');saveDragOrder();});
   });
 }
 
