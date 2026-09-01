@@ -70,11 +70,21 @@
   .sidebar-backdrop.open{display:block;}
   @media(max-width:680px){
     .hamburger{display:flex;align-items:center;}
-    #sidebar{position:fixed!important;top:0;left:0;bottom:0;width:240px;z-index:150;transform:translateX(-100%);transition:transform .25s ease;display:flex!important;flex-direction:column;}
+    /* Lock the body — all scrolling happens inside containers */
+    html,body{height:100%;overflow:hidden;}
+    body{position:fixed;width:100%;min-height:unset;}
+    .main-wrap{position:absolute;inset:0;top:52px;overflow:hidden;display:flex;}
+    /* Sidebar overlay */
+    #sidebar{position:fixed!important;top:0;left:0;bottom:0;width:260px;z-index:150;
+      transform:translateX(-100%);transition:transform .25s ease;
+      display:flex!important;flex-direction:column;
+      overflow-y:scroll!important;-webkit-overflow-scrolling:touch;}
     #sidebar.mobile-open{transform:translateX(0);}
-    body{overflow:hidden;height:100vh;}
-    .chat-messages{overflow-y:scroll;height:0;overscroll-behavior:contain;padding:12px;}
-    .msg-bubble{max-width:90%!important;}
+    /* Chat scroll */
+    .chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+    .chat-messages{flex:1;min-height:0;overflow-y:scroll;
+      -webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding:12px;}
+    .msg-bubble{max-width:92%!important;}
   }
 
   .msg { display:flex; gap:12px; max-width:700px; }
@@ -2084,18 +2094,21 @@ function toggleMobileSidebar(){
 function openMobileSidebar(){
   document.getElementById('sidebar').classList.add('mobile-open');
   document.getElementById('sidebar-backdrop').classList.add('open');
-  document.body.style.overflow='hidden';
 }
 function closeMobileSidebar(){
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebar-backdrop').classList.remove('open');
-  document.body.style.overflow='';
 }
 // Close sidebar when a nav link is tapped on mobile
 document.addEventListener('click',e=>{
   if(window.innerWidth<=680&&e.target.closest('#sidebar .sidebar-link,#sidebar .sidebar-entry-title')){
     closeMobileSidebar();
   }
+});
+// Prevent body scroll when touching inside scrollable containers (iOS)
+['#chat-messages','#sidebar'].forEach(sel=>{
+  const el=document.querySelector(sel);
+  if(el) el.addEventListener('touchmove',e=>e.stopPropagation(),{passive:true});
 });
 </script>
 
