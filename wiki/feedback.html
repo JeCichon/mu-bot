@@ -141,6 +141,12 @@
   .phase-opt.create:hover{border-color:var(--green3);color:var(--green);}
 
   .empty{color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:30px;text-align:center;}
+  .fb-modal{background:var(--brown2);border:1px solid var(--purple);border-radius:8px;padding:22px 24px;position:relative;max-height:90vh;overflow-y:auto;}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:center;justify-content:center;}
+  .modal-bg.open{display:flex;}
+  .modal-title{font-size:16px;color:var(--parchment);margin-bottom:12px;}
+  .modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;}
+  .modal-close:hover{color:var(--parchment);}
 
   ::-webkit-scrollbar{width:5px;}
   ::-webkit-scrollbar-track{background:var(--brown);}
@@ -376,12 +382,11 @@ function buildCard(f){
         ${statusBtns}
         <button class="save-note-btn" onclick="saveNote(${f.id})">save notes</button>
         <span class="note-saved" id="saved-${f.id}"></span>
-        <button class="save-note-btn" id="promote-btn-${f.id}" onclick="togglePromote(${f.id})" style="margin-left:auto;border-color:rgba(80,105,90,.6);color:var(--green);">to roadmap</button>
+
         ${!f.branched_to
           ?'<button class="save-note-btn" onclick="openBranchModal('+f.id+')" style="border-color:rgba(80,105,90,.5);color:var(--green2);">🌿 branch</button>'
           :'<span class="branch-badge">🌿 branched</span>'}
       </div>
-      ${promoteForm}
       <div class="phase-picker" id="ppick-${f.id}">
         <div class="phase-picker-title">assign to phase</div>
         <div class="phase-opts" id="popts-${f.id}"></div>
@@ -832,12 +837,11 @@ function openBranchModal(id){
   }
   document.getElementById('branch-desc').value='';
   document.getElementById('branch-status').textContent='';
-  const bg=document.getElementById('branch-modal-bg');
-  bg.style.cssText='display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;';
+  document.getElementById('branch-modal-bg').classList.add('open');
   setTimeout(()=>document.getElementById('branch-title')?.select(),50);
 }
 function closeBranchModal(){
-  document.getElementById('branch-modal-bg').style.display='none';
+  document.getElementById('branch-modal-bg').classList.remove('open');
   _branchSourceId=null;
 }
 async function submitBranch(){
@@ -871,7 +875,7 @@ init();
 </script>
 
 <!-- Branch modal -->
-<div id="branch-modal-bg" style="display:none;" onclick="if(event.target===this)closeBranchModal()">
+<div id="branch-modal-bg" class="modal-bg" onclick="if(event.target===this)closeBranchModal()">
   <div class="fb-modal" style="max-width:480px;width:92%;position:relative;">
     <button class="modal-close" onclick="closeBranchModal()">×</button>
     <div class="modal-title" style="margin-bottom:4px;">🌿 Branch Panel</div>
