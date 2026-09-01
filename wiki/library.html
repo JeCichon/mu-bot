@@ -238,6 +238,7 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
     <div class="search-wrap">
       <input class="search-input" type="text" id="search" placeholder="search…" oninput="applySearch(this.value)">
     </div>
+    <button class="btn-new" id="btn-new-bar" style="display:none;margin-left:auto;flex-shrink:0;" onclick="openCreateModal()">+ New Entry</button>
   </div>
   <div class="entry-count" id="entry-count"></div>
   <div class="entries" id="entries"><div class="loading">*Mu retrieves the records…*</div></div>
@@ -379,6 +380,7 @@ async function loadUserRole(userId){
   userRole = data?.role || 'apprentice';
   if(CAN_CREATE.includes(userRole)){
     document.getElementById('btn-new').style.display='block';
+    document.getElementById('btn-new-bar').style.display='block';
   }
 }
 
