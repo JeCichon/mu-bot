@@ -12,8 +12,7 @@
 body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-height:100vh;}
 
 /* TOP BAR */
-#organ-sticky-header{position:sticky;top:0;z-index:80;background:var(--bg);}
-#bar{background:rgba(6,4,14,.97);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+#bar{position:sticky;top:0;z-index:80;background:rgba(6,4,14,.97);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 #bar h1{font-family:'Cinzel',serif;font-size:16px;letter-spacing:.28em;color:var(--gold);opacity:.75;white-space:nowrap;}
 #title-wrap{display:flex;flex-direction:column;gap:3px;}
 #current-song-name{font-family:'EB Garamond',serif;font-size:14px;color:rgba(201,169,110,.6);white-space:nowrap;padding-left:18px;}
@@ -535,7 +534,6 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 </head>
 <body>
 
-<div id="organ-sticky-header">
 <div id="bar">
   <div id="title-wrap">
     <h1>TRICKNO · ORGAN</h1>
@@ -588,57 +586,6 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
     <span id="sb-status">☁ connecting…</span>
     <a href="https://jecichon.github.io/trickno-tools/tarot_piano.html" class="nav-link">🎹 Piano</a>
   </div>
-</div>
-
-<div id="pattern-bar">
-  <span class="ctl-lbl">PATTERN</span>
-  <div id="pattern-chips"></div>
-  <button id="add-pattern-btn" class="tb">+ New</button>
-  <button id="switch-mode-btn" class="tb switch-mode-queue" title="Queue: waits for loop end. Instant: switches mid-pattern">⌛ QUEUE</button>
-</div>
-
-<div id="timeline-panel" class="tl-hidden">
-  <div id="tl-header">
-    <span class="ctl-lbl">TIMELINE</span>
-    <div id="tl-zoom-group">
-      <button id="tl-zoom-out" class="tb">−</button>
-      <span id="tl-zoom-val" class="ctl-val" style="min-width:28px">6</span>
-      <button id="tl-zoom-in" class="tb">+</button>
-    </div>
-    <button id="tl-time-mode" class="tb" title="Toggle steps / clock time">STEPS</button>
-    <div id="tl-snap-group">
-      <button id="tl-snap-btn" class="tb tl-snap-off" title="Snap resize to step grid">⊡ SNAP</button>
-      <select id="tl-snap-steps" class="tl-snap-sel" title="Snap resolution">
-        <option value="2">÷2</option>
-        <option value="3">÷3</option>
-        <option value="4" selected>÷4</option>
-        <option value="6">÷6</option>
-        <option value="8">÷8</option>
-        <option value="16">÷16</option>
-      </select>
-    </div>
-    <div id="tl-add-row">
-      <span class="ctl-lbl">ADD →</span>
-      <div id="tl-add-chips"></div>
-    </div>
-  </div>
-  <div id="tl-scroll-wrap">
-    <div id="tl-inner">
-      <div id="tl-ruler"></div>
-      <div id="tl-track">
-        <div id="tl-clips"></div>
-        <div id="tl-insert-indicator"></div>
-        <div id="tl-resize-tip"></div>
-      </div>
-      <div id="tl-playhead">
-        <div id="tl-playhead-head"></div>
-        <div id="tl-playhead-line"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="pattern-header"><span id="ph-num"></span><span id="ph-sep">·</span><span id="ph-name"></span><div id="ph-meta"><span id="ph-steps"></span><span id="ph-bpm-disp"></span></div></div>
 </div>
 
 <div id="save-popup">
@@ -698,7 +645,55 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 </div>
 
 <div id="song-ctx-menu"></div>
+
+<div id="pattern-bar">
+  <span class="ctl-lbl">PATTERN</span>
+  <div id="pattern-chips"></div>
+  <button id="add-pattern-btn" class="tb">+ New</button>
+  <button id="switch-mode-btn" class="tb switch-mode-queue" title="Queue: waits for loop end. Instant: switches mid-pattern">⌛ QUEUE</button>
+</div>
 <div id="pattern-ctx-menu"></div>
+
+<div id="timeline-panel" class="tl-hidden">
+  <div id="tl-header">
+    <span class="ctl-lbl">TIMELINE</span>
+    <div id="tl-zoom-group">
+      <button id="tl-zoom-out" class="tb">−</button>
+      <span id="tl-zoom-val" class="ctl-val" style="min-width:28px">6</span>
+      <button id="tl-zoom-in" class="tb">+</button>
+    </div>
+    <button id="tl-time-mode" class="tb" title="Toggle steps / clock time">STEPS</button>
+    <div id="tl-snap-group">
+      <button id="tl-snap-btn" class="tb tl-snap-off" title="Snap resize to step grid">⊡ SNAP</button>
+      <select id="tl-snap-steps" class="tl-snap-sel" title="Snap resolution">
+        <option value="2">÷2</option>
+        <option value="3">÷3</option>
+        <option value="4" selected>÷4</option>
+        <option value="6">÷6</option>
+        <option value="8">÷8</option>
+        <option value="16">÷16</option>
+      </select>
+    </div>
+    <div id="tl-add-row">
+      <span class="ctl-lbl">ADD →</span>
+      <div id="tl-add-chips"></div>
+    </div>
+  </div>
+  <div id="tl-scroll-wrap">
+    <div id="tl-inner">
+      <div id="tl-ruler"></div>
+      <div id="tl-track">
+        <div id="tl-clips"></div>
+        <div id="tl-insert-indicator"></div>
+        <div id="tl-resize-tip"></div>
+      </div>
+      <div id="tl-playhead">
+        <div id="tl-playhead-head"></div>
+        <div id="tl-playhead-line"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="clip-stats-popup">
   <div id="csp-drag-bar">
@@ -740,6 +735,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 </div>
 <div id="tl-ctx-menu"></div>
 
+<div id="pattern-header"><span id="ph-num"></span><span id="ph-sep">·</span><span id="ph-name"></span><div id="ph-meta"><span id="ph-steps"></span><span id="ph-bpm-disp"></span></div></div>
 <div id="tracks-outer">
   <div id="tracks-container"></div>
   <div id="ch-insert-indicator"></div>
