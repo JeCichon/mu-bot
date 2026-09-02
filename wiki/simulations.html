@@ -176,7 +176,7 @@ db.auth.onAuthStateChange(async(_e, session) => {
   if(currentUser){
     const{data}=await db.from('user_roles').select('role').eq('user_id',currentUser.id).maybeSingle();
     userRole = data?.role || 'apprentice';
-    if(userRole === 'archmage'){
+    if(userRole === 'archmage' || userRole === 'practitioner'){
       document.getElementById('add-section').style.display = 'block';
     }
   }
