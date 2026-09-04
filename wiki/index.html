@@ -768,6 +768,8 @@ async function showApp(user){
   // Subscribe to realtime — always runs now
   try{ subscribeToMessages(); }
   catch(err){ console.warn('Realtime subscribe error:',err.message); }
+  // Scroll-to-bottom arrow — set up after messages are in DOM
+  setTimeout(initScrollArrow, 1000);
 
   // DB-based presence (reliable alternative to WebSocket Presence)
   try{
@@ -2144,7 +2146,7 @@ function toggleMsgMenu(id, btn){
   if(!isOpen) menu.classList.add('open');
 }
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.msg-menu-float')&&!e.target.closest('.msg-dropdown'))
+  if(!e.target.closest('.msg-toolbar')&&!e.target.closest('.msg-dropdown'))
     document.querySelectorAll('.msg-dropdown.open').forEach(m=>m.classList.remove('open'));
 });
 
@@ -2210,22 +2212,16 @@ async function deleteMsg(id){
 }
 
 // ── Scroll to bottom arrow ────────────────────────────────────────────────────
-(function(){
+function initScrollArrow(){
   const btn=document.getElementById('scroll-bottom-btn');
-  if(!btn) return;
+  const c=document.getElementById('chat-messages');
+  if(!btn||!c) return;
   function checkScroll(){
-    const c=document.getElementById('chat-messages');
-    if(!c) return;
-    btn.style.display=(c.scrollHeight-c.scrollTop-c.clientHeight)>180?'flex':'none';
+    btn.style.display=(c.scrollHeight-c.scrollTop-c.clientHeight)>150?'flex':'none';
   }
-  // Set up listener once chat is available
-  function attachScroll(){
-    const c=document.getElementById('chat-messages');
-    if(c){ c.addEventListener('scroll',checkScroll,{passive:true}); setTimeout(checkScroll,500); }
-    else setTimeout(attachScroll,200);
-  }
-  attachScroll();
-})();
+  c.addEventListener('scroll',checkScroll,{passive:true});
+  checkScroll();
+}
 
 // ── Mobile sidebar ───────────────────────────────────────────────────────────
 function toggleMobileSidebar(){
