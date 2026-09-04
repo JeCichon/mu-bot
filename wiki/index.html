@@ -88,6 +88,38 @@
   }
 
   .msg { display:flex; gap:12px; max-width:700px; position:relative; }
+  /* Message action floats */
+  .msg-menu-float{position:absolute;top:-14px;right:38px;opacity:0;pointer-events:none;
+    background:var(--brown2);border:1px solid var(--brown3);border-radius:10px;
+    font-size:13px;padding:1px 7px;cursor:pointer;z-index:20;transition:opacity .15s;
+    color:var(--dim);font-family:var(--mono);letter-spacing:.1em;}
+  .msg:hover .msg-menu-float{opacity:1;pointer-events:auto;}
+  .msg-menu-float:hover{border-color:var(--green3);color:var(--parchment);}
+  .msg-dropdown{position:absolute;top:10px;right:38px;background:var(--brown2);
+    border:1px solid var(--brown3);border-radius:6px;z-index:100;min-width:120px;
+    box-shadow:0 4px 14px rgba(0,0,0,.4);display:none;overflow:hidden;}
+  .msg-dropdown.open{display:block;}
+  .msg-dropdown-item{padding:8px 14px;font-size:12px;font-family:var(--mono);color:var(--parchment2);cursor:pointer;}
+  .msg-dropdown-item:hover{background:var(--brown3);}
+  .msg-dropdown-item.danger{color:#e06060;}
+  .msg-dropdown-item.danger:hover{background:rgba(220,80,80,.15);}
+  /* Edit mode */
+  .msg-edit-wrap{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
+  .msg-edit-input{background:var(--brown);border:1px solid var(--green3);color:var(--parchment);
+    font-family:var(--serif);font-size:14px;padding:7px 10px;border-radius:4px;outline:none;
+    resize:vertical;min-height:40px;width:100%;}
+  .msg-edit-btns{display:flex;gap:6px;}
+  .msg-edit-save{background:var(--green3);border:1px solid var(--green3);color:var(--parchment);
+    font-family:var(--mono);font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer;}
+  .msg-edit-cancel{background:none;border:1px solid var(--brown3);color:var(--dim);
+    font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;}
+  /* Scroll to bottom arrow */
+  #scroll-bottom-btn{position:fixed;bottom:76px;right:24px;width:36px;height:36px;
+    background:var(--brown2);border:1px solid var(--brown3);border-radius:50%;
+    color:var(--parchment);font-size:18px;cursor:pointer;z-index:50;
+    display:none;align-items:center;justify-content:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.4);transition:border-color .15s;}
+  #scroll-bottom-btn:hover{border-color:var(--green3);}
   .msg.mine { align-self:flex-end; flex-direction:row-reverse; }
   .msg.other { align-self:flex-start; }
   .msg.mu-msg { align-self:flex-start; }
@@ -900,6 +932,7 @@ function renderMessage(msg){
   let emojiOnly=false;
   try{ emojiOnly=!srData&&!leData&&isEmojiOnlyText(msg.content||''); }catch(e){}
   const div=document.createElement("div");
+  if(msg.id) div.id="msg-"+msg.id;
   // Detect slide_rules for centered render
   let srData=null, leData=null;
   try{if(msg.card_line){const cl=JSON.parse(msg.card_line);if(cl.type==='slide_rules')srData=cl;else if(cl.type==='library_entry')leData=cl;}}catch(e){}
@@ -962,6 +995,7 @@ function renderMessage(msg){
       <div class="msg-cards" style="text-align:center">${time}</div>
     </div>`;
     div.insertAdjacentHTML('beforeend',`<button class="msg-rxn-float" onclick="openRxnPicker(${msg.id},this)">😊</button>`);
+    if(isMine&&msg.id) div.insertAdjacentHTML('beforeend',`<button class="msg-menu-float" onclick="toggleMsgMenu(${msg.id},this)">···</button><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
   } else {
     const cls=isMu?"mu-msg":isMine?"mine":"other";
     const avatarHtml=isMu?(msg.user_avatar?`<img src="${msg.user_avatar}" alt="Mu">`:"📦"):(msg.user_avatar?`<img src="${msg.user_avatar}" alt="">`:"👤");
@@ -979,6 +1013,7 @@ function renderMessage(msg){
         <div class="reaction-bar" data-mid="${msg.id}"></div>
       </div>`;
     div.insertAdjacentHTML('beforeend',`<button class="msg-rxn-float" onclick="openRxnPicker(${msg.id},this)">😊</button>`);
+    if(isMine&&msg.id) div.insertAdjacentHTML('beforeend',`<button class="msg-menu-float" onclick="toggleMsgMenu(${msg.id},this)">···</button><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
   }
   // Apply emoji shortcodes via DOM (must happen after innerHTML is set)
   try{ applyEmojisToElement(div); }catch(e){}
@@ -2094,6 +2129,91 @@ document.addEventListener('keydown',e=>{
   document.addEventListener('mouseup',()=>on=false);
 })();
 
+// ── Message edit / delete ────────────────────────────────────────────────────
+function toggleMsgMenu(id, btn){
+  const menu=document.getElementById('mmenu-'+id);
+  if(!menu) return;
+  const isOpen=menu.classList.contains('open');
+  document.querySelectorAll('.msg-dropdown.open').forEach(m=>m.classList.remove('open'));
+  if(!isOpen) menu.classList.add('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.msg-menu-float')&&!e.target.closest('.msg-dropdown'))
+    document.querySelectorAll('.msg-dropdown.open').forEach(m=>m.classList.remove('open'));
+});
+
+function editMsg(id){
+  document.querySelectorAll('.msg-dropdown.open').forEach(m=>m.classList.remove('open'));
+  const msgDiv=document.getElementById('msg-'+id);
+  if(!msgDiv) return;
+  const bubble=msgDiv.querySelector('.msg-bubble');
+  if(!bubble||bubble.dataset.editing) return;
+  bubble.dataset.editing='1';
+  const original=bubble.innerHTML;
+  const text=bubble.textContent.trim();
+  bubble.innerHTML=`<div class="msg-edit-wrap">
+    <textarea class="msg-edit-input">${text}</textarea>
+    <div class="msg-edit-btns">
+      <button class="msg-edit-save" onclick="saveEdit(${id})">save</button>
+      <button class="msg-edit-cancel" onclick="cancelEdit(${id},'${encodeURIComponent(original)}')">cancel</button>
+    </div>
+  </div>`;
+  const ta=bubble.querySelector('textarea');
+  if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
+}
+
+async function saveEdit(id){
+  const msgDiv=document.getElementById('msg-'+id);
+  const bubble=msgDiv?.querySelector('.msg-bubble');
+  const ta=bubble?.querySelector('textarea');
+  if(!ta) return;
+  const newText=ta.value.trim();
+  if(!newText){cancelEdit(id,'');return;}
+  const{error}=await db.from('messages').update({content:newText}).eq('id',id).eq('user_id',currentUser?.id||'');
+  if(error){console.error('Edit failed:',error);return;}
+  delete bubble.dataset.editing;
+  const item=all?.find?.(m=>m.id===id);
+  const{html}=parseMessageContent(newText);
+  bubble.innerHTML=html;
+  try{applyEmojisToElement(bubble);}catch(e){}
+}
+
+function cancelEdit(id,encodedOriginal){
+  const msgDiv=document.getElementById('msg-'+id);
+  const bubble=msgDiv?.querySelector('.msg-bubble');
+  if(!bubble) return;
+  delete bubble.dataset.editing;
+  bubble.innerHTML=decodeURIComponent(encodedOriginal);
+  try{applyEmojisToElement(bubble);}catch(e){}
+}
+
+async function deleteMsg(id){
+  document.querySelectorAll('.msg-dropdown.open').forEach(m=>m.classList.remove('open'));
+  if(!confirm('Delete this message?')) return;
+  const{error}=await db.from('messages').delete().eq('id',id).eq('user_id',currentUser?.id||'');
+  if(error){console.error('Delete failed:',error);return;}
+  document.getElementById('msg-'+id)?.remove();
+  shownIds.delete(id);
+}
+
+// ── Scroll to bottom arrow ────────────────────────────────────────────────────
+(function(){
+  const btn=document.getElementById('scroll-bottom-btn');
+  if(!btn) return;
+  function checkScroll(){
+    const c=document.getElementById('chat-messages');
+    if(!c) return;
+    const distFromBottom=c.scrollHeight-c.scrollTop-c.clientHeight;
+    btn.style.display=distFromBottom>180?'flex':'none';
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    const c=document.getElementById('chat-messages');
+    if(c) c.addEventListener('scroll',checkScroll,{passive:true});
+  });
+  // Also check after messages load
+  setTimeout(checkScroll,2000);
+})();
+
 // ── Mobile sidebar ───────────────────────────────────────────────────────────
 function toggleMobileSidebar(){
   const sb=document.getElementById('sidebar');
@@ -2123,6 +2243,9 @@ document.addEventListener('click',e=>{
 
 <!-- Mobile sidebar backdrop -->
 <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
+<!-- Scroll to bottom -->
+<button id="scroll-bottom-btn" onclick="scrollToBottom()" title="Scroll to latest">↓</button>
 
 <!-- ── Debug Modal (Ctrl/Cmd+D · archmage only) ── -->
 <div id="debug-modal">
