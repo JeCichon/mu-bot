@@ -89,12 +89,7 @@
 
   .msg { display:flex; gap:12px; max-width:700px; position:relative; }
   /* Message action floats */
-  .msg-menu-float{position:absolute;top:-14px;right:38px;opacity:0;pointer-events:none;
-    background:var(--brown2);border:1px solid var(--brown3);border-radius:10px;
-    font-size:13px;padding:1px 7px;cursor:pointer;z-index:20;transition:opacity .15s;
-    color:var(--dim);font-family:var(--mono);letter-spacing:.1em;}
-  .msg:hover .msg-menu-float{opacity:1;pointer-events:auto;}
-  .msg-menu-float:hover{border-color:var(--green3);color:var(--parchment);}
+  /* Combined toolbar defined near msg-rxn-float below */
   .msg-dropdown{position:absolute;top:10px;right:38px;background:var(--brown2);
     border:1px solid var(--brown3);border-radius:6px;z-index:100;min-width:120px;
     box-shadow:0 4px 14px rgba(0,0,0,.4);display:none;overflow:hidden;}
@@ -114,9 +109,9 @@
   .msg-edit-cancel{background:none;border:1px solid var(--brown3);color:var(--dim);
     font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;}
   /* Scroll to bottom arrow */
-  #scroll-bottom-btn{position:fixed;bottom:76px;right:24px;width:36px;height:36px;
-    background:var(--brown2);border:1px solid var(--brown3);border-radius:50%;
-    color:var(--parchment);font-size:18px;cursor:pointer;z-index:50;
+  #scroll-bottom-btn{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+    width:36px;height:36px;background:var(--brown2);border:1px solid var(--brown3);
+    border-radius:50%;color:var(--parchment);font-size:18px;cursor:pointer;z-index:50;
     display:none;align-items:center;justify-content:center;
     box-shadow:0 2px 10px rgba(0,0,0,.4);transition:border-color .15s;}
   #scroll-bottom-btn:hover{border-color:var(--green3);}
@@ -159,12 +154,15 @@
   .reaction-pill.mine{border-color:var(--purple2);background:rgba(100,65,112,.2);}
   .reaction-pill img{height:16px;width:auto;vertical-align:middle;}
   /* Floating reaction button — overlay, never affects layout */
-  .msg-rxn-float{position:absolute;top:-14px;right:10px;opacity:0;pointer-events:none;
-    background:var(--brown2);border:1px solid var(--brown3);border-radius:10px;
-    font-size:13px;padding:1px 7px;cursor:pointer;z-index:20;transition:opacity .15s;
-    color:var(--dim);font-family:var(--mono);}
-  .msg:hover .msg-rxn-float,.msg.sim-post:hover .msg-rxn-float,.msg.system-msg:hover .msg-rxn-float{opacity:1;pointer-events:auto;}
-  .msg-rxn-float:hover{border-color:var(--gold);color:var(--gold);}
+  /* Combined message toolbar — single pill */
+  .msg-toolbar{position:absolute;top:-18px;right:8px;opacity:0;pointer-events:none;
+    background:var(--brown2);border:1px solid var(--brown3);border-radius:12px;
+    display:flex;align-items:center;z-index:20;transition:opacity .15s;overflow:hidden;}
+  .msg:hover .msg-toolbar,.msg.sim-post:hover .msg-toolbar,.msg.system-msg:hover .msg-toolbar{opacity:1;pointer-events:auto;}
+  .msg-toolbar-btn{padding:3px 9px;cursor:pointer;color:var(--dim);font-size:14px;
+    background:none;border:none;border-left:1px solid var(--brown3);line-height:1.4;transition:color .1s,background .1s;}
+  .msg-toolbar-btn:first-child{border-left:none;}
+  .msg-toolbar-btn:hover{color:var(--parchment);background:var(--brown3);}
   /* Empty reaction bar collapses cleanly */
   .reaction-bar:empty{margin-top:0!important;}
   /* Reaction picker popup */
@@ -967,7 +965,7 @@ function renderMessage(msg){
     const rxnDiv=document.createElement('div');
     rxnDiv.className='reaction-bar'; rxnDiv.dataset.mid=String(msg.id);
     div.append(usernameEl,widgetEl,rxnDiv,timeEl);
-    div.insertAdjacentHTML('beforeend',`<button class="msg-rxn-float" onclick="openRxnPicker(${msg.id},this)">😊</button>`);
+    if(msg.id) div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
     // Queue gen-200 still thumbnail (deferred so DOM is ready)
     setTimeout(()=>queueChatThumb(widgetEl,srData.code,srData.name||''),0);
   } else if(isSystem){
@@ -994,8 +992,12 @@ function renderMessage(msg){
       <div class="reaction-bar" data-mid="${msg.id}" style="justify-content:center;margin-top:6px;"></div>
       <div class="msg-cards" style="text-align:center">${time}</div>
     </div>`;
-    div.insertAdjacentHTML('beforeend',`<button class="msg-rxn-float" onclick="openRxnPicker(${msg.id},this)">😊</button>`);
-    if(isMine&&msg.id) div.insertAdjacentHTML('beforeend',`<button class="msg-menu-float" onclick="toggleMsgMenu(${msg.id},this)">···</button><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
+    // Single combined toolbar
+    if(isMine&&msg.id){
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button><button class="msg-toolbar-btn" onclick="toggleMsgMenu(${msg.id},this)">···</button></div><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
+    } else if(msg.id){
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
+    }
   } else {
     const cls=isMu?"mu-msg":isMine?"mine":"other";
     const avatarHtml=isMu?(msg.user_avatar?`<img src="${msg.user_avatar}" alt="Mu">`:"📦"):(msg.user_avatar?`<img src="${msg.user_avatar}" alt="">`:"👤");
@@ -1012,8 +1014,12 @@ function renderMessage(msg){
         ${buildCardLine(msg.card_line)}
         <div class="reaction-bar" data-mid="${msg.id}"></div>
       </div>`;
-    div.insertAdjacentHTML('beforeend',`<button class="msg-rxn-float" onclick="openRxnPicker(${msg.id},this)">😊</button>`);
-    if(isMine&&msg.id) div.insertAdjacentHTML('beforeend',`<button class="msg-menu-float" onclick="toggleMsgMenu(${msg.id},this)">···</button><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
+    // Single combined toolbar
+    if(isMine&&msg.id){
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button><button class="msg-toolbar-btn" onclick="toggleMsgMenu(${msg.id},this)">···</button></div><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
+    } else if(msg.id){
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
+    }
   }
   // Apply emoji shortcodes via DOM (must happen after innerHTML is set)
   try{ applyEmojisToElement(div); }catch(e){}
@@ -2149,41 +2155,48 @@ function editMsg(id){
   const bubble=msgDiv.querySelector('.msg-bubble');
   if(!bubble||bubble.dataset.editing) return;
   bubble.dataset.editing='1';
-  const original=bubble.innerHTML;
-  const text=bubble.textContent.trim();
+  bubble.dataset.originalHtml=bubble.innerHTML; // store for cancel
+  const text=bubble.innerText.trim();
   bubble.innerHTML=`<div class="msg-edit-wrap">
-    <textarea class="msg-edit-input">${text}</textarea>
+    <textarea class="msg-edit-input"></textarea>
     <div class="msg-edit-btns">
       <button class="msg-edit-save" onclick="saveEdit(${id})">save</button>
-      <button class="msg-edit-cancel" onclick="cancelEdit(${id},'${encodeURIComponent(original)}')">cancel</button>
+      <button class="msg-edit-cancel" onclick="cancelEdit(${id})">cancel</button>
+      <span id="edit-err-${id}" style="font-size:11px;color:#e06060;margin-left:6px;"></span>
     </div>
   </div>`;
   const ta=bubble.querySelector('textarea');
-  if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
+  if(ta){ta.value=text;ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
 }
 
 async function saveEdit(id){
   const msgDiv=document.getElementById('msg-'+id);
   const bubble=msgDiv?.querySelector('.msg-bubble');
   const ta=bubble?.querySelector('textarea');
+  const errEl=document.getElementById('edit-err-'+id);
   if(!ta) return;
   const newText=ta.value.trim();
-  if(!newText){cancelEdit(id,'');return;}
-  const{error}=await db.from('messages').update({content:newText}).eq('id',id).eq('user_id',currentUser?.id||'');
-  if(error){console.error('Edit failed:',error);return;}
+  if(!newText){cancelEdit(id);return;}
+  if(errEl) errEl.textContent='saving…';
+  const{error}=await db.from('messages').update({content:newText}).eq('id',id);
+  if(error){
+    if(errEl) errEl.textContent='Error: '+error.message;
+    console.error('Edit failed:',error); return;
+  }
   delete bubble.dataset.editing;
-  const item=all?.find?.(m=>m.id===id);
+  delete bubble.dataset.originalHtml;
   const{html}=parseMessageContent(newText);
   bubble.innerHTML=html;
   try{applyEmojisToElement(bubble);}catch(e){}
 }
 
-function cancelEdit(id,encodedOriginal){
+function cancelEdit(id){
   const msgDiv=document.getElementById('msg-'+id);
   const bubble=msgDiv?.querySelector('.msg-bubble');
   if(!bubble) return;
+  bubble.innerHTML=bubble.dataset.originalHtml||'';
   delete bubble.dataset.editing;
-  bubble.innerHTML=decodeURIComponent(encodedOriginal);
+  delete bubble.dataset.originalHtml;
   try{applyEmojisToElement(bubble);}catch(e){}
 }
 
@@ -2203,15 +2216,15 @@ async function deleteMsg(id){
   function checkScroll(){
     const c=document.getElementById('chat-messages');
     if(!c) return;
-    const distFromBottom=c.scrollHeight-c.scrollTop-c.clientHeight;
-    btn.style.display=distFromBottom>180?'flex':'none';
+    btn.style.display=(c.scrollHeight-c.scrollTop-c.clientHeight)>180?'flex':'none';
   }
-  document.addEventListener('DOMContentLoaded',()=>{
+  // Set up listener once chat is available
+  function attachScroll(){
     const c=document.getElementById('chat-messages');
-    if(c) c.addEventListener('scroll',checkScroll,{passive:true});
-  });
-  // Also check after messages load
-  setTimeout(checkScroll,2000);
+    if(c){ c.addEventListener('scroll',checkScroll,{passive:true}); setTimeout(checkScroll,500); }
+    else setTimeout(attachScroll,200);
+  }
+  attachScroll();
 })();
 
 // ── Mobile sidebar ───────────────────────────────────────────────────────────
