@@ -896,21 +896,23 @@ document.addEventListener('contextmenu',e=>{
   menu.style.top=Math.min(e.clientY,window.innerHeight-80)+'px';
   menu.classList.add('open');
 });
-document.addEventListener('click',()=>document.getElementById('fb-ctx')?.classList.remove('open'));
-document.getElementById('fb-ctx-copy').addEventListener('click',()=>{
-  if(!_ctxPanelId) return;
-  const f=all.find(x=>x.id===_ctxPanelId);
-  if(!f) return;
-  let md=`**[${f.page||'General'}]** ${TYPE_EMOJI[f.type]||''} ${f.type.toUpperCase()}`;
-  if(f.title) md+=` — **${f.title}**`;
-  md+=` — ${f.description||''}`;
-  if(f.notes) md+=`\n> ${f.notes}`;
-  md+=`\n*by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()} · status: ${f.status}*`;
-  navigator.clipboard.writeText(md).then(()=>{
-    const item=document.getElementById('fb-ctx-copy');
-    if(item){item.textContent='✓ Copied!';setTimeout(()=>item.textContent='📋 Copy panel for AI',1500);}
-  });
-  _ctxPanelId=null;
+document.addEventListener('click',e=>{
+  document.getElementById('fb-ctx')?.classList.remove('open');
+  if(e.target.id==='fb-ctx-copy'&&_ctxPanelId){
+    const f=all.find(x=>x.id===_ctxPanelId);
+    if(f){
+      let md=`**[${f.page||'General'}]** ${TYPE_EMOJI[f.type]||''} ${f.type.toUpperCase()}`;
+      if(f.title) md+=` — **${f.title}**`;
+      md+=` — ${f.description||''}`;
+      if(f.notes) md+=`\n> ${f.notes}`;
+      md+=`\n*by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()} · status: ${f.status}*`;
+      navigator.clipboard.writeText(md).then(()=>{
+        e.target.textContent='✓ Copied!';
+        setTimeout(()=>e.target.textContent='📋 Copy panel for AI',1500);
+      });
+    }
+    _ctxPanelId=null;
+  }
 });
 
 init();
