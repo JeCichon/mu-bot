@@ -141,6 +141,11 @@
   .phase-opt.create:hover{border-color:var(--green3);color:var(--green);}
 
   .empty{color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:30px;text-align:center;}
+  .fb-ctx{position:fixed;background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;
+    padding:4px 0;z-index:500;min-width:180px;box-shadow:0 4px 14px rgba(0,0,0,.5);display:none;}
+  .fb-ctx.open{display:block;}
+  .fb-ctx-item{padding:8px 14px;font-size:12px;font-family:var(--mono);color:var(--parchment2);cursor:pointer;}
+  .fb-ctx-item:hover{background:var(--brown3);color:var(--parchment);}
   .fb-modal{background:var(--brown2);border:1px solid var(--purple);border-radius:8px;padding:22px 24px;position:relative;max-height:90vh;overflow-y:auto;}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:center;justify-content:center;}
   .modal-bg.open{display:flex;}
@@ -765,6 +770,12 @@ function toggleExport(){
 function buildExport(){
   const date=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   let md=`## TricknoLodge Feedback — ${date}\n\n`;
+  // Use DOM order so it matches the drag-sorted panel order
+  const domIds=[...document.querySelectorAll('.fb-card[data-id]')].map(el=>parseInt(el.dataset.id));
+  const orderedAll=domIds.map(id=>all.find(f=>f.id===id)).filter(Boolean);
+  // Add any items not in DOM (hidden by filter) at the end in original order
+  const missing=all.filter(f=>!domIds.includes(f.id));
+  const sortedAll=[...orderedAll,...missing];
   const statuses=[
     {k:'new',    label:'🔴 New',    cb:'ex-new'},
     {k:'noted',  label:'🟡 Noted',  cb:'ex-noted'},
@@ -774,11 +785,13 @@ function buildExport(){
   statuses.forEach(({k,label,cb})=>{
     const el=document.getElementById(cb);
     if(el&&!el.checked) return;
-    const items=all.filter(f=>f.status===k);
+    const items=sortedAll.filter(f=>f.status===k);
     if(!items.length) return;
     md+=`### ${label}\n\n`;
     items.forEach(f=>{
-      md+=`**[${f.page||'General'}]** ${TYPE_EMOJI[f.type]||''} ${f.type.toUpperCase()} — ${f.description}\n`;
+      md+=`**[${f.page||'General'}]** ${TYPE_EMOJI[f.type]||''} ${f.type.toUpperCase()}`;
+      if(f.title) md+=` — **${f.title}**`;
+      md+=` — ${f.description}\n`;
       if(f.notes) md+=`> ${f.notes}\n`;
       md+=`*by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()}*\n\n`;
     });
@@ -871,6 +884,35 @@ function scrollToPanel(id){
   else{alert('Panel #'+id+' is not visible with the current filter. Switch to "all" to find it.');}
 }
 
+// ── Right-click single panel export ──────────────────────────────────────────
+let _ctxPanelId=null;
+document.addEventListener('contextmenu',e=>{
+  const card=e.target.closest('.fb-card[data-id]');
+  if(!card) return;
+  e.preventDefault();
+  _ctxPanelId=parseInt(card.dataset.id);
+  const menu=document.getElementById('fb-ctx');
+  menu.style.left=Math.min(e.clientX,window.innerWidth-200)+'px';
+  menu.style.top=Math.min(e.clientY,window.innerHeight-80)+'px';
+  menu.classList.add('open');
+});
+document.addEventListener('click',()=>document.getElementById('fb-ctx')?.classList.remove('open'));
+document.getElementById('fb-ctx-copy').addEventListener('click',()=>{
+  if(!_ctxPanelId) return;
+  const f=all.find(x=>x.id===_ctxPanelId);
+  if(!f) return;
+  let md=`**[${f.page||'General'}]** ${TYPE_EMOJI[f.type]||''} ${f.type.toUpperCase()}`;
+  if(f.title) md+=` — **${f.title}**`;
+  md+=` — ${f.description||''}`;
+  if(f.notes) md+=`\n> ${f.notes}`;
+  md+=`\n*by ${f.submitter||'anonymous'} · ${new Date(f.created_at).toLocaleDateString()} · status: ${f.status}*`;
+  navigator.clipboard.writeText(md).then(()=>{
+    const item=document.getElementById('fb-ctx-copy');
+    if(item){item.textContent='✓ Copied!';setTimeout(()=>item.textContent='📋 Copy panel for AI',1500);}
+  });
+  _ctxPanelId=null;
+});
+
 init();
 </script>
 
@@ -905,5 +947,8 @@ init();
   </div>
 </div>
 
+<div class="fb-ctx" id="fb-ctx">
+  <div class="fb-ctx-item" id="fb-ctx-copy">📋 Copy panel for AI</div>
+</div>
 </body>
 </html>
