@@ -316,7 +316,7 @@
   /* ── Emoji system ── */
   .emoji-btn{background:none;border:1px solid var(--brown3);color:var(--dim);font-size:16px;width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s;flex-shrink:0;}
   .emoji-btn:hover{border-color:var(--green3);color:var(--parchment);}
-  #emoji-picker{position:absolute;bottom:calc(100% + 8px);left:0;width:300px;background:var(--brown2);border:1px solid var(--purple);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;z-index:100;overflow:hidden;}
+  #emoji-picker{position:absolute;bottom:calc(100% + 8px);left:0;width:300px;background:var(--brown2);border:1px solid var(--purple);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;z-index:100;overflow-x:hidden;overflow-y:auto;max-height:340px;}
   #emoji-picker.open{display:block;}
   .ep-section{padding:8px 10px 4px;font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;}
   .ep-grid{display:flex;flex-wrap:wrap;gap:2px;padding:0 8px 8px;}
@@ -1988,13 +1988,24 @@ function openRxnPicker(msgId,btn){
   const picker=document.createElement('div');
   picker.id='rxn-picker'; picker.dataset.mid=msgId;
   // Build grid: custom first, then unicode
-  const customItems=Object.values(_emojiGroups).flat().map(e=>
-    `<div class="rxn-item" title=":${e.name}:" onclick="toggleReaction(${msgId},':${e.name}:');document.getElementById('rxn-picker')?.remove()"><img src="${e.url}"></div>`
-  ).join('');
-  const stdItems=UNICODE_EMOJIS.map(u=>
+  // Build reaction picker with group labels
+  let rxnHtml='<div class="rxn-grid">';
+  const groupNames=Object.keys(_emojiGroups);
+  if(groupNames.length>0){
+    groupNames.forEach(gName=>{
+      const label=gName.charAt(0).toUpperCase()+gName.slice(1);
+      rxnHtml+=`<div style="width:100%;font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:6px 4px 3px;">${label}</div>`;
+      rxnHtml+=_emojiGroups[gName].map(e=>
+        `<div class="rxn-item" title=":${e.name}:" onclick="toggleReaction(${msgId},':${e.name}:');document.getElementById('rxn-picker')?.remove()"><img src="${e.url}"></div>`
+      ).join('');
+    });
+    rxnHtml+=`<div style="width:100%;font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:6px 4px 3px;">Standard</div>`;
+  }
+  rxnHtml+=UNICODE_EMOJIS.map(u=>
     `<div class="rxn-item" title=":${u.n}:" onclick="toggleReaction(${msgId},':${u.n}:');document.getElementById('rxn-picker')?.remove()">${u.e}</div>`
   ).join('');
-  picker.innerHTML=`<div class="rxn-grid">${customItems}${stdItems}</div>`;
+  rxnHtml+='</div>';
+  picker.innerHTML=rxnHtml;
   document.body.appendChild(picker);
   // Position above the button
   const rect=btn.getBoundingClientRect();
