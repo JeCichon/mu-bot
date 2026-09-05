@@ -229,6 +229,7 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
     <button class="tab" onclick="setFilter('done',this)">done <span class="count-badge" id="cnt-done">0</span></button>
     <button class="tab" onclick="setFilter('bug',this)">🐛 bugs</button>
     <button class="tab" onclick="setFilter('suggestion',this)">💡 suggestions</button>
+    <button class="tab" onclick="setFilter('organ',this)">🎹 organ</button>
     <input class="search-input" placeholder="search…" oninput="applySearch(this.value)">
   </div>
   <div class="item-count" id="item-count"></div>
@@ -290,6 +291,8 @@ function render(){
   let items=all;
   if(activeFilter==='bug'||activeFilter==='suggestion'||activeFilter==='question')
     items=items.filter(f=>f.type===activeFilter);
+  else if(activeFilter==='organ')
+    items=items.filter(f=>f.page==='Organ');
   else if(activeFilter!=='all')
     items=items.filter(f=>f.status===activeFilter);
   if(activeSearch) items=items.filter(f=>
