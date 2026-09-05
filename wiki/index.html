@@ -1559,11 +1559,19 @@ function openContent(url, title){
   document.getElementById('content-title').textContent=title;
   document.getElementById('chat-wrap').style.display='none';
   document.getElementById('content-wrap').style.display='flex';
+  // Hide scroll arrow when not in chat
+  const sbb=document.getElementById('scroll-bottom-btn');
+  if(sbb) sbb.style.display='none';
 }
 function closeContent(){
   document.getElementById('content-wrap').style.display='none';
   document.getElementById('chat-wrap').style.display='flex';
   document.getElementById('content-frame').src='about:blank';
+  // Re-check scroll position now that chat is visible again
+  setTimeout(()=>{ const c=document.getElementById('chat-messages');
+    const btn=document.getElementById('scroll-bottom-btn');
+    if(c&&btn) btn.style.display=(c.scrollHeight-c.scrollTop-c.clientHeight)>150?'flex':'none';
+  },50);
 }
 function popoutContent(){
   window.open(_contentUrl,'_blank');
