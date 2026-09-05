@@ -2027,6 +2027,13 @@ const _DBG_DEFAULTS={
   '--parchment':'rgb(220,210,190)','--parchment2':'rgb(200,188,168)',
   '--dim':'rgb(120,100,80)','--gold':'rgb(201,169,110)',
 };
+// Inject CSS with !important — bypasses specificity issues
+function _dbgCSS(id,css){
+  let el=document.getElementById('_dbg_'+id);
+  if(!el){el=document.createElement('style');el.id='_dbg_'+id;document.head.appendChild(el);}
+  el.textContent=css;
+}
+
 const _DBG_TABS={
   colors:[
     {label:'Background',v:'--brown'},{label:'Surface',v:'--brown2'},{label:'Border/Raised',v:'--brown3'},
@@ -2036,27 +2043,38 @@ const _DBG_TABS={
     {label:'Dim (muted)',v:'--dim'},{label:'Gold (Organ)',v:'--gold'},
   ],
   type:[
-    {label:'Body font size',key:'body-sz',min:10,max:20,step:1,def:14,unit:'px',
-      apply:v=>document.body.style.fontSize=v+'px'},
-    {label:'Sidebar font size',key:'side-sz',min:9,max:15,step:1,def:12,unit:'px',
-      apply:v=>{const s=document.querySelector('.sidebar');if(s)s.style.fontSize=v+'px';}},
-    {label:'Chat font size',key:'chat-sz',min:10,max:18,step:1,def:14,unit:'px',
-      apply:v=>{const c=document.getElementById('chat-messages');if(c)c.style.fontSize=v+'px';}},
+    {label:'Body font size',key:'body-sz',min:10,max:22,step:1,def:14,unit:'px',
+      apply:v=>_dbgCSS('body-sz',`body,body *{font-size:${v}px!important;}`)},
+    {label:'Chat font size',key:'chat-sz',min:10,max:22,step:1,def:14,unit:'px',
+      apply:v=>_dbgCSS('chat-sz',`.msg-bubble{font-size:${v}px!important;}`)},
+    {label:'Sidebar font size',key:'side-sz',min:9,max:16,step:1,def:12,unit:'px',
+      apply:v=>_dbgCSS('side-sz',`#sidebar{font-size:${v}px!important;}`)},
+    {label:'Font family',key:'font-fam',min:0,max:3,step:1,def:0,unit:'',
+      fonts:["Georgia,'Times New Roman',serif","system-ui,sans-serif","'Courier New',monospace","Palatino,'Book Antiqua',serif"],
+      fontNames:['Georgia (default)','System UI','Monospace','Palatino'],
+      apply:v=>_dbgCSS('font-fam',`body{font-family:${["Georgia,'Times New Roman',serif","system-ui,sans-serif","'Courier New',monospace","Palatino,'Book Antiqua',serif"][Math.round(v)]}!important;}`)},
   ],
   spacing:[
     {label:'Sidebar width',key:'side-w',min:160,max:320,step:4,def:220,unit:'px',
-      apply:v=>{const s=document.querySelector('.sidebar');if(s)s.style.width=v+'px';}},
-    {label:'Chat gap',key:'chat-gap',min:1,max:16,step:1,def:4,unit:'px',
-      apply:v=>{const c=document.getElementById('chat-messages');if(c)c.style.gap=v+'px';}},
-    {label:'Chat padding',key:'chat-pad',min:8,max:32,step:2,def:16,unit:'px',
-      apply:v=>{const c=document.getElementById('chat-messages');if(c)c.style.padding=v+'px';}},
-    {label:'Header padding',key:'hdr-pad',min:6,max:24,step:2,def:12,unit:'px',
-      apply:v=>{const h=document.querySelector('header');if(h)h.style.padding=v+'px 20px';}},
+      apply:v=>_dbgCSS('side-w',`#sidebar{width:${v}px!important;min-width:${v}px!important;}`)},
+    {label:'Chat message gap',key:'chat-gap',min:1,max:20,step:1,def:14,unit:'px',
+      apply:v=>_dbgCSS('chat-gap',`.chat-messages{gap:${v}px!important;}`)},
+    {label:'Chat padding',key:'chat-pad',min:8,max:40,step:2,def:20,unit:'px',
+      apply:v=>_dbgCSS('chat-pad',`.chat-messages{padding:${v}px!important;}`)},
+    {label:'Bubble border radius',key:'bub-rad',min:2,max:24,step:1,def:12,unit:'px',
+      apply:v=>_dbgCSS('bub-rad',`.msg-bubble{border-radius:${v}px!important;}`)},
+    {label:'Message max width',key:'msg-mw',min:300,max:800,step:20,def:580,unit:'px',
+      apply:v=>_dbgCSS('msg-mw',`.msg{max-width:${v}px!important;}`)},
   ],
-  feedback:[
-    {label:'Planned left margin',key:'pl-ml',min:-30,max:0,step:2,def:0,unit:'px'},
-    {label:'New/Noted indent',key:'nw-ml',min:0,max:40,step:2,def:14,unit:'px'},
-    {label:'Done indent',key:'dn-ml',min:0,max:60,step:2,def:28,unit:'px'},
+  messages:[
+    {label:'Avatar size',key:'av-sz',min:24,max:52,step:2,def:36,unit:'px',
+      apply:v=>_dbgCSS('av-sz',`.msg-avatar{width:${v}px!important;height:${v}px!important;font-size:${Math.round(v*0.6)}px!important;}`)},
+    {label:'Emoji size',key:'em-sz',min:18,max:56,step:2,def:35,unit:'px',
+      apply:v=>_dbgCSS('em-sz',`.msg-emoji,.msg-emoji-std{height:${v}px!important;font-size:${v}px!important;}`)},
+    {label:'Timestamp size',key:'ts-sz',min:8,max:14,step:1,def:10,unit:'px',
+      apply:v=>_dbgCSS('ts-sz',`.msg-time{font-size:${v}px!important;}`)},
+    {label:'Author name size',key:'au-sz',min:9,max:16,step:1,def:12,unit:'px',
+      apply:v=>_dbgCSS('au-sz',`.msg-author-name{font-size:${v}px!important;}`)},
   ],
 };
 let _dbgTab='colors',_dbgState={};
@@ -2098,11 +2116,12 @@ function _renderDebugTab(){
     body.innerHTML=items.map(it=>{
       const cur=_dbgState[it.key]!==undefined?_dbgState[it.key]:it.def;
       const id='drv'+it.key.replace(/[^a-z0-9]/gi,'');
+      const dispVal=it.fontNames?it.fontNames[Math.round(cur)]:cur+it.unit;
       return `<div class="debug-row">
         <span class="debug-label">${it.label}</span>
         <input type="range" class="debug-range" min="${it.min}" max="${it.max}" step="${it.step||1}" value="${cur}"
           oninput="_applyRange('${it.key}',parseFloat(this.value),'${id}')">
-        <span class="debug-val" id="${id}">${cur}${it.unit}</span>
+        <span class="debug-val" id="${id}">${dispVal}</span>
       </div>`;
     }).join('');
   }
@@ -2117,15 +2136,13 @@ function _applyRange(key,val,lblId){
   _dbgState[key]=val;
   const it=Object.values(_DBG_TABS).flat().find(i=>i.key===key);
   const el=document.getElementById(lblId);
-  if(el&&it)el.textContent=val+it.unit;
-  if(it&&it.apply){try{it.apply(val);}catch(e){}}
+  if(el&&it) el.textContent=it.fontNames?it.fontNames[Math.round(val)]:val+it.unit;
+  if(it&&it.apply){try{it.apply(val);}catch(e){console.warn('Debug apply error:',key,e);}}
 }
 function resetDebug(){
   Object.keys(_DBG_DEFAULTS).forEach(v=>document.documentElement.style.removeProperty(v));
-  document.body.style.fontSize='';
-  try{document.querySelector('.sidebar').style.cssText='';}catch(e){}
-  try{const c=document.getElementById('chat-messages');c.style.gap='';c.style.padding='';}catch(e){}
-  try{document.querySelector('header').style.padding='';}catch(e){}
+  // Remove all injected debug CSS
+  document.querySelectorAll('[id^="_dbg_"]').forEach(el=>el.remove());
   _dbgState={};_renderDebugTab();
 }
 function copyDebugJSON(){
@@ -2286,7 +2303,7 @@ document.addEventListener('click',e=>{
     <button class="dt on" data-tab="colors" onclick="switchDebugTab('colors')">Colors</button>
     <button class="dt" data-tab="type" onclick="switchDebugTab('type')">Type</button>
     <button class="dt" data-tab="spacing" onclick="switchDebugTab('spacing')">Spacing</button>
-    <button class="dt" data-tab="feedback" onclick="switchDebugTab('feedback')">Feedback</button>
+    <button class="dt" data-tab="messages" onclick="switchDebugTab('messages')">Messages</button>
   </div>
   <div id="debug-body"></div>
   <div class="debug-footer">
