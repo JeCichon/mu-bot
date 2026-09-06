@@ -819,6 +819,16 @@ async function showApp(user){
       // Emoji managed via git — no upload panel needed
       const dbg=document.getElementById('debug-toggle-btn');
       if(dbg) dbg.style.display='inline-block';
+      // Patch already-rendered What's New toolbars to add edit/delete menu
+      document.querySelectorAll('.msg.system-msg').forEach(sysDiv=>{
+        const mid=sysDiv.id?.replace('msg-','');
+        if(!mid) return;
+        const toolbar=sysDiv.querySelector('.msg-toolbar');
+        if(toolbar&&!toolbar.querySelector('.tb-menu')){
+          toolbar.insertAdjacentHTML('beforeend',`<button class="msg-toolbar-btn tb-menu" onclick="toggleMsgMenu(${mid},this)">&#xB7;&#xB7;&#xB7;</button>`);
+          sysDiv.insertAdjacentHTML('beforeend',`<div class="msg-dropdown" id="mmenu-${mid}"><div class="msg-dropdown-item" onclick="editMsg(${mid})">&#9998; Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${mid})">&#128465; Delete</div></div>`);
+        }
+      });
     }
   }catch(err){ console.warn('Role check failed:',err.message); }
 
