@@ -174,8 +174,11 @@
     background:var(--brown2);border:1px solid var(--brown3);border-radius:12px;
     display:flex;align-items:center;z-index:20;transition:opacity .15s;overflow:hidden;}
   .msg:hover .msg-toolbar,.msg.sim-post:hover .msg-toolbar,.msg.system-msg:hover .msg-toolbar{opacity:1;pointer-events:auto;}
-  .msg-toolbar-btn{padding:3px 9px;cursor:pointer;color:var(--dim);font-size:14px;
-    background:none;border:none;border-left:1px solid var(--brown3);line-height:1.4;transition:color .1s,background .1s;}
+  .msg-toolbar-btn{padding:0 9px;height:26px;cursor:pointer;color:var(--dim);font-size:14px;
+    background:none;border:none;border-left:1px solid var(--brown3);transition:color .1s,background .1s;
+    display:flex;align-items:center;justify-content:center;}
+  .msg-toolbar-btn.tb-emoji{font-size:13px;}
+  .msg-toolbar-btn.tb-menu{font-size:18px;font-weight:900;letter-spacing:1px;padding:0 8px;}
   .msg-toolbar-btn:first-child{border-left:none;}
   .msg-toolbar-btn:hover{color:var(--parchment);background:var(--brown3);}
   /* Empty reaction bar collapses cleanly */
@@ -983,7 +986,7 @@ function renderMessage(msg){
     const rxnDiv=document.createElement('div');
     rxnDiv.className='reaction-bar'; rxnDiv.dataset.mid=String(msg.id);
     div.append(usernameEl,widgetEl,rxnDiv,timeEl);
-    if(msg.id) div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
+    if(msg.id) div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn tb-emoji" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
     // Queue gen-200 still thumbnail (deferred so DOM is ready)
     setTimeout(()=>queueChatThumb(widgetEl,srData.code,srData.name||''),0);
   } else if(isSystem){
@@ -1010,11 +1013,11 @@ function renderMessage(msg){
       <div class="reaction-bar" data-mid="${msg.id}" style="justify-content:center;margin-top:6px;"></div>
       <div class="msg-cards" style="text-align:center">${time}</div>
     </div>`;
-    // Single combined toolbar
-    if(isMine&&msg.id){
-      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button><button class="msg-toolbar-btn" onclick="toggleMsgMenu(${msg.id},this)">···</button></div><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
+    // Archmage can edit/delete What's New posts; everyone gets emoji react
+    if(msg.id&&userRole==='archmage'){
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn tb-emoji" onclick="openRxnPicker(${msg.id},this)">😊</button><button class="msg-toolbar-btn tb-menu" onclick="toggleMsgMenu(${msg.id},this)">···</button></div><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
     } else if(msg.id){
-      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn tb-emoji" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
     }
   } else {
     const cls=isMu?"mu-msg":isMine?"mine":"other";
@@ -1034,9 +1037,9 @@ function renderMessage(msg){
       </div>`;
     // Single combined toolbar
     if(isMine&&msg.id){
-      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button><button class="msg-toolbar-btn" onclick="toggleMsgMenu(${msg.id},this)">···</button></div><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn tb-emoji" onclick="openRxnPicker(${msg.id},this)">😊</button><button class="msg-toolbar-btn tb-menu" onclick="toggleMsgMenu(${msg.id},this)">···</button></div><div class="msg-dropdown" id="mmenu-${msg.id}"><div class="msg-dropdown-item" onclick="editMsg(${msg.id})">✎ Edit</div><div class="msg-dropdown-item danger" onclick="deleteMsg(${msg.id})">🗑 Delete</div></div>`);
     } else if(msg.id){
-      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
+      div.insertAdjacentHTML('beforeend',`<div class="msg-toolbar"><button class="msg-toolbar-btn tb-emoji" onclick="openRxnPicker(${msg.id},this)">😊</button></div>`);
     }
   }
   // Apply emoji shortcodes via DOM (must happen after innerHTML is set)
