@@ -1896,6 +1896,7 @@ function applyEmojisToElement(el){
   const nodes2=[]; let n2;
   while((n2=walker2.nextNode())) nodes2.push(n2);
   nodes2.forEach(tn=>{
+    if(tn.parentElement?.closest('.msg-toolbar,.msg-dropdown')) return; // skip UI emoji
     if(!emojiRe.test(tn.textContent)) return;
     emojiRe.lastIndex=0;
     const frag2=document.createDocumentFragment();
