@@ -1012,6 +1012,7 @@ function renderMessage(msg){
       title=subtitleRaw.slice(idx+3);
     }
     div.className="msg system-msg";
+    if(msg.content) div.dataset.rawContent=msg.content;
     div.innerHTML=`<div class="msg-body" style="width:100%">
       <div class="msg-bubble">
         <div style="font-size:16px;letter-spacing:0.1em;color:var(--dim);font-family:var(--mono);margin-bottom:4px;text-transform:uppercase;font-style:normal">${header}</div>
@@ -2230,7 +2231,8 @@ function editMsg(id){
   if(!bubble||bubble.dataset.editing) return;
   bubble.dataset.editing='1';
   bubble.dataset.originalHtml=bubble.innerHTML; // store for cancel
-  const text=bubble.innerText.trim();
+  // Use raw DB content if available (preserves format like "trickno.0028 — Title")
+  const text=msgDiv.dataset.rawContent||bubble.innerText.trim();
   bubble.innerHTML=`<div class="msg-edit-wrap">
     <textarea class="msg-edit-input"></textarea>
     <div class="msg-edit-btns">
@@ -2285,6 +2287,7 @@ async function saveEdit(id){
   }
   delete bubble.dataset.editing;
   delete bubble.dataset.originalHtml;
+  msgDiv.dataset.rawContent=newText; // keep rawContent in sync
   // System messages use special formatting; normal messages use parseMessageContent
   const isSystemBubble=msgDiv.classList.contains('system-msg');
   if(isSystemBubble){
