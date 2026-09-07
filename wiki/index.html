@@ -1010,7 +1010,7 @@ function renderMessage(msg){
     widgetEl.style.cssText=`width:${d.cw}px;height:${d.ch}px;background:rgba(0,0,0,.35);border-color:transparent;`;
     widgetEl.dataset.code=enc; widgetEl.dataset.name=encName;
     widgetEl.onmouseenter=()=>handleSimHover(widgetEl);
-    widgetEl.onclick=()=>handleSimClick(widgetEl,srData.code,srData.name||'simulation');
+    widgetEl.onclick=()=>handleSimClick(widgetEl);
     widgetEl.innerHTML=`<img class="sim-chat-thumb" alt=""
       style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;">
       <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${srData.speed||1}${srData.seed?'&seed='+encodeURIComponent(srData.seed):''}"
@@ -1437,7 +1437,7 @@ function buildCardLine(cardLine){
         <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:${bg}"
           data-code="${enc}" data-name="${encName}"
           onmouseenter="handleSimHover(this)"
-          onclick="handleSimClick(this,'${enc}','${cl.name||&quot;simulation&quot;}')">
+          onclick="handleSimClick(this)">
           <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${cl.speed||1}${cl.seed?'&seed='+encodeURIComponent(cl.seed):''}"
             style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
           <div class="sim-chat-name">${cl.name||'simulation'}</div>
@@ -1528,10 +1528,12 @@ function handleSimHover(div){
   }
 }
 
-function handleSimClick(div,code,name){
+function handleSimClick(div){
   stopChatSim(div);
   delete div.dataset.playing;
-  window.open(`slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`,'_blank');
+  const code=decodeURIComponent(div.dataset.code||'');
+  const name=decodeURIComponent(div.dataset.name||'simulation');
+  if(code) window.open(`slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`,'_blank');
 }
 
 function startChatSim(div){
