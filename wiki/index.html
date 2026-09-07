@@ -1014,7 +1014,7 @@ function renderMessage(msg){
     widgetEl.onclick=()=>{stopChatSim(widgetEl);openContent('simulations.html','🎮 Slide Rules');};
     widgetEl.innerHTML=`<img class="sim-chat-thumb" alt=""
       style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;">
-      <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${cl.speed||1}${cl.seed?'&seed='+encodeURIComponent(cl.seed):''}"
+      <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${srData.speed||1}${srData.seed?'&seed='+encodeURIComponent(srData.seed):''}"
         style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);z-index:1;"></iframe>
       <div class="sim-chat-name" style="position:relative;z-index:2;">${srData.name||'simulation'}</div>
       <div class="sim-chat-hint" style="position:relative;z-index:2;">hover to play · click to open</div>`;
