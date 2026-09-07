@@ -1009,9 +1009,8 @@ function renderMessage(msg){
     widgetEl.className='sim-chat-widget';
     widgetEl.style.cssText=`width:${d.cw}px;height:${d.ch}px;background:rgba(0,0,0,.35);border-color:transparent;`;
     widgetEl.dataset.code=enc; widgetEl.dataset.name=encName;
-    widgetEl.onmouseenter=()=>startChatSim(widgetEl);
-    widgetEl.onmouseleave=()=>stopChatSim(widgetEl);
-    widgetEl.onclick=()=>{stopChatSim(widgetEl);openContent('simulations.html','🎮 Slide Rules');};
+    widgetEl.onmouseenter=()=>handleSimHover(widgetEl);
+    widgetEl.onclick=()=>handleSimClick(widgetEl,srData.code,srData.name||'simulation');
     widgetEl.innerHTML=`<img class="sim-chat-thumb" alt=""
       style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;">
       <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${srData.speed||1}${srData.seed?'&seed='+encodeURIComponent(srData.seed):''}"
@@ -1437,9 +1436,8 @@ function buildCardLine(cardLine){
       return`<div class="sim-chat-wrap">
         <div class="sim-chat-widget" style="width:${d.cw}px;height:${d.ch}px;background:${bg}"
           data-code="${enc}" data-name="${encName}"
-          onmouseenter="startChatSim(this)"
-          onmouseleave="stopChatSim(this)"
-          onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
+          onmouseenter="handleSimHover(this)"
+          onclick="handleSimClick(this,'${enc}','${cl.name||&quot;simulation&quot;}')">
           <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${cl.speed||1}${cl.seed?'&seed='+encodeURIComponent(cl.seed):''}"
             style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
           <div class="sim-chat-name">${cl.name||'simulation'}</div>
@@ -1513,6 +1511,29 @@ function _captureThumb(widgetEl,code,name){
 }
 
 let activeChatSim=null;
+
+function handleSimHover(div){
+  if(div.dataset.playing){
+    // Already playing — second hover stops it
+    stopChatSim(div);
+    delete div.dataset.playing;
+  } else {
+    // Start playing and keep going after mouse leaves
+    if(activeChatSim&&activeChatSim!==div){
+      stopChatSim(activeChatSim);
+      delete activeChatSim.dataset.playing;
+    }
+    startChatSim(div);
+    div.dataset.playing='1';
+  }
+}
+
+function handleSimClick(div,code,name){
+  stopChatSim(div);
+  delete div.dataset.playing;
+  window.open(`slideRulesMin.html?c=${encodeURIComponent(code)}&n=${encodeURIComponent(name)}`,'_blank');
+}
+
 function startChatSim(div){
   if(activeChatSim&&activeChatSim!==div) stopChatSim(activeChatSim);
   activeChatSim=div;
