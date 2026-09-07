@@ -222,14 +222,6 @@
   .crop-opt{width:38px;height:38px;border:1px solid var(--brown3);border-radius:4px;cursor:pointer;padding:3px;background:var(--brown3);transition:border-color .15s;}
   .crop-opt:hover,.crop-opt.selected{border-color:var(--gold);}
   .sr-preview-outer{display:flex;justify-content:center;margin-top:4px;}
-  /* SVG crop overlay */
-  #sr-crop-svg{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;z-index:10;}
-  .crop-handle{fill:var(--gold);stroke:var(--brown2);stroke-width:1.5;cursor:nwse-resize;}
-  .sr-seed-row{display:flex;gap:6px;align-items:center;margin-top:6px;}
-  .sr-seed-input{flex:1;background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:4px 8px;border-radius:4px;outline:none;}
-  .sr-seed-input:focus{border-color:var(--green3);}
-  .sr-dice-btn{background:var(--brown3);border:1px solid var(--brown3);color:var(--parchment);font-size:16px;width:30px;height:30px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-  .sr-dice-btn:hover{border-color:var(--green3);}
   .sr-preview-wrap{position:relative;overflow:hidden;border-radius:4px;border:1px solid var(--brown3);}
   .sr-preview-wrap iframe{position:absolute;transform-origin:0 0;border:none;pointer-events:none;}
 
@@ -523,49 +515,28 @@
 
 <!-- Slide Rules Post Modal -->
 <div class="modal-bg" id="sr-modal-bg" onclick="if(event.target===this)closeSRModal()">
-  <div class="fb-modal" style="max-width:440px;width:92%;">
+  <div class="fb-modal" style="max-width:400px;width:92%;">
     <button class="modal-close" onclick="closeSRModal()">×</button>
     <div class="modal-title" style="margin-bottom:14px;">🎮 Post Slide Rules to Chat</div>
-
     <div class="sr-section-label">simulation</div>
     <select class="sr-select" id="sr-sim-select" onchange="updateSRPreview()">
       <option value="">loading…</option>
     </select>
-
-    <div class="sr-section-label" style="margin-top:10px;">size (px)</div>
+    <div class="sr-section-label">size (px)</div>
     <div class="sr-size-row">
       <button class="sr-size-btn" onclick="adjustSRSize(-10)">−</button>
       <input class="sr-size-input" id="sr-size-input" type="number" value="190" min="80" max="840" step="10" oninput="updateSRPreview()">
       <button class="sr-size-btn" onclick="adjustSRSize(10)">+</button>
       <span style="font-size:11px;color:var(--dim);font-family:var(--mono);">× <span id="sr-dim-h">190</span></span>
     </div>
-
-    <div class="sr-section-label" style="margin-top:10px;">speed</div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <input type="range" id="sr-speed-input" min="0.1" max="6" step="0.1" value="1"
-        style="flex:1;accent-color:var(--purple2);" oninput="document.getElementById('sr-speed-val').textContent=parseFloat(this.value).toFixed(1)+'×';updateSRPreview()">
-      <span id="sr-speed-val" style="font-size:11px;color:var(--green);font-family:var(--mono);min-width:32px;">1.0×</span>
-    </div>
-
-    <div class="sr-section-label" style="margin-top:10px;">seed</div>
-    <div class="sr-seed-row">
-      <input class="sr-seed-input" id="sr-seed-input" type="text" placeholder="auto (from code)" oninput="updateSRPreview()">
-      <button class="sr-dice-btn" onclick="randomizeSeed()" title="Random seed">🎲</button>
-      <button class="sr-dice-btn" onclick="document.getElementById('sr-seed-input').value='';updateSRPreview();" title="Reset to auto" style="font-size:12px;">↺</button>
-    </div>
-    <div style="font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:3px;">lock a number to share the exact same starting pattern</div>
-
-    <div class="sr-section-label" style="margin-top:10px;">crop <span style="font-size:10px;color:var(--dim);font-weight:normal;">— drag handles · presets snap the selection</span></div>
-    <div class="crop-grid" id="crop-grid" style="margin-bottom:8px;"></div>
+    <div class="sr-section-label">crop</div>
+    <div class="crop-grid" id="crop-grid"></div>
+    <div class="sr-section-label">preview</div>
     <div class="sr-preview-outer">
-      <div style="position:relative;display:inline-block;">
-        <div class="sr-preview-wrap" id="sr-preview-wrap">
-          <iframe id="sr-preview-frame" src="about:blank"></iframe>
-        </div>
-        <svg id="sr-crop-svg" viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="sr-preview-wrap" id="sr-preview-wrap">
+        <iframe id="sr-preview-frame" src="about:blank"></iframe>
       </div>
     </div>
-
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button onclick="closeSRModal()">cancel</button>
       <button onclick="postFromSRModal()" style="background:var(--purple);border:1px solid var(--purple2);color:var(--parchment);flex:1;">post to chat</button>
@@ -1014,7 +985,7 @@ function renderMessage(msg){
     widgetEl.onclick=()=>{stopChatSim(widgetEl);openContent('simulations.html','🎮 Slide Rules');};
     widgetEl.innerHTML=`<img class="sim-chat-thumb" alt=""
       style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;">
-      <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${cl.speed||1}${cl.seed?'&seed='+encodeURIComponent(cl.seed):''}"
+      <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
         style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);z-index:1;"></iframe>
       <div class="sim-chat-name" style="position:relative;z-index:2;">${srData.name||'simulation'}</div>
       <div class="sim-chat-hint" style="position:relative;z-index:2;">hover to play · click to open</div>`;
@@ -1180,27 +1151,25 @@ function togglePlusMenu(e){
 }
 document.addEventListener('click',()=>document.getElementById('plus-menu')?.classList.remove('open'));
 
-// ── Slide Rules modal — speed, seed, freeform SVG crop ──────────────────────
 const SR_CROPS=[
-  {id:'full',label:'Full',rect:{x:0,y:0,w:600,h:600}},
-  {id:'top',label:'Top',rect:{x:0,y:0,w:600,h:200}},
-  {id:'middle_h',label:'Mid',rect:{x:0,y:200,w:600,h:200}},
-  {id:'bottom',label:'Bot',rect:{x:0,y:400,w:600,h:200}},
-  {id:'left',label:'Left',rect:{x:0,y:0,w:200,h:600}},
-  {id:'center_v',label:'Ctr',rect:{x:200,y:0,w:200,h:600}},
-  {id:'right',label:'Right',rect:{x:400,y:0,w:200,h:600}},
+  {id:'full',label:'Full'},
+  {id:'top',label:'Top'},
+  {id:'middle_h',label:'Mid'},
+  {id:'bottom',label:'Bot'},
+  {id:'left',label:'Left'},
+  {id:'center_v',label:'Ctr'},
+  {id:'right',label:'Right'},
 ];
-const PREV_SZ=280; // modal preview display size (px)
-let srSims=[], srPreviewTimer=null;
-let srCropRect={x:0,y:0,w:600,h:600}; // current selection in sim coords
-let _srDrag=null; // drag state
+let srActiveCrop='full', srSims=[], srPreviewTimer=null;
 
 async function openSRPostModal(){
   document.getElementById('plus-menu').classList.remove('open');
+  // Build crop grid
   const grid=document.getElementById('crop-grid');
-  grid.innerHTML=SR_CROPS.map(c=>
-    `<div title="${c.label}" class="crop-opt" onclick="snapCrop('${c.id}')">${CROP_ICONS[c.id]||c.label}</div>`
-  ).join('');
+  grid.innerHTML=SR_CROPS.map(c=>`
+    <div title="${c.label}" class="crop-opt${srActiveCrop===c.id?' selected':''}" onclick="selectSRCrop('${c.id}',this)">
+      ${CROP_ICONS[c.id]||''}
+    </div>`).join('');
   // Load sims
   const{data}=await db.from('slide_rules').select('id,name,code').eq('published',true).order('created_at',{ascending:false});
   srSims=data||[];
@@ -1208,17 +1177,7 @@ async function openSRPostModal(){
   sel.innerHTML=srSims.length
     ? srSims.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')
     : '<option value="">no published simulations yet</option>';
-  // Reset crop to full
-  srCropRect={x:0,y:0,w:600,h:600};
-  // Set preview to fixed 280px showing full sim
-  const wrap=document.getElementById('sr-preview-wrap');
-  const fr=document.getElementById('sr-preview-frame');
-  wrap.style.width=PREV_SZ+'px'; wrap.style.height=PREV_SZ+'px';
-  fr.style.width='600px'; fr.style.height='600px';
-  fr.style.transformOrigin='0 0';
-  fr.style.transform=`scale(${PREV_SZ/600})`;
   document.getElementById('sr-modal-bg').classList.add('open');
-  initCropSVG();
   updateSRPreview();
 }
 
@@ -1227,27 +1186,16 @@ function closeSRModal(){
   document.getElementById('sr-preview-frame').src='about:blank';
 }
 
-function adjustSRSize(delta){
-  const inp=document.getElementById('sr-size-input');
-  inp.value=Math.max(80,Math.min(840,parseInt(inp.value||190)+delta));
-  updateDimHint();
-}
-
-function updateDimHint(){
-  const size=parseInt(document.getElementById('sr-size-input').value)||190;
-  const sc=size/600;
-  document.getElementById('sr-dim-h').textContent=Math.round(srCropRect.h*sc);
-}
-
-function randomizeSeed(){
-  document.getElementById('sr-seed-input').value=Math.floor(Math.random()*999999);
+function selectSRCrop(crop,el){
+  srActiveCrop=crop;
+  document.querySelectorAll('.crop-opt').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
   updateSRPreview();
 }
 
-function snapCrop(id){
-  const preset=SR_CROPS.find(c=>c.id===id);
-  if(preset){ srCropRect={...preset.rect}; drawCropSVG(); updateDimHint(); }
-  // Also update preview src to reflect seed/speed changes
+function adjustSRSize(delta){
+  const inp=document.getElementById('sr-size-input');
+  inp.value=Math.max(80,Math.min(840,parseInt(inp.value||190)+delta));
   updateSRPreview();
 }
 
@@ -1257,114 +1205,28 @@ function updateSRPreview(){
     const sel=document.getElementById('sr-sim-select');
     const sim=srSims.find(s=>s.id==sel.value)||srSims[0];
     if(!sim) return;
-    const seed=document.getElementById('sr-seed-input').value.trim();
-    const speed=parseFloat(document.getElementById('sr-speed-input').value)||1;
-    let url=`slideRulesMin.html?c=${encodeURIComponent(sim.code)}&n=${encodeURIComponent(sim.name)}&speed=${speed}`;
-    if(seed) url+=`&seed=${encodeURIComponent(seed)}`;
+    const size=parseInt(document.getElementById('sr-size-input').value)||190;
+    const d=getCropDims(size,srActiveCrop);
+    // Update dimension hint
+    document.getElementById('sr-dim-h').textContent=d.ch;
+    // Update preview
+    const wrap=document.getElementById('sr-preview-wrap');
     const fr=document.getElementById('sr-preview-frame');
-    fr.src=url;
-    drawCropSVG();
-    updateDimHint();
+    wrap.style.width=d.cw+'px'; wrap.style.height=d.ch+'px';
+    fr.style.width='600px'; fr.style.height='600px';
+    fr.style.transformOrigin='0 0';
+    fr.style.transform=`scale(${d.sc}) translate(${d.tx}px,${d.ty}px)`;
+    fr.src=`slideRulesMin.html?c=${encodeURIComponent(sim.code)}&n=${encodeURIComponent(sim.name)}`;
   },300);
 }
-
-// ── SVG freeform crop ────────────────────────────────────────────────────────
-function initCropSVG(){
-  const svg=document.getElementById('sr-crop-svg');
-  if(!svg) return;
-  svg.innerHTML='';
-  svg.addEventListener('mousedown',svgMouseDown);
-  document.addEventListener('mousemove',svgMouseMove);
-  document.addEventListener('mouseup',svgMouseUp);
-  drawCropSVG();
-}
-
-function drawCropSVG(){
-  const svg=document.getElementById('sr-crop-svg');
-  if(!svg) return;
-  const sc=PREV_SZ/600;
-  const rx=srCropRect.x*sc, ry=srCropRect.y*sc;
-  const rw=srCropRect.w*sc, rh=srCropRect.h*sc;
-  const gold='rgba(201,169,110,.85)';
-  const HS=6; // handle radius
-  svg.innerHTML=`
-    <rect x="0" y="0" width="280" height="280" fill="rgba(0,0,0,.45)"/>
-    <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="rgba(0,0,0,0)" stroke="${gold}" stroke-width="1.5"/>
-    <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="rgba(201,169,110,.04)"/>
-    <circle class="crop-handle" cx="${rx}" cy="${ry}" r="${HS}" data-h="tl"/>
-    <circle class="crop-handle" cx="${rx+rw/2}" cy="${ry}" r="${HS}" data-h="tc" style="cursor:ns-resize"/>
-    <circle class="crop-handle" cx="${rx+rw}" cy="${ry}" r="${HS}" data-h="tr" style="cursor:nesw-resize"/>
-    <circle class="crop-handle" cx="${rx+rw}" cy="${ry+rh/2}" r="${HS}" data-h="mr" style="cursor:ew-resize"/>
-    <circle class="crop-handle" cx="${rx+rw}" cy="${ry+rh}" r="${HS}" data-h="br"/>
-    <circle class="crop-handle" cx="${rx+rw/2}" cy="${ry+rh}" r="${HS}" data-h="bc" style="cursor:ns-resize"/>
-    <circle class="crop-handle" cx="${rx}" cy="${ry+rh}" r="${HS}" data-h="bl" style="cursor:nesw-resize"/>
-    <circle class="crop-handle" cx="${rx}" cy="${ry+rh/2}" r="${HS}" data-h="ml" style="cursor:ew-resize"/>`;
-}
-
-function svgPos(e){
-  const svg=document.getElementById('sr-crop-svg');
-  const rect=svg.getBoundingClientRect();
-  const sc=PREV_SZ/600;
-  return{x:Math.max(0,Math.min(600,(e.clientX-rect.left)/sc)),
-         y:Math.max(0,Math.min(600,(e.clientY-rect.top)/sc))};
-}
-
-function svgMouseDown(e){
-  e.preventDefault();
-  const h=e.target.closest('[data-h]');
-  const p=svgPos(e);
-  if(h){
-    _srDrag={mode:h.dataset.h, start:p, rect:{...srCropRect}};
-  } else {
-    // Check if inside rect
-    const r=srCropRect;
-    if(p.x>r.x&&p.x<r.x+r.w&&p.y>r.y&&p.y<r.y+r.h){
-      _srDrag={mode:'move', start:p, rect:{...srCropRect}};
-    } else {
-      _srDrag={mode:'draw', start:p};
-    }
-  }
-}
-
-function svgMouseMove(e){
-  if(!_srDrag) return;
-  const p=svgPos(e);
-  const r={..._srDrag.rect||srCropRect};
-  const dx=p.x-_srDrag.start.x, dy=p.y-_srDrag.start.y;
-  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-  if(_srDrag.mode==='move'){
-    srCropRect={x:clamp(r.x+dx,0,600-r.w),y:clamp(r.y+dy,0,600-r.h),w:r.w,h:r.h};
-  } else if(_srDrag.mode==='draw'){
-    const x0=Math.min(_srDrag.start.x,p.x),y0=Math.min(_srDrag.start.y,p.y);
-    const x1=Math.max(_srDrag.start.x,p.x),y1=Math.max(_srDrag.start.y,p.y);
-    srCropRect={x:x0,y:y0,w:Math.max(20,x1-x0),h:Math.max(20,y1-y0)};
-  } else {
-    // Resize handles
-    let {x,y,w,h}=r;
-    if(_srDrag.mode.includes('l')){x=clamp(r.x+dx,0,r.x+r.w-20);w=r.x+r.w-x;}
-    if(_srDrag.mode.includes('r')){w=clamp(r.w+dx,20,600-r.x);}
-    if(_srDrag.mode.includes('t')){y=clamp(r.y+dy,0,r.y+r.h-20);h=r.y+r.h-y;}
-    if(_srDrag.mode.includes('b')){h=clamp(r.h+dy,20,600-r.y);}
-    srCropRect={x:Math.round(x),y:Math.round(y),w:Math.round(w),h:Math.round(h)};
-  }
-  drawCropSVG();
-  updateDimHint();
-}
-
-function svgMouseUp(){_srDrag=null;}
 
 async function postFromSRModal(){
   const sel=document.getElementById('sr-sim-select');
   const sim=srSims.find(s=>s.id==sel.value)||srSims[0];
   if(!sim){alert('Select a simulation first.');return;}
   const size=parseInt(document.getElementById('sr-size-input').value)||190;
-  const speed=parseFloat(document.getElementById('sr-speed-input').value)||1;
-  const seed=document.getElementById('sr-seed-input').value.trim()||null;
-  // Snap crop rect to integers
-  const crop={x:Math.round(srCropRect.x),y:Math.round(srCropRect.y),
-              w:Math.round(srCropRect.w),h:Math.round(srCropRect.h)};
   closeSRModal();
-  await sendSlideRulesMessage(sim.code,sim.name,size,crop,speed,seed);
+  await sendSlideRulesMessage(sim.code,sim.name,size,srActiveCrop);
 }
 
 // ── Library entry chat card ──────────────────────────────────────────────────
@@ -1405,15 +1267,11 @@ const CROP_ICONS={
 
 function getCropDims(size,crop){
   const s=parseInt(size)||190;
-  const sc=s/600;
-  // Coordinate crop {x,y,w,h} in sim space (0-600)
-  if(crop&&typeof crop==='object'&&'x' in crop){
-    return{cw:Math.max(10,Math.round(crop.w*sc)),ch:Math.max(10,Math.round(crop.h*sc)),
-           sc,tx:-crop.x,ty:-crop.y};
-  }
-  // Legacy named crop (backward compatible)
   const t=Math.round(s/3);
-  const r={cw:s,ch:s,sc,tx:0,ty:0};
+  const sc=s/600;
+  // tx/ty are pre-scale offsets (in the 600x600 simulation coordinate space)
+  // CSS: scale(sc) translate(tx, ty) → translate happens first in pre-scale space
+  const r={cw:s,ch:s,sc:sc,tx:0,ty:0};
   if(crop==='top')      {r.ch=t;}
   else if(crop==='middle_h'){r.ch=t;r.ty=-200;}
   else if(crop==='bottom')  {r.ch=t;r.ty=-400;}
@@ -1440,7 +1298,7 @@ function buildCardLine(cardLine){
           onmouseenter="startChatSim(this)"
           onmouseleave="stopChatSim(this)"
           onclick="stopChatSim(this);openContent('simulations.html','🎮 Slide Rules')">
-          <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}&speed=${cl.speed||1}${cl.seed?'&seed='+encodeURIComponent(cl.seed):''}"
+          <iframe src="about:blank" data-src="slideRulesMin.html?c=${enc}&n=${encName}"
             style="left:0;top:0;width:600px;height:600px;transform:scale(${d.sc}) translate(${d.tx}px,${d.ty}px);"></iframe>
           <div class="sim-chat-name">${cl.name||'simulation'}</div>
           <div class="sim-chat-hint">hover to play · click to open</div>
@@ -1525,11 +1383,11 @@ function stopChatSim(div){
   if(activeChatSim===div) activeChatSim=null;
 }
 
-async function sendSlideRulesMessage(code,name,size,crop,speed,seed){
+async function sendSlideRulesMessage(code,name,size,crop){
   if(!currentUser) return;
   const uName=currentUser.user_metadata?.full_name||currentUser.user_metadata?.name||'traveler';
   const avatar=currentUser.user_metadata?.avatar_url||null;
-  const cl=JSON.stringify({type:'slide_rules',code,name,size:size||190,crop:crop||{x:0,y:0,w:600,h:600},speed:speed||1,seed:seed||null});
+  const cl=JSON.stringify({type:'slide_rules',code,name,size:size||190,crop:crop||'full'});
   const{data:msg}=await db.from('messages').insert({
     user_id:currentUser.id, user_name:uName, user_avatar:avatar,
     content:`🎮 ${name}`, is_mu:false, card_line:cl, is_system:false

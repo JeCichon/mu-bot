@@ -40,7 +40,7 @@ const SIZE      = 600;    // grid cells AND canvas pixels (1 cell = 1 px)
 const _sp       = new URLSearchParams(location.search);
 const FRAME     = parseInt(_sp.get('frame') || '200');  // generations before first paint
 const PLAY      = _sp.get('play') !== 'false';          // false = freeze on frame FRAME
-const SPEED     = parseFloat(_sp.get('speed') || '1'); // sim ticks per rendered frame
+const SPEED     = 1;      // sim ticks per rendered frame
 const SCANLINES = true;   // CRT-style dim on alternate rows (Slide Rules look)
 const SCAN_A    = 0.92;   // 1 = off, lower = stronger
 
@@ -432,10 +432,7 @@ function start(){
   document.title = name + " — Slide Rules";
 
   try {
-    // Allow ?seed=N to override the code-derived seed
-  const _seedParam = _sp.get('seed');
-  const seedKey = _seedParam ? (_seedParam + '|' + code) : code;
-  new SlideRules(canvas, decodeCode(code), seedKey);
+    new SlideRules(canvas, decodeCode(code), code);
   } catch (e) {
     console.error("Slide Rules:", e);
     canvas.style.display = "none";
