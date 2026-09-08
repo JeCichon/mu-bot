@@ -2556,8 +2556,20 @@ function initScrollArrow(){
 function toggleBackpack(){
   const panel=document.getElementById('backpack-panel');
   const isOpen=!panel.classList.contains('bp-closed');
-  panel.classList.toggle('bp-closed',isOpen);
-  localStorage.setItem('bp-open',isOpen?'0':'1');
+  if(isOpen){
+    // Save width before closing, then clear inline style so CSS width:0 can take effect
+    const w=panel.offsetWidth;
+    if(w>0) localStorage.setItem('bp-width',w);
+    panel.style.width='';
+    panel.classList.add('bp-closed');
+    localStorage.setItem('bp-open','0');
+  } else {
+    // Restore saved width when opening
+    panel.classList.remove('bp-closed');
+    const savedW=localStorage.getItem('bp-width');
+    if(savedW) panel.style.width=savedW+'px';
+    localStorage.setItem('bp-open','1');
+  }
 }
 
 // Restore backpack state
@@ -2579,7 +2591,10 @@ if(localStorage.getItem('bp-open')==='1'){
     const newW=Math.max(160,Math.min(520,startW-(e.clientX-startX)));
     panel.style.width=newW+'px';
   });
-  document.addEventListener('mouseup',()=>dragging=false);
+  document.addEventListener('mouseup',()=>{
+    if(dragging) localStorage.setItem('bp-width',panel.offsetWidth);
+    dragging=false;
+  });
 })();
 
 // ── Mobile sidebar ───────────────────────────────────────────────────────────
