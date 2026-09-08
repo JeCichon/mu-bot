@@ -66,6 +66,33 @@
 
   /* ── Mobile ── */
   .hamburger{display:none;background:none;border:none;color:var(--parchment);font-size:22px;cursor:pointer;padding:0 8px;line-height:1;flex-shrink:0;}
+  /* ── Backpack panel ── */
+  #backpack-panel{width:260px;min-width:0;max-width:520px;background:var(--brown2);
+    border-left:2px solid var(--brown3);display:flex;flex-direction:row;flex-shrink:0;
+    position:relative;overflow:hidden;transition:width .25s ease;}
+  #backpack-panel.bp-closed{width:0;border-left-width:0;}
+  #bp-resize{width:6px;cursor:ew-resize;flex-shrink:0;position:absolute;left:0;top:0;bottom:0;
+    z-index:10;transition:background .15s;}
+  #bp-resize:hover{background:var(--green3);}
+  #backpack-inner{flex:1;min-width:0;display:flex;flex-direction:column;padding:14px 12px 14px 18px;overflow-y:auto;}
+  .bp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--brown3);}
+  .bp-title{font-size:13px;color:var(--green);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;}
+  .bp-close{background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer;padding:0;line-height:1;}
+  .bp-close:hover{color:var(--parchment);}
+  .bp-section{font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:14px;}
+  .bp-char-slot{background:var(--brown3);border:1px dashed var(--brown3);border-radius:6px;padding:10px 12px;
+    font-size:11px;color:var(--dim);font-family:var(--mono);text-align:center;cursor:pointer;transition:border-color .15s;}
+  .bp-char-slot:hover{border-color:var(--green3);color:var(--green);}
+  .bp-empty{font-size:11px;color:var(--dim);font-family:var(--mono);font-style:italic;text-align:center;padding:16px 0;}
+  .bp-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .bp-card-placeholder{aspect-ratio:5/9;background:var(--brown3);border:1px solid rgba(80,58,36,.7);
+    border-radius:4px;display:flex;align-items:center;justify-content:center;
+    font-size:18px;color:rgba(80,58,36,.8);}
+  /* Toggle btn in header */
+  #bp-toggle{background:none;border:1px solid var(--brown3);color:var(--dim);font-size:16px;
+    padding:3px 9px;border-radius:4px;cursor:pointer;transition:all .15s;flex-shrink:0;}
+  #bp-toggle:hover{border-color:var(--green3);color:var(--green);}
+  @media(max-width:860px){#backpack-panel{display:none;}}
   .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:149;}
   .sidebar-backdrop.open{display:block;}
   @media(max-width:680px){
@@ -477,9 +504,38 @@
       <div class="input-hint">shift+enter for new line · mention <em>mu</em> for a response</div>
     </div>
   </div>
-</div>
-
-<!-- Feedback Modal -->
+  <!-- ── Backpack Panel ── -->
+  <div id="backpack-panel" class="bp-closed">
+    <div id="bp-resize"></div>
+    <div id="backpack-inner">
+      <div class="bp-header">
+        <span class="bp-title">🎒 Backpack</span>
+        <button class="bp-close" onclick="toggleBackpack()">×</button>
+      </div>
+      <!-- Character slot (future) -->
+      <div class="bp-section">Character</div>
+      <div class="bp-char-slot" title="Character selection coming soon">
+        · no character selected ·
+      </div>
+      <!-- Cards from Mu -->
+      <div class="bp-section">Today's Draw</div>
+      <div id="bp-cards-area">
+        <div class="bp-empty">Mu hasn't spoken yet today.</div>
+      </div>
+      <!-- All drawn cards (placeholder grid) -->
+      <div class="bp-section">Your Cards</div>
+      <div class="bp-card-grid" id="bp-card-grid">
+        <div class="bp-card-placeholder">✦</div>
+        <div class="bp-card-placeholder">✦</div>
+        <div class="bp-card-placeholder">✦</div>
+        <div class="bp-card-placeholder">✦</div>
+        <div class="bp-card-placeholder">✦</div>
+        <div class="bp-card-placeholder">✦</div>
+      </div>
+      <div style="font-size:10px;color:var(--dim);font-family:var(--mono);text-align:center;margin-top:8px;font-style:italic;">connected to Mu · coming soon</div>
+    </div>
+  </div>
+</div><!-- end main-wrap -->
 <div class="modal-bg" id="feedback-modal-bg" onclick="if(event.target===this)closeFeedback()">
   <div class="fb-modal">
     <button class="modal-close" onclick="closeFeedback()">×</button>
@@ -789,6 +845,7 @@ function updateHeader(user){
     <span class="user-name">${name}</span>
     <button id="debug-toggle-btn" onclick="toggleDebug()" title="Debug Panel (Alt+Shift+D)"
       style="display:none;background:none;border:1px solid rgba(76,46,87,.6);color:rgba(130,90,150,.9);font-family:var(--mono);font-size:12px;padding:4px 9px;border-radius:4px;cursor:pointer;">⚙</button>
+    <button id="bp-toggle" onclick="toggleBackpack()" title="Backpack" style="background:none;border:1px solid var(--brown3);color:var(--dim);font-size:16px;padding:3px 9px;border-radius:4px;cursor:pointer;">🎒</button>
     <button class="btn-logout" onclick="signOut()">leave</button>`;
 }
 
@@ -2494,6 +2551,36 @@ function initScrollArrow(){
   c.addEventListener('scroll',checkScroll,{passive:true});
   checkScroll();
 }
+
+// ── Backpack panel ────────────────────────────────────────────────────────────
+function toggleBackpack(){
+  const panel=document.getElementById('backpack-panel');
+  const isOpen=!panel.classList.contains('bp-closed');
+  panel.classList.toggle('bp-closed',isOpen);
+  localStorage.setItem('bp-open',isOpen?'0':'1');
+}
+
+// Restore backpack state
+if(localStorage.getItem('bp-open')==='1'){
+  document.getElementById('backpack-panel')?.classList.remove('bp-closed');
+}
+
+// Drag-to-resize the backpack panel
+(()=>{
+  const handle=document.getElementById('bp-resize');
+  const panel=document.getElementById('backpack-panel');
+  if(!handle||!panel) return;
+  let dragging=false, startX=0, startW=0;
+  handle.addEventListener('mousedown',e=>{
+    dragging=true; startX=e.clientX; startW=panel.offsetWidth; e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging) return;
+    const newW=Math.max(160,Math.min(520,startW-(e.clientX-startX)));
+    panel.style.width=newW+'px';
+  });
+  document.addEventListener('mouseup',()=>dragging=false);
+})();
 
 // ── Mobile sidebar ───────────────────────────────────────────────────────────
 function toggleMobileSidebar(){
