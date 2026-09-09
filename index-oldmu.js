@@ -215,27 +215,6 @@ function imageUrl(card) {
   return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(card.card_id).padStart(2,'0')}.png`;
 }
 
-async function getLodgeUserId(discordId) {
-  const { data, error } = await supabase.from('user_roles').select('user_id').eq('discord_id', discordId).maybeSingle();
-  if (error) { console.error('Lodge user lookup error:', error.message); return null; }
-  return data?.user_id || null;
-}
-
-async function saveToBackpack(userId, discordId, cards, fortuneText) {
-  const today = new Date().toISOString().slice(0, 10);
-  const rows = cards.map((c, i) => ({
-    user_id: userId,
-    discord_id: discordId,
-    card_id: c.card_id,
-    drawn_at: today,
-    fortune_text: fortuneText,
-    position: String(i + 1),
-  }));
-  const { error } = await supabase.from('backpack').insert(rows);
-  if (error) console.error('Backpack insert error:', error.message);
-  return !error;
-}
-
 function averageRGB(cards) {
   if (!cards || cards.length === 0) return { r:80, g:60, b:100 };
   return {
@@ -316,14 +295,11 @@ function buildAskMuEmbed(cards,question) {
     .setFooter({text:cards.map(c=>cardDisplayName(c)).join('  ·  ')});
 }
 
-function buildFortuneEmbed(cards,member,fortuneText,savedToBackpack) {
-  const bpLine = savedToBackpack
-    ? `\n\n*Your cards are waiting in your backpack at tricknolodge.onrender.com* 🎒`
-    : `\n\n*Log into the Lodge at tricknolodge.onrender.com to start collecting your cards* 🎒`;
+function buildFortuneEmbed(cards,member) {
   return new EmbedBuilder()
     .setColor(rgbToHex(cards[0].r,cards[0].g,cards[0].b))
     .setAuthor({name:`Mu · reaches out to ${member.displayName}`})
-    .setDescription(`Dear <@${member.id}>,\n*${fortuneText}*${bpLine}`)
+    .setDescription(`Dear <@${member.id}>,\n*${buildFortune(cards)}*`)
     .setFooter({text:cards.map(c=>cardDisplayName(c)).join(' · ')});
 }
 
@@ -385,6 +361,8 @@ client.once('clientReady', async () => {
       .addStringOption(opt=>opt.setName('name').setDescription('Type a name, suit, or number').setRequired(true).setAutocomplete(true)).toJSON(),
     new SlashCommandBuilder().setName('askmu').setDescription('Ask Mu a question and receive an answer from the cards.')
       .addStringOption(opt=>opt.setName('question').setDescription('What would you like to ask?').setRequired(true)).toJSON(),
+    new SlashCommandBuilder().setName('fortune').setDescription('Mu delivers a personal fortune to someone.')
+      .addUserOption(opt=>opt.setName('recipient').setDescription('Who receives the fortune?').setRequired(true)).toJSON(),
     new SlashCommandBuilder().setName('fun').setDescription('Mu shares something from the collection.').toJSON(),
     new SlashCommandBuilder().setName('remember').setDescription('Save something to the Great Library.')
       .addStringOption(opt=>opt.setName('title').setDescription('Name of this entry').setRequired(true))
@@ -407,7 +385,7 @@ client.once('clientReady', async () => {
 
   try {
     await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID,process.env.GUILD_ID),{body:commands});
-    console.log('✓ Commands registered: /draw, /draw3, /card, /askmu, /fun, /remember, /recall, /library');
+    console.log('✓ Commands registered: /draw, /draw3, /card, /askmu, /fortune, /fun, /remember, /recall, /library');
   } catch(err) { console.error('Command registration error:',err); }
 
   // Daily fortune — 8am UTC
@@ -419,15 +397,8 @@ client.once('clientReady', async () => {
       if(members.size===0)return;
       const member=members.random();
       const cards=drawCards(3);
-      const fortuneText=buildFortune(cards);
-
-      const lodgeUserId=await getLodgeUserId(member.id);
-      const savedToBackpack=lodgeUserId
-        ? await saveToBackpack(lodgeUserId,member.id,cards,fortuneText)
-        : false;
-
-      await channel.send({content:`<@${member.id}>`,embeds:[buildFortuneEmbed(cards,member,fortuneText,savedToBackpack)]});
-      console.log(`✓ Daily fortune sent to ${member.displayName}${savedToBackpack?' (saved to backpack)':lodgeUserId?' (backpack write failed)':' (no linked Lodge account)'}`);
+      await channel.send({content:`<@${member.id}>`,embeds:[buildFortuneEmbed(cards,member)]});
+      console.log(`✓ Daily fortune sent to ${member.displayName}`);
     } catch(err){console.error('Daily fortune error:',err);}
   });
 
@@ -505,6 +476,11 @@ client.on('interactionCreate', async (interaction) => {
     if(interaction.commandName==='askmu'){
       const question=interaction.options.getString('question');
       await interaction.reply({embeds:[buildAskMuEmbed(drawCards(randBetween(3,5)),question)]});
+    }
+    if(interaction.commandName==='fortune'){
+      const user=interaction.options.getUser('recipient');
+      const member=await interaction.guild.members.fetch(user.id);
+      await interaction.reply({content:`<@${user.id}>`,embeds:[buildFortuneEmbed(drawCards(3),member)]});
     }
     if(interaction.commandName==='fun'){
       await interaction.deferReply();
