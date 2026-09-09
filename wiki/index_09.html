@@ -826,19 +826,6 @@ db.auth.onAuthStateChange((_event,session)=>{
   }
 });
 
-// Links this Lodge account to the person's Discord ID, so Mu's daily fortunes
-// on Discord can find their way into this account's backpack.
-// NOTE: requires an RLS policy on user_roles allowing a user to update their
-// own row's discord_id column (e.g. USING/WITH CHECK user_id = auth.uid()::text).
-async function syncDiscordId(user){
-  try{
-    const discordId=user.identities?.[0]?.identity_data?.provider_id||user.user_metadata?.provider_id;
-    if(!discordId){ console.warn('No Discord ID found on session — check identity_data shape'); return; }
-    const{error}=await db.from('user_roles').update({discord_id:discordId}).eq('user_id',user.id);
-    if(error) console.warn('Discord ID sync error (non-fatal):',error.message);
-  }catch(err){ console.warn('Discord ID sync error (non-fatal):',err.message); }
-}
-
 function showLoginScreen(){
   document.getElementById("login-screen").style.display="flex";
   document.getElementById("sidebar").style.display="none";
@@ -869,8 +856,6 @@ async function showApp(user){
   updateHeader(user);
   loadSidebarEntries();
   loadSidebarChangelog();
-  syncDiscordId(user);
-  loadBackpack();
 
   // Load custom emojis FIRST — must be ready before messages and reactions render
   await loadCustomEmojis().catch(()=>{});
@@ -2568,46 +2553,6 @@ function initScrollArrow(){
 }
 
 // ── Backpack panel ────────────────────────────────────────────────────────────
-function cardImageUrl(card){
-  return `https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/${String(card.card_id).padStart(2,'0')}.png`;
-}
-
-function bpCardHTML(card){
-  if(!card) return '<div class="bp-card-placeholder">✦</div>';
-  return `<div class="bp-card" title="${card.name}">
-    <img src="${cardImageUrl(card)}" alt="${card.name}" loading="lazy" style="width:100%;border-radius:4px;display:block;">
-  </div>`;
-}
-
-async function loadBackpack(){
-  if(!currentUser) return;
-  const grid=document.getElementById('bp-card-grid');
-  const todayArea=document.getElementById('bp-cards-area');
-  try{
-    const{data,error}=await db.from('backpack')
-      .select('*, cards(*)')
-      .eq('user_id',currentUser.id)
-      .order('drawn_at',{ascending:false})
-      .order('position',{ascending:true});
-    if(error) throw error;
-    const rows=data||[];
-    if(rows.length===0){
-      todayArea.innerHTML='<div class="bp-empty">Mu hasn\'t spoken yet today.</div>';
-      grid.innerHTML=Array(6).fill('<div class="bp-card-placeholder">✦</div>').join('');
-      return;
-    }
-    const todayStr=new Date().toISOString().slice(0,10);
-    const todayRows=rows.filter(r=>r.drawn_at===todayStr);
-    todayArea.innerHTML=todayRows.length
-      ? `<div style="font-size:12px;font-style:italic;color:var(--dim);margin-bottom:6px;">${todayRows[0].fortune_text||''}</div>`
-        +todayRows.map(r=>bpCardHTML(r.cards)).join('')
-      : '<div class="bp-empty">Mu hasn\'t spoken yet today.</div>';
-    grid.innerHTML=rows.map(r=>bpCardHTML(r.cards)).join('');
-  }catch(err){
-    console.warn('Backpack load error:',err.message);
-  }
-}
-
 function toggleBackpack(){
   const panel=document.getElementById('backpack-panel');
   const isOpen=!panel.classList.contains('bp-closed');
@@ -2624,7 +2569,6 @@ function toggleBackpack(){
     const savedW=localStorage.getItem('bp-width');
     if(savedW) panel.style.width=savedW+'px';
     localStorage.setItem('bp-open','1');
-    loadBackpack();
   }
 }
 
