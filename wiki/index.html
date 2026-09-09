@@ -834,8 +834,21 @@ async function syncDiscordId(user){
   try{
     const discordId=user.identities?.[0]?.identity_data?.provider_id||user.user_metadata?.provider_id;
     if(!discordId){ console.warn('No Discord ID found on session — check identity_data shape'); return; }
-    const{error}=await db.from('user_roles').update({discord_id:discordId}).eq('user_id',user.id);
-    if(error) console.warn('Discord ID sync error (non-fatal):',error.message);
+    const{data:existing,error:selErr}=await db.from('user_roles').select('user_id').eq('user_id',user.id).maybeSingle();
+    if(selErr){ console.warn('Discord ID sync error (non-fatal):',selErr.message); return; }
+    if(existing){
+      const{error}=await db.from('user_roles').update({discord_id:discordId}).eq('user_id',user.id);
+      if(error) console.warn('Discord ID sync error (non-fatal):',error.message);
+    } else {
+      // No role row yet (archmage hasn't assigned one via Systems) — create one
+      // now so the discord_id isn't lost. role falls back to its 'apprentice' default.
+      const{error}=await db.from('user_roles').insert({
+        user_id:user.id,
+        user_name:user.user_metadata?.full_name||user.user_metadata?.name||null,
+        discord_id:discordId
+      });
+      if(error) console.warn('Discord ID sync error (non-fatal):',error.message);
+    }
   }catch(err){ console.warn('Discord ID sync error (non-fatal):',err.message); }
 }
 
