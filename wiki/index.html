@@ -2597,25 +2597,30 @@ async function loadBackpack(){
   const grid=document.getElementById('bp-card-grid');
   const todayArea=document.getElementById('bp-cards-area');
   try{
-    const{data,error}=await db.from('backpack')
-      .select('*, cards(*)')
+    const{data:bpRows,error}=await db.from('backpack')
+      .select('*')
       .eq('user_id',currentUser.id)
       .order('drawn_at',{ascending:false})
       .order('position',{ascending:true});
     if(error) throw error;
-    const rows=data||[];
+    const rows=bpRows||[];
     if(rows.length===0){
       todayArea.innerHTML='<div class="bp-empty">Mu hasn\'t spoken yet today.</div>';
       grid.innerHTML=Array(6).fill('<div class="bp-card-placeholder">✦</div>').join('');
       return;
     }
+    const cardIds=[...new Set(rows.map(r=>r.card_id))];
+    const{data:cardRows,error:cardErr}=await db.from('cards').select('*').in('card_id',cardIds);
+    if(cardErr) throw cardErr;
+    const cardById=Object.fromEntries((cardRows||[]).map(c=>[c.card_id,c]));
+
     const todayStr=new Date().toISOString().slice(0,10);
     const todayRows=rows.filter(r=>r.drawn_at===todayStr);
     todayArea.innerHTML=todayRows.length
       ? `<div style="font-size:12px;font-style:italic;color:var(--dim);margin-bottom:6px;">${todayRows[0].fortune_text||''}</div>`
-        +todayRows.map(r=>bpCardHTML(r.cards)).join('')
+        +todayRows.map(r=>bpCardHTML(cardById[r.card_id])).join('')
       : '<div class="bp-empty">Mu hasn\'t spoken yet today.</div>';
-    grid.innerHTML=rows.map(r=>bpCardHTML(r.cards)).join('');
+    grid.innerHTML=rows.map(r=>bpCardHTML(cardById[r.card_id])).join('');
   }catch(err){
     console.warn('Backpack load error:',err.message);
   }
