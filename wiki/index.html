@@ -757,7 +757,37 @@ const MU_INTROS=[
 function drawCards(n){ return [...CARDS].sort(()=>Math.random()-0.5).slice(0,n); }
 function cardName(c){ return c.suit==="major"?c.name:`${c.sn}·${c.suit[0].toUpperCase()}·${c.name}`; }
 
+function isCasualGreeting(text){
+  const t=text.toLowerCase();
+  return /\bmu\b/.test(t) && (/\bsup\b/.test(t) || /what.?s?\s*up/.test(t));
+}
+
+// Best-effort verb -> gerund. Card verbs are written 3rd-person-present
+// ("dominates", "confronts"), sometimes multi-word ("dissolves and bonds") —
+// this only reshapes the first word and leaves the rest, which is loose but
+// keeps the playful, slightly-off tone the rest of Mu's voice already has.
+function gerund(verbPhrase){
+  const words=verbPhrase.trim().split(/\s+/);
+  const irregular={are:"being",is:"being",were:"having been",was:"having been"};
+  const head=words[0].toLowerCase();
+  let out;
+  if(irregular[head]){ out=irregular[head]; }
+  else{
+    let v=head.replace(/s$/,"");
+    if(/e$/.test(v)&&!/ee$/.test(v)) v=v.slice(0,-1);
+    out=v+"ing";
+  }
+  return [out,...words.slice(1)].join(" ");
+}
+
+function buildCasualReply(){
+  const card=drawCards(1)[0];
+  const article=/^[aeiou]/i.test(card.noun)?"an":"a";
+  return{sentence:`Not much, just ${gerund(card.verb)} like ${article} ${card.noun.toLowerCase()}.`,cards:[card]};
+}
+
 function buildMuReply(userText){
+  if(isCasualGreeting(userText)) return buildCasualReply();
   const cards=drawCards(2);
   let sentence;
   const isQuestion=userText.includes("?");
