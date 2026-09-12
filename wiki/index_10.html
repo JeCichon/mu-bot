@@ -23,21 +23,6 @@
     --serif: Georgia, 'Times New Roman', serif;
   }
   html,body { height:100%; }
-</style>
-<!-- Apply saved color theme before first paint -->
-<script>
-(function(){
-  try{
-    const saved=localStorage.getItem('lodge-theme');
-    if(saved){
-      const vars=JSON.parse(saved);
-      const root=document.documentElement;
-      Object.entries(vars).forEach(([k,v])=>root.style.setProperty(k,v));
-    }
-  }catch(e){}
-})();
-</script>
-<style>
   body { background:var(--brown); color:var(--parchment); font-family:var(--serif); font-size:14px; display:flex; flex-direction:column; min-height:100vh; }
 
   /* ── Header ── */
@@ -103,9 +88,6 @@
   .bp-card-placeholder{aspect-ratio:5/9;background:var(--brown3);border:1px solid rgba(80,58,36,.7);
     border-radius:4px;display:flex;align-items:center;justify-content:center;
     font-size:18px;color:rgba(80,58,36,.8);}
-  .bp-card{aspect-ratio:5/9;border-radius:4px;overflow:hidden;cursor:pointer;
-    transition:transform .15s;border:1px solid rgba(80,58,36,.5);}
-  .bp-card:hover{transform:scale(1.04);}
   /* Toggle btn in header */
   #bp-toggle{background:none;border:1px solid var(--brown3);color:var(--dim);font-size:16px;
     padding:3px 9px;border-radius:4px;cursor:pointer;transition:all .15s;flex-shrink:0;}
@@ -775,7 +757,37 @@ const MU_INTROS=[
 function drawCards(n){ return [...CARDS].sort(()=>Math.random()-0.5).slice(0,n); }
 function cardName(c){ return c.suit==="major"?c.name:`${c.sn}·${c.suit[0].toUpperCase()}·${c.name}`; }
 
+function isCasualGreeting(text){
+  const t=text.toLowerCase();
+  return /\bmu\b/.test(t) && (/\bsup\b/.test(t) || /what.?s?\s*up/.test(t));
+}
+
+// Best-effort verb -> gerund. Card verbs are written 3rd-person-present
+// ("dominates", "confronts"), sometimes multi-word ("dissolves and bonds") —
+// this only reshapes the first word and leaves the rest, which is loose but
+// keeps the playful, slightly-off tone the rest of Mu's voice already has.
+function gerund(verbPhrase){
+  const words=verbPhrase.trim().split(/\s+/);
+  const irregular={are:"being",is:"being",were:"having been",was:"having been"};
+  const head=words[0].toLowerCase();
+  let out;
+  if(irregular[head]){ out=irregular[head]; }
+  else{
+    let v=head.replace(/s$/,"");
+    if(/e$/.test(v)&&!/ee$/.test(v)) v=v.slice(0,-1);
+    out=v+"ing";
+  }
+  return [out,...words.slice(1)].join(" ");
+}
+
+function buildCasualReply(){
+  const card=drawCards(1)[0];
+  const article=/^[aeiou]/i.test(card.noun)?"an":"a";
+  return{sentence:`Not much, just ${gerund(card.verb)} like ${article} ${card.noun.toLowerCase()}.`,cards:[card]};
+}
+
 function buildMuReply(userText){
+  if(isCasualGreeting(userText)) return buildCasualReply();
   const cards=drawCards(2);
   let sentence;
   const isQuestion=userText.includes("?");
@@ -844,17 +856,22 @@ db.auth.onAuthStateChange((_event,session)=>{
   }
 });
 
-// Links this Lodge account to the person's Discord ID so Mu's daily fortunes
-// can find their way into this account's backpack.
+// Links this Lodge account to the person's Discord ID, so Mu's daily fortunes
+// on Discord can find their way into this account's backpack.
+// NOTE: requires an RLS policy on user_roles allowing a user to update their
+// own row's discord_id column (e.g. USING/WITH CHECK user_id = auth.uid()::text).
 async function syncDiscordId(user){
   try{
     const discordId=user.identities?.[0]?.identity_data?.provider_id||user.user_metadata?.provider_id;
-    if(!discordId){ console.warn('No Discord ID found on session'); return; }
-    const{data:existing}=await db.from('user_roles').select('user_id').eq('user_id',user.id).maybeSingle();
+    if(!discordId){ console.warn('No Discord ID found on session — check identity_data shape'); return; }
+    const{data:existing,error:selErr}=await db.from('user_roles').select('user_id').eq('user_id',user.id).maybeSingle();
+    if(selErr){ console.warn('Discord ID sync error (non-fatal):',selErr.message); return; }
     if(existing){
       const{error}=await db.from('user_roles').update({discord_id:discordId}).eq('user_id',user.id);
       if(error) console.warn('Discord ID sync error (non-fatal):',error.message);
     } else {
+      // No role row yet (archmage hasn't assigned one via Systems) — create one
+      // now so the discord_id isn't lost. role falls back to its 'apprentice' default.
       const{error}=await db.from('user_roles').insert({
         user_id:user.id,
         user_name:user.user_metadata?.full_name||user.user_metadata?.name||null,
@@ -2618,21 +2635,22 @@ async function loadBackpack(){
     if(error) throw error;
     const rows=bpRows||[];
     if(rows.length===0){
-      if(todayArea) todayArea.innerHTML='<div class="bp-empty">Mu hasn\'t spoken yet today.</div>';
-      if(grid) grid.innerHTML=Array(6).fill('<div class="bp-card-placeholder">✦</div>').join('');
+      todayArea.innerHTML='<div class="bp-empty">Mu hasn\'t spoken yet today.</div>';
+      grid.innerHTML=Array(6).fill('<div class="bp-card-placeholder">✦</div>').join('');
       return;
     }
     const cardIds=[...new Set(rows.map(r=>r.card_id))];
     const{data:cardRows,error:cardErr}=await db.from('cards').select('*').in('card_id',cardIds);
     if(cardErr) throw cardErr;
     const cardById=Object.fromEntries((cardRows||[]).map(c=>[c.card_id,c]));
+
     const todayStr=new Date().toISOString().slice(0,10);
     const todayRows=rows.filter(r=>r.drawn_at===todayStr);
-    if(todayArea) todayArea.innerHTML=todayRows.length
+    todayArea.innerHTML=todayRows.length
       ? `<div style="font-size:12px;font-style:italic;color:var(--dim);margin-bottom:6px;">${todayRows[0].fortune_text||''}</div>`
         +todayRows.map(r=>bpCardHTML(cardById[r.card_id])).join('')
       : '<div class="bp-empty">Mu hasn\'t spoken yet today.</div>';
-    if(grid) grid.innerHTML=rows.map(r=>bpCardHTML(cardById[r.card_id])).join('');
+    grid.innerHTML=rows.map(r=>bpCardHTML(cardById[r.card_id])).join('');
   }catch(err){
     console.warn('Backpack load error:',err.message);
   }

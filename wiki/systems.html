@@ -21,21 +21,36 @@ if(window.self!==window.top){
     --archmage:#9955cc;--practitioner:#4477cc;--apprentice:rgb(144,171,153);
     --mono:'Courier New',Courier,monospace;--serif:Georgia,'Times New Roman',serif;
   }
-  body{background:var(--brown);color:var(--parchment);font-family:var(--serif);font-size:14px;min-height:100vh;}
-  header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:12px 24px;display:flex;align-items:center;gap:14px;}
+  body{background:var(--brown);color:var(--parchment);font-family:var(--serif);font-size:14px;min-height:100vh;display:flex;flex-direction:column;}
+  header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:12px 24px;display:flex;align-items:center;gap:14px;flex-shrink:0;}
   .back-link{color:var(--green);text-decoration:none;font-family:var(--mono);font-size:12px;}
   .back-link:hover{color:var(--parchment);}
   .page-title{font-size:18px;color:var(--green);font-weight:normal;letter-spacing:0.08em;}
   .page-sub{font-size:11px;color:var(--dim);font-family:var(--mono);}
 
-  .wrap{max-width:860px;margin:0 auto;padding:24px 20px;}
+  /* ── Two-pane layout ── */
+  .sys-layout{display:flex;flex:1;overflow:hidden;}
+  .sys-nav{width:200px;flex-shrink:0;background:var(--brown2);border-right:1px solid var(--brown3);
+    display:flex;flex-direction:column;padding:14px 0;}
+  .sys-search{margin:0 10px 10px;background:var(--brown);border:1px solid var(--brown3);
+    color:var(--parchment);font-family:var(--mono);font-size:12px;padding:6px 10px;
+    border-radius:4px;outline:none;width:calc(100% - 20px);}
+  .sys-search:focus{border-color:var(--green3);}
+  .sys-search::placeholder{color:var(--dim);}
+  .sys-nav-item{padding:9px 16px;font-family:var(--mono);font-size:12px;color:var(--dim);
+    cursor:pointer;transition:all .15s;border-left:2px solid transparent;display:flex;align-items:center;gap:8px;}
+  .sys-nav-item:hover{color:var(--parchment);background:rgba(80,58,36,.4);}
+  .sys-nav-item.active{color:var(--green);border-left-color:var(--green);background:rgba(80,105,90,.08);}
+  .sys-content{flex:1;overflow-y:auto;padding:24px 28px;}
 
-  /* Section headers */
+  /* ── Sections ── */
+  .sys-section{display:none;}
+  .sys-section.active{display:block;}
   .section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--brown3);}
   .section-title{font-size:14px;color:var(--green);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase;}
   .section-count{font-size:11px;color:var(--dim);font-family:var(--mono);}
 
-  /* Member rows */
+  /* ── Member rows ── */
   .member-list{display:flex;flex-direction:column;gap:6px;margin-bottom:32px;}
   .member-row{background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:12px;}
   .member-avatar{width:36px;height:36px;border-radius:50%;border:1px solid var(--brown3);background:var(--brown3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;overflow:hidden;}
@@ -49,8 +64,6 @@ if(window.self!==window.top){
   .role-badge.practitioner{background:rgba(68,119,204,.2);color:var(--practitioner);border:1px solid rgba(68,119,204,.3);}
   .role-badge.apprentice{background:rgba(80,105,90,.2);color:var(--apprentice);border:1px solid rgba(80,105,90,.3);}
   .role-badge.none{background:var(--brown3);color:var(--dim);border:1px solid var(--brown3);}
-
-  /* Role select */
   .role-select{background:var(--brown);border:1px solid var(--brown3);color:var(--parchment);font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:4px;cursor:pointer;outline:none;flex-shrink:0;}
   .role-select:focus{border-color:var(--green3);}
   .role-select option{background:var(--brown2);}
@@ -58,8 +71,6 @@ if(window.self!==window.top){
   .save-role-btn:hover{border-color:var(--green3);color:var(--green);}
   .save-role-btn.changed{border-color:var(--green);color:var(--green);background:rgba(80,105,90,.15);}
   .save-confirm{font-size:11px;font-family:var(--mono);color:var(--green);margin-left:4px;display:none;}
-
-  /* Add member form */
   .add-form{background:var(--brown2);border:1px solid var(--brown3);border-radius:6px;padding:16px 18px;}
   .field-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
   .field{flex:1;min-width:180px;}
@@ -72,8 +83,25 @@ if(window.self!==window.top){
   .add-btn:hover{background:var(--purple2);}
   .add-status{font-size:12px;font-family:var(--mono);margin-top:8px;min-height:18px;color:var(--green);}
   .hint{font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:6px;line-height:1.5;}
-
   .loading{color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:20px;text-align:center;}
+  .role-btn{background:var(--brown2);border:1px solid var(--brown3);color:var(--parchment2);font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:4px;cursor:pointer;transition:all .15s;}
+  .role-btn:hover{border-color:var(--green3);}
+
+  /* ── Color Templates ── */
+  .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:4px;}
+  .theme-card{background:var(--brown2);border:1px solid var(--brown3);border-radius:8px;
+    padding:16px;cursor:pointer;transition:border-color .2s,transform .1s;position:relative;}
+  .theme-card:hover{border-color:var(--green3);transform:translateY(-1px);}
+  .theme-card.applied{border-color:var(--green);}
+  .theme-card.applied::after{content:'✓ applied';position:absolute;top:10px;right:10px;
+    font-size:10px;font-family:var(--mono);color:var(--green);}
+  .theme-swatches{display:flex;gap:4px;margin-bottom:10px;border-radius:4px;overflow:hidden;height:28px;}
+  .theme-swatch{flex:1;}
+  .theme-name{font-size:13px;color:var(--parchment);margin-bottom:3px;}
+  .theme-desc{font-size:11px;color:var(--dim);font-family:var(--mono);line-height:1.4;}
+  .theme-reset{background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);
+    font-size:11px;padding:5px 12px;border-radius:4px;cursor:pointer;margin-top:16px;transition:all .15s;}
+  .theme-reset:hover{border-color:var(--green3);color:var(--parchment);}
 
   ::-webkit-scrollbar{width:5px;}
   ::-webkit-scrollbar-track{background:var(--brown);}
@@ -85,106 +113,307 @@ if(window.self!==window.top){
   <a class="back-link" href="index.html">← Lodge</a>
   <div>
     <div class="page-title">⚙ Systems</div>
-    <div class="page-sub">roles · members · administration</div>
+    <div class="page-sub">settings · members · appearance</div>
   </div>
 </header>
 
-<div class="wrap">
+<div class="sys-layout">
+  <!-- Left nav -->
+  <nav class="sys-nav">
+    <input class="sys-search" type="text" placeholder="search settings…" oninput="filterSections(this.value)">
+    <div class="sys-nav-item active" onclick="showSection('members',this)">👥 Members &amp; Roles</div>
+    <div class="sys-nav-item" onclick="showSection('colors',this)">🎨 Color Templates</div>
+  </nav>
 
-  <!-- Members -->
-  <div class="section-hdr">
-    <span class="section-title">lodge members</span>
-    <span class="section-count" id="member-count"></span>
-    <button onclick="loadAll()" style="margin-left:auto;background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;" onmouseover="this.style.borderColor='var(--green3)'" onmouseout="this.style.borderColor='var(--brown3)'">↺ refresh</button>
-  </div>
-  <div class="member-list" id="member-list">
-    <div class="loading">*gathering records…*</div>
-  </div>
+  <!-- Right content -->
+  <div class="sys-content" id="sys-content">
 
-  <!-- Add member -->
-  <div class="section-hdr">
-    <span class="section-title">add member by UUID</span>
-  </div>
-  <div class="add-form">
-    <div class="field-row">
-      <div class="field">
-        <div class="field-label">UUID *</div>
-        <input type="text" id="add-uuid" placeholder="paste from Supabase → Auth → Users">
+    <!-- ── Section: Members & Roles ── -->
+    <div class="sys-section active" id="sec-members">
+
+      <div class="section-hdr">
+        <span class="section-title">lodge members</span>
+        <span class="section-count" id="member-count"></span>
+        <button onclick="loadAll()" style="margin-left:auto;background:none;border:1px solid var(--brown3);color:var(--dim);font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;" onmouseover="this.style.borderColor='var(--green3)'" onmouseout="this.style.borderColor='var(--brown3)'">↺ refresh</button>
       </div>
-      <div class="field" style="max-width:160px;">
-        <div class="field-label">Display Name</div>
-        <input type="text" id="add-name" placeholder="optional">
+      <div class="member-list" id="member-list">
+        <div class="loading">*gathering records…*</div>
       </div>
-      <div class="field" style="max-width:160px;">
-        <div class="field-label">Role</div>
-        <select id="add-role">
-          <option value="apprentice">apprentice</option>
-          <option value="practitioner">practitioner</option>
-          <option value="archmage">archmage</option>
-        </select>
+
+      <div class="section-hdr">
+        <span class="section-title">add member by UUID</span>
       </div>
-      <button class="add-btn" onclick="addMember()">add</button>
-    </div>
-    <div class="add-status" id="add-status"></div>
-    <div class="hint">Find UUIDs in: <strong>Supabase → Authentication → Users</strong><br>Anyone who has logged in with Discord appears there.</div>
-  </div>
+      <div class="add-form">
+        <div class="field-row">
+          <div class="field">
+            <div class="field-label">UUID *</div>
+            <input type="text" id="add-uuid" placeholder="paste from Supabase → Auth → Users">
+          </div>
+          <div class="field" style="max-width:160px;">
+            <div class="field-label">Display Name</div>
+            <input type="text" id="add-name" placeholder="optional">
+          </div>
+          <div class="field" style="max-width:160px;">
+            <div class="field-label">Role</div>
+            <select id="add-role">
+              <option value="apprentice">apprentice</option>
+              <option value="practitioner">practitioner</option>
+              <option value="archmage">archmage</option>
+            </select>
+          </div>
+          <button class="add-btn" onclick="addMember()">add</button>
+        </div>
+        <div class="add-status" id="add-status"></div>
+        <div class="hint">Find UUIDs in: <strong>Supabase → Authentication → Users</strong><br>Anyone who has logged in with Discord appears there.</div>
+      </div>
 
-  <!-- Role Capabilities Panel -->
-  <div style="margin-top:36px;">
-    <div class="section-hdr">
-      <span class="section-title">Role Capabilities</span>
-      <span class="section-count">what each role can do</span>
-    </div>
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
-        <thead>
-          <tr>
-            <th style="text-align:left;padding:8px 12px;color:var(--dim);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Capability</th>
-            <th style="text-align:center;padding:8px 16px;color:var(--apprentice);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Apprentice</th>
-            <th style="text-align:center;padding:8px 16px;color:var(--practitioner);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Practitioner</th>
-            <th style="text-align:center;padding:8px 16px;color:var(--archmage);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Archmage</th>
-          </tr>
-        </thead>
-        <tbody id="capabilities-body"></tbody>
-      </table>
-    </div>
-  </div>
+      <div style="margin-top:36px;">
+        <div class="section-hdr">
+          <span class="section-title">Role Capabilities</span>
+          <span class="section-count">what each role can do</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px 12px;color:var(--dim);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Capability</th>
+                <th style="text-align:center;padding:8px 16px;color:var(--apprentice);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Apprentice</th>
+                <th style="text-align:center;padding:8px 16px;color:var(--practitioner);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Practitioner</th>
+                <th style="text-align:center;padding:8px 16px;color:var(--archmage);border-bottom:1px solid var(--brown3);font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Archmage</th>
+              </tr>
+            </thead>
+            <tbody id="capabilities-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /sec-members -->
 
+    <!-- ── Section: Color Templates ── -->
+    <div class="sys-section" id="sec-colors">
+      <div class="section-hdr">
+        <span class="section-title">Color Templates</span>
+        <span class="section-count">applies to the Lodge immediately · saved across sessions</span>
+      </div>
+      <p style="font-size:12px;color:var(--dim);font-family:var(--mono);margin-bottom:20px;line-height:1.6;">
+        Choose a palette for your Lodge experience. Changes apply instantly and are remembered on next visit. Each member sets their own — this doesn't affect how others see the Lodge.
+      </p>
 
+      <div class="theme-grid" id="theme-grid"></div>
+
+      <button class="theme-reset" onclick="resetTheme()">↺ Reset to Lodge Default</button>
+    </div><!-- /sec-colors -->
+
+  </div><!-- /sys-content -->
 </div>
 
 <script>
 const SUPABASE_URL='https://tngvginwtsldulqgufoe.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-
 const ROLE_ORDER={archmage:0,practitioner:1,apprentice:2};
-
 let currentUser=null;
 
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showSection(id, navEl){
+  document.querySelectorAll('.sys-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.sys-nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('sec-'+id)?.classList.add('active');
+  if(navEl) navEl.classList.add('active');
+  // Colour section is open to all lodge members
+  if(id==='colors') renderThemes();
+}
+
+function filterSections(q){
+  const ql=q.toLowerCase().trim();
+  if(!ql){
+    document.querySelectorAll('.sys-nav-item').forEach(n=>n.style.display='');
+    return;
+  }
+  document.querySelectorAll('.sys-nav-item').forEach(n=>{
+    n.style.display=n.textContent.toLowerCase().includes(ql)?'':'none';
+  });
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
 db.auth.onAuthStateChange(async(_e,session)=>{
   currentUser=session?.user||null;
   if(currentUser){
     const{data}=await db.from('user_roles').select('role').eq('user_id',currentUser.id).maybeSingle();
-    if(data?.role!=='archmage'){
-      document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:var(--mono);color:var(--dim)">archmage access required</div>';
-      return;
+    const role=data?.role||'apprentice';
+    if(role==='archmage'){
+      loadAll();
+    } else {
+      // Non-archmage: hide member management, go straight to colors
+      document.getElementById('sec-members').innerHTML=
+        '<div style="color:var(--dim);font-family:var(--mono);font-size:13px;font-style:italic;padding:20px;">Member management is archmage-only. Use Color Templates to personalize your Lodge.</div>';
+      document.querySelector('[onclick*="members"]').click();
     }
-    loadAll();
+    renderThemes();
   } else {
     document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:var(--mono);color:var(--dim)">sign in to the Lodge first</div>';
   }
 });
 
+// ── Color Themes ──────────────────────────────────────────────────────────────
+const THEMES=[
+  {
+    id:'default',
+    name:'Lodge Default',
+    desc:'The original dark wooden atmosphere.',
+    vars:{
+      '--brown':       'rgb(43,28,16)',
+      '--brown2':      'rgb(60,42,26)',
+      '--brown3':      'rgb(80,58,36)',
+      '--green':       'rgb(144,171,153)',
+      '--green2':      'rgb(110,135,118)',
+      '--green3':      'rgb(80,105,90)',
+      '--purple':      'rgb(76,46,87)',
+      '--purple2':     'rgb(100,65,112)',
+      '--parchment':   'rgb(220,210,190)',
+      '--parchment2':  'rgb(200,188,168)',
+      '--dim':         'rgb(120,100,80)',
+    }
+  },
+  {
+    id:'midnight',
+    name:'Midnight',
+    desc:'Cold indigo void. Ice-blue stars in deep space.',
+    vars:{
+      '--brown':       'rgb(8,10,20)',
+      '--brown2':      'rgb(14,18,34)',
+      '--brown3':      'rgb(24,30,52)',
+      '--green':       'rgb(100,162,204)',
+      '--green2':      'rgb(70,132,172)',
+      '--green3':      'rgb(45,90,132)',
+      '--purple':      'rgb(55,38,108)',
+      '--purple2':     'rgb(88,55,152)',
+      '--parchment':   'rgb(200,218,235)',
+      '--parchment2':  'rgb(162,186,212)',
+      '--dim':         'rgb(78,100,130)',
+    }
+  },
+  {
+    id:'forest',
+    name:'Deep Forest',
+    desc:'Ancient woodland. Moss, bark, and canopy green.',
+    vars:{
+      '--brown':       'rgb(10,16,10)',
+      '--brown2':      'rgb(16,26,16)',
+      '--brown3':      'rgb(26,42,24)',
+      '--green':       'rgb(140,205,128)',
+      '--green2':      'rgb(100,166,88)',
+      '--green3':      'rgb(60,112,54)',
+      '--purple':      'rgb(38,72,50)',
+      '--purple2':     'rgb(55,102,65)',
+      '--parchment':   'rgb(210,232,204)',
+      '--parchment2':  'rgb(168,202,158)',
+      '--dim':         'rgb(88,132,78)',
+    }
+  },
+  {
+    id:'sunset',
+    name:'Sunset',
+    desc:'Amber, ochre, and rose. The hour between worlds.',
+    vars:{
+      '--brown':       'rgb(22,10,6)',
+      '--brown2':      'rgb(35,16,8)',
+      '--brown3':      'rgb(54,25,10)',
+      '--green':       'rgb(232,142,78)',
+      '--green2':      'rgb(200,102,52)',
+      '--green3':      'rgb(162,68,34)',
+      '--purple':      'rgb(122,46,72)',
+      '--purple2':     'rgb(172,55,88)',
+      '--parchment':   'rgb(242,222,195)',
+      '--parchment2':  'rgb(222,182,138)',
+      '--dim':         'rgb(162,100,58)',
+    }
+  },
+  {
+    id:'pastel',
+    name:'Pastel Gray',
+    desc:'Soft lavender mist. Quiet, airy, contemplative.',
+    vars:{
+      '--brown':       'rgb(22,20,30)',
+      '--brown2':      'rgb(32,30,45)',
+      '--brown3':      'rgb(46,44,64)',
+      '--green':       'rgb(172,162,215)',
+      '--green2':      'rgb(140,130,188)',
+      '--green3':      'rgb(100,95,158)',
+      '--purple':      'rgb(90,70,142)',
+      '--purple2':     'rgb(132,96,182)',
+      '--parchment':   'rgb(236,233,248)',
+      '--parchment2':  'rgb(212,206,232)',
+      '--dim':         'rgb(142,132,172)',
+    }
+  },
+  {
+    id:'rosecross',
+    name:'Rose Cross',
+    desc:'Ceremonial and sovereign. Crimson, emerald, gold.',
+    vars:{
+      '--brown':       'rgb(14,0,6)',
+      '--brown2':      'rgb(28,2,12)',
+      '--brown3':      'rgb(54,5,22)',
+      '--green':       'rgb(0,198,65)',
+      '--green2':      'rgb(0,158,50)',
+      '--green3':      'rgb(0,112,38)',
+      '--purple':      'rgb(102,0,162)',
+      '--purple2':     'rgb(152,0,222)',
+      '--parchment':   'rgb(255,250,235)',
+      '--parchment2':  'rgb(255,215,80)',
+      '--dim':         'rgb(182,130,80)',
+    }
+  },
+];
+
+function getSwatchColors(vars){
+  return[vars['--brown'],vars['--brown2'],vars['--green'],vars['--purple2'],vars['--parchment']];
+}
+
+function renderThemes(){
+  const applied=localStorage.getItem('lodge-theme-id')||'default';
+  const grid=document.getElementById('theme-grid');
+  if(!grid) return;
+  grid.innerHTML=THEMES.map(t=>`
+    <div class="theme-card${t.id===applied?' applied':''}" onclick="applyTheme('${t.id}')">
+      <div class="theme-swatches">
+        ${getSwatchColors(t.vars).map(c=>`<div class="theme-swatch" style="background:${c}"></div>`).join('')}
+      </div>
+      <div class="theme-name">${t.name}</div>
+      <div class="theme-desc">${t.desc}</div>
+    </div>`).join('');
+}
+
+function applyTheme(id){
+  const theme=THEMES.find(t=>t.id===id);
+  if(!theme) return;
+  // Apply to this page
+  const root=document.documentElement;
+  Object.entries(theme.vars).forEach(([k,v])=>root.style.setProperty(k,v));
+  // Apply to Lodge (parent window)
+  try{
+    const pRoot=window.parent.document.documentElement;
+    Object.entries(theme.vars).forEach(([k,v])=>pRoot.style.setProperty(k,v));
+  }catch(e){}
+  // Persist
+  localStorage.setItem('lodge-theme-id',id);
+  localStorage.setItem('lodge-theme',JSON.stringify(theme.vars));
+  renderThemes();
+}
+
+function resetTheme(){
+  applyTheme('default');
+  localStorage.removeItem('lodge-theme');
+  localStorage.removeItem('lodge-theme-id');
+  renderThemes();
+}
+
+// ── Member management (archmage only) ─────────────────────────────────────────
 async function loadAll(){
   document.getElementById('member-list').innerHTML='<div class="loading">*gathering records…*</div>';
-  
-  // 1. Get all user_roles
   const{data:roles}=await db.from('user_roles').select('*');
   const roleMap={};
   (roles||[]).forEach(r=>{ roleMap[r.user_id]=r; });
-
-  // 2. Discover users from messages (most recent name+avatar per user)
   const{data:msgs}=await db.from('messages').select('user_id,user_name,user_avatar')
     .eq('is_mu',false).eq('is_system',false)
     .not('user_id','eq','system').order('created_at',{ascending:false}).limit(500);
@@ -193,164 +422,124 @@ async function loadAll(){
     if(!m.user_id||userMap[m.user_id]) return;
     userMap[m.user_id]={user_id:m.user_id,user_name:m.user_name,user_avatar:m.user_avatar};
   });
-
-  // 3. Include users from lodge_presence (recent visitors)
   const{data:presence}=await db.from('lodge_presence').select('*');
   (presence||[]).forEach(p=>{
     if(!userMap[p.user_id]) userMap[p.user_id]={user_id:p.user_id,user_name:p.user_name,user_avatar:p.user_avatar};
-    else if(!userMap[p.user_id].user_avatar&&p.user_avatar) userMap[p.user_id].user_avatar=p.user_avatar;
   });
-
-  // 4. Include all users from user_roles even if no messages
-  (roles||[]).forEach(r=>{
+  Object.values(roleMap).forEach(r=>{
     if(!userMap[r.user_id]) userMap[r.user_id]={user_id:r.user_id,user_name:r.user_name||'unknown',user_avatar:null};
   });
-
-  const members=Object.values(userMap);
-  // Sort by role rank, then name
-  members.sort((a,b)=>{
-    const ra=ROLE_ORDER[roleMap[a.user_id]?.role]??3;
-    const rb=ROLE_ORDER[roleMap[b.user_id]?.role]??3;
-    if(ra!==rb) return ra-rb;
-    return (a.user_name||'').localeCompare(b.user_name||'');
+  const users=Object.values(userMap).sort((a,b)=>{
+    const ra=roleMap[a.user_id]?.role||'none';
+    const rb=roleMap[b.user_id]?.role||'none';
+    return(ROLE_ORDER[ra]??9)-(ROLE_ORDER[rb]??9);
   });
-
-  document.getElementById('member-count').textContent=`${members.length} found`;
-  document.getElementById('member-list').innerHTML=members.map(m=>{
-    const role=roleMap[m.user_id]?.role||'';
-    const avatarHtml=m.user_avatar?`<img src="${m.user_avatar}" alt="">`:"👤";
-    const shortId=m.user_id.slice(0,8)+'…';
-    return`<div class="member-row" id="mr-${m.user_id}">
+  document.getElementById('member-count').textContent=users.length+' members';
+  const list=document.getElementById('member-list');
+  if(!users.length){list.innerHTML='<div class="loading">No users found</div>';return;}
+  list.innerHTML=users.map(u=>{
+    const r=roleMap[u.user_id];
+    const role=r?.role||'none';
+    const shortId=u.user_id.slice(0,8)+'…';
+    const avatarHtml=u.user_avatar
+      ?`<img src="${u.user_avatar}" alt="" onerror="this.style.display='none'">`
+      :`<span>🧙</span>`;
+    return`<div class="member-row">
       <div class="member-avatar">${avatarHtml}</div>
       <div class="member-info">
-        <div class="member-name">${m.user_name||'unknown'}</div>
-        <div class="member-uuid" onclick="copyUuid('${m.user_id}',this)" title="Click to copy UUID">${shortId}</div>
+        <div class="member-name">${u.user_name||'unknown'}</div>
+        <div class="member-uuid" onclick="copyUuid('${u.user_id}',this)" title="Click to copy UUID">${shortId}</div>
       </div>
-      <span class="role-badge ${role||'none'}">${role||'no role'}</span>
-      <select class="role-select" id="sel-${m.user_id}" onchange="markChanged('${m.user_id}')">
-        <option value="">— no role —</option>
-        <option value="apprentice" ${role==='apprentice'?'selected':''}>apprentice</option>
-        <option value="practitioner" ${role==='practitioner'?'selected':''}>practitioner</option>
-        <option value="archmage" ${role==='archmage'?'selected':''}>archmage</option>
+      <span class="role-badge ${role}">${role}</span>
+      <select class="role-select" id="sel-${u.user_id}" onchange="markChanged('${u.user_id}')">
+        <option value="apprentice"${role==='apprentice'?' selected':''}>apprentice</option>
+        <option value="practitioner"${role==='practitioner'?' selected':''}>practitioner</option>
+        <option value="archmage"${role==='archmage'?' selected':''}>archmage</option>
+        <option value="none"${role==='none'?' selected':''}>— remove</option>
       </select>
-      <button class="save-role-btn" id="savebtn-${m.user_id}" onclick="saveRole('${m.user_id}','${(m.user_name||'').replace(/'/g,"\\'")}')">save</button>
-      <span class="save-confirm" id="conf-${m.user_id}">✓</span>
+      <button class="save-role-btn" id="btn-${u.user_id}" onclick="saveRole('${u.user_id}','${u.user_name||''}')">save</button>
+      <span class="save-confirm" id="conf-${u.user_id}">✓</span>
     </div>`;
   }).join('');
+  renderCapabilities();
 }
 
 function markChanged(uid){
-  const btn=document.getElementById('savebtn-'+uid);
-  if(btn) btn.classList.add('changed');
+  document.getElementById('btn-'+uid)?.classList.add('changed');
+}
+
+function copyUuid(uuid,el){
+  navigator.clipboard.writeText(uuid).then(()=>{
+    const orig=el.textContent;el.textContent='copied!';
+    setTimeout(()=>el.textContent=orig,1500);
+  });
 }
 
 async function saveRole(uid,name){
   const sel=document.getElementById('sel-'+uid);
-  const role=sel?.value||'';
-  const btn=document.getElementById('savebtn-'+uid);
-  const conf=document.getElementById('conf-'+uid);
-  const badge=document.querySelector(`#mr-${uid} .role-badge`);
   if(!sel) return;
-
-  let saveError;
-  if(!role){
-    const{error}=await db.from('user_roles').delete().eq('user_id',uid);
-    saveError=error;
+  const role=sel.value;
+  const btn=document.getElementById('btn-'+uid);
+  const conf=document.getElementById('conf-'+uid);
+  if(role==='none'){
+    await db.from('user_roles').delete().eq('user_id',uid);
   } else {
-    const{error}=await db.from('user_roles').upsert({user_id:uid,user_name:name,role},{onConflict:'user_id'});
-    saveError=error;
-  }
-  if(saveError){
-    if(conf){ conf.style.display='inline'; conf.textContent='✗ failed: '+saveError.message; conf.style.color='#e06060'; }
-    console.error('Role save failed:',saveError);
-    return;
-  }
-
-  // Update badge
-  if(badge){
-    badge.className='role-badge '+(role||'none');
-    badge.textContent=role||'no role';
+    await db.from('user_roles').upsert({user_id:uid,user_name:name,role},{onConflict:'user_id'});
   }
   if(btn) btn.classList.remove('changed');
-  if(conf){ conf.style.display='inline'; setTimeout(()=>conf.style.display='none',1500); }
-}
-
-function copyUuid(uid,el){
-  navigator.clipboard.writeText(uid).then(()=>{
-    const orig=el.textContent;
-    el.textContent='copied!';
-    el.style.color='var(--green)';
-    setTimeout(()=>{ el.textContent=uid.slice(0,8)+'…'; el.style.color=''; },1500);
-  });
+  if(conf){conf.style.display='inline';setTimeout(()=>conf.style.display='none',2000);}
+  loadAll();
 }
 
 async function addMember(){
   const uuid=document.getElementById('add-uuid').value.trim();
-  const name=document.getElementById('add-name').value.trim()||null;
+  const name=document.getElementById('add-name').value.trim();
   const role=document.getElementById('add-role').value;
-  const statusEl=document.getElementById('add-status');
-  if(!uuid||uuid.length<30){ statusEl.textContent='Paste a valid UUID (36 chars).'; statusEl.style.color='#e06060'; return; }
-  statusEl.textContent='saving…'; statusEl.style.color='var(--dim)';
-  const{error}=await db.from('user_roles').upsert({user_id:uuid,user_name:name,role},{onConflict:'user_id'});
-  if(error){ statusEl.textContent=`Error: ${error.message} (check RLS policies)`; statusEl.style.color='#e06060'; return; }
-  statusEl.textContent=`✓ Added as ${role}.`; statusEl.style.color='var(--green)';
-  document.getElementById('add-uuid').value='';
-  document.getElementById('add-name').value='';
-  setTimeout(()=>{ statusEl.textContent=''; loadAll(); },1200);
+  const status=document.getElementById('add-status');
+  if(!uuid){status.textContent='UUID required.';status.style.color='#e06060';return;}
+  status.textContent='saving…';status.style.color='var(--dim)';
+  const{error}=await db.from('user_roles').upsert({user_id:uuid,user_name:name||'unknown',role},{onConflict:'user_id'});
+  if(error){status.textContent='Error: '+error.message;status.style.color='#e06060';}
+  else{
+    status.textContent='✓ Added '+name;status.style.color='var(--green)';
+    document.getElementById('add-uuid').value='';
+    document.getElementById('add-name').value='';
+    loadAll();
+  }
 }
 
-// ── Role Capabilities ────────────────────────────────────────────────────────
+// ── Role capabilities table ───────────────────────────────────────────────────
+const CAPABILITIES=[
+  {label:'Lodge Chat',a:true,p:true,m:true},
+  {label:'Post slide rules',a:false,p:true,m:true},
+  {label:'Library: view',a:true,p:true,m:true},
+  {label:'Library: create/edit entries',a:false,p:true,m:true},
+  {label:'Library: delete entries',a:false,p:false,m:true},
+  {label:'Backpack: view own',a:true,p:true,m:true},
+  {label:'Characters: create',a:false,p:true,m:true},
+  {label:'Submit feedback',a:true,p:true,m:true},
+  {label:'Manage feedback/phases',a:false,p:false,m:true},
+  {label:'Post What\'s New',a:false,p:false,m:true},
+  {label:'Edit/delete any message',a:false,p:false,m:true},
+  {label:'Manage member roles',a:false,p:false,m:true},
+  {label:'Debug panel',a:false,p:false,m:true},
+];
+
 function renderCapabilities(){
-  const YES='<span style="color:var(--green);font-size:16px;">✓</span>';
-  const NO ='<span style="color:var(--brown3);font-size:13px;">\u2014</span>';
-  const CAPS=[
-    // group, label, apprentice, practitioner, archmage
-    ['Chat',             'Read & send messages',      true,  true,  true ],
-    ['Chat',             'Use emoji & shortcodes',    true,  true,  true ],
-    ['Chat',             'Share library entries',     true,  true,  true ],
-    ['Chat',             'Share Slide Rules',         true,  true,  true ],
-    ['Chat',             "Post What\u2019s New",      false, false, true ],
-    ['Library',          'Browse & view entries',     true,  true,  true ],
-    ['Library',          'Create entries',            false, true,  true ],
-    ['Library',          'Edit own entries',          false, true,  true ],
-    ['Library',          'Edit any entry',            false, false, true ],
-    ['Slide Rules',      'View & play simulations',   true,  true,  true ],
-    ['Slide Rules',      'Post to chat',              true,  true,  true ],
-    ['Slide Rules',      'Publish new simulations',   false, false, true ],
-    ['Cards & Characters','View cards',               true,  true,  true ],
-    ['Cards & Characters','View characters',          true,  true,  true ],
-    ['Cards & Characters','Create characters',        false, true,  true ],
-    ['Organ',            'Play & save songs',         true,  true,  true ],
-    ['Organ',            'Publish songs',             true,  true,  true ],
-    ['Admin',            'Submit feedback',           true,  true,  true ],
-    ['Admin',            'Manage phases & feedback',  false, false, true ],
-    ['Admin',            'View roadmap',              true,  true,  true ],
-    ['Admin',            'Manage roadmap',            false, false, true ],
-    ['Admin',            'View & manage members',     false, false, true ],
-    ['Admin',            'Manage roles',              false, false, true ],
-    ['Admin',            'Debug panel (Alt+Shift+D)', false, false, true ],
-  ];
-  let lastGroup='';
-  const td='padding:6px 12px;border-bottom:1px solid rgba(80,58,36,.3);color:var(--parchment2);';
-  const tc='padding:6px 16px;border-bottom:1px solid rgba(80,58,36,.3);text-align:center;';
-  const rows=CAPS.map(([group,label,app,pra,arc])=>{
-    let grpRow='';
-    if(group!==lastGroup){
-      lastGroup=group;
-      grpRow=`<tr><td colspan="4" style="padding:10px 12px 2px;font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);">${group}</td></tr>`;
-    }
-    return grpRow+`<tr onmouseover="this.style.background='rgba(80,58,36,.3)'" onmouseout="this.style.background=''">
-      <td style="${td}">${label}</td>
-      <td style="${tc}">${app?YES:NO}</td>
-      <td style="${tc}">${pra?YES:NO}</td>
-      <td style="${tc}">${arc?YES:NO}</td>
-    </tr>`;
-  }).join('');
   const body=document.getElementById('capabilities-body');
-  if(body) body.innerHTML=rows;
+  if(!body) return;
+  const tick='<span style="color:var(--green)">✓</span>';
+  const cross='<span style="color:var(--dim)">·</span>';
+  body.innerHTML=CAPABILITIES.map(c=>`
+    <tr style="border-bottom:1px solid rgba(80,58,36,.3);">
+      <td style="padding:7px 12px;color:var(--parchment2);">${c.label}</td>
+      <td style="text-align:center;padding:7px 16px;">${c.a?tick:cross}</td>
+      <td style="text-align:center;padding:7px 16px;">${c.p?tick:cross}</td>
+      <td style="text-align:center;padding:7px 16px;">${c.m?tick:cross}</td>
+    </tr>`).join('');
 }
-renderCapabilities();
 
+renderCapabilities();
 </script>
 </body>
 </html>
