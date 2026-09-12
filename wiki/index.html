@@ -874,6 +874,22 @@ db.auth.onAuthStateChange((_event,session)=>{
   }
 });
 
+// Loads Lodge-wide default theme if member has no personal preference
+async function loadLodgeThemeDefault(){
+  if(localStorage.getItem('lodge-theme')) return; // personal preference wins
+  try{
+    const{data:defRow}=await db.from('lodge_settings')
+      .select('value').eq('key','lodge_default_theme').maybeSingle();
+    if(!defRow?.value) return;
+    const themeId=defRow.value;
+    const{data:themeRow}=await db.from('lodge_settings')
+      .select('value').eq('key','lodge_theme:'+themeId).maybeSingle();
+    if(!themeRow?.value?.vars) return;
+    const root=document.documentElement;
+    Object.entries(themeRow.value.vars).forEach(([k,v])=>root.style.setProperty(k,v));
+  }catch(e){}
+}
+
 // Links this Lodge account to the person's Discord ID so Mu's daily fortunes
 // can find their way into this account's backpack.
 async function syncDiscordId(user){
@@ -927,6 +943,7 @@ async function showApp(user){
   loadSidebarChangelog();
   syncDiscordId(user);
   loadBackpack();
+  loadLodgeThemeDefault();
 
   // Load custom emojis FIRST — must be ready before messages and reactions render
   await loadCustomEmojis().catch(()=>{});
