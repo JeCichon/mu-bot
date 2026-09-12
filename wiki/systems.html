@@ -109,6 +109,27 @@ if(window.self!==window.top){
   /* Editor */
   .editor-preview{display:flex;height:24px;border-radius:4px;overflow:hidden;margin-bottom:2px;}
   .ep-swatch{flex:1;}
+  /* Mini chat preview */
+  .chat-preview{border:1px solid var(--brown3);border-radius:6px;overflow:hidden;
+    height:145px;margin:8px 0 12px;font-size:10px;display:flex;flex-direction:column;}
+  .cp-hdr{background:var(--brown2);border-bottom:1px solid var(--purple);
+    padding:4px 8px;color:var(--parchment);font-family:var(--mono);font-size:9px;flex-shrink:0;}
+  .cp-body{display:flex;flex:1;overflow:hidden;}
+  .cp-sidebar{width:66px;background:var(--brown2);border-right:1px solid var(--brown3);
+    padding:4px 0;flex-shrink:0;}
+  .cp-nav{padding:3px 6px;color:var(--green);font-size:9px;font-family:var(--mono);}
+  .cp-chat{flex:1;background:var(--brown);padding:5px 6px;display:flex;
+    flex-direction:column;gap:5px;overflow:hidden;}
+  .cp-msg{display:flex;gap:3px;align-items:flex-end;}
+  .cp-msg.right{justify-content:flex-end;}
+  .cp-av{width:14px;height:14px;border-radius:50%;background:var(--brown3);flex-shrink:0;}
+  .cp-av.mu{background:var(--green3);}
+  .cp-av.me{background:var(--purple);}
+  .cp-bub{max-width:65%;padding:3px 7px;border-radius:7px;border:1px solid var(--brown3);
+    background:var(--brown2);color:var(--parchment);font-family:var(--serif);font-size:9px;line-height:1.3;}
+  .cp-bub.mu{background:var(--brown);border-color:var(--green3);font-style:italic;border-radius:2px 7px 7px 7px;}
+  .cp-bub.me{background:var(--brown3);border-color:var(--purple2);border-radius:7px 2px 7px 7px;}
+  .cp-bub.other{background:var(--brown3);border-radius:7px 2px 7px 7px;}
   .picker-row{display:flex;align-items:center;gap:6px;padding:3px 0;}
   .picker-label{font-size:11px;color:var(--dim);font-family:var(--mono);width:120px;flex-shrink:0;text-overflow:ellipsis;overflow:hidden;}
   .picker-input{width:36px;height:24px;border:none;border-radius:3px;cursor:pointer;padding:0;background:none;}
@@ -231,6 +252,30 @@ if(window.self!==window.top){
           <span class="section-count">drag pickers · live preview</span>
         </div>
         <div class="editor-preview" id="editor-preview"></div>
+        <div class="chat-preview">
+          <div class="cp-hdr">TricknoLodge · the great library</div>
+          <div class="cp-body">
+            <div class="cp-sidebar">
+              <div class="cp-nav">Lodge Chat</div>
+              <div class="cp-nav" style="color:var(--dim)">Library</div>
+              <div class="cp-nav" style="color:var(--dim)">Cards</div>
+            </div>
+            <div class="cp-chat">
+              <div class="cp-msg">
+                <div class="cp-av mu"></div>
+                <div class="cp-bub mu">Hello, traveler.</div>
+              </div>
+              <div class="cp-msg right">
+                <div class="cp-bub other">sup mu</div>
+                <div class="cp-av"></div>
+              </div>
+              <div class="cp-msg right">
+                <div class="cp-bub me">Not much, just wandering.</div>
+                <div class="cp-av me"></div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="color-pickers" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-top:10px;"></div>
         <div style="display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap;">
           <input id="theme-name-input" class="sr-seed-input" placeholder="Theme name…"
@@ -421,19 +466,80 @@ function savePersonalThemes(arr){
   localStorage.setItem('personal-themes',JSON.stringify(arr));
 }
 
+let _editingPersonalId=null;
+
+function loadVarsIntoEditor(vars){
+  VAR_LABELS.forEach(({v})=>{
+    const inp=document.querySelector('.picker-input[data-var="'+v+'"]');
+    if(inp&&vars[v]){
+      const hex=anyColorToHex(vars[v]);
+      inp.value=hex;
+      const safeId='ph'+v.replace(/[^a-z]/g,'');
+      const hexEl=document.getElementById(safeId);
+      if(hexEl) hexEl.textContent=hex;
+    }
+  });
+  Object.entries(vars).forEach(([k,v])=>{
+    document.documentElement.style.setProperty(k,v);
+    try{window.parent.document.documentElement.style.setProperty(k,v);}catch(e){}
+  });
+  updateEditorPreview();
+}
+
+function editPersonalTheme(id){
+  const pt=getPersonalThemes().find(t=>t.id===id);
+  if(!pt) return;
+  _editingPersonalId=id;
+  const nameEl=document.getElementById('theme-name-input');
+  if(nameEl) nameEl.value=pt.name;
+  loadVarsIntoEditor(pt.vars);
+  document.getElementById('color-pickers')?.scrollIntoView({behavior:'smooth',block:'start'});
+  const status=document.getElementById('editor-status');
+  if(status){status.textContent='Editing "'+pt.name+'" — adjust and save to update';status.style.color='var(--dim)';}
+}
+
 function savePersonalTheme(){
   const name=(document.getElementById('theme-name-input')?.value||'').trim();
   const status=document.getElementById('editor-status');
   if(!name){if(status){status.textContent='Enter a name first.';status.style.color='#e06060';}return;}
   const vars=getEditorVars();
-  const id='custom_'+Date.now();
   const themes=getPersonalThemes();
-  themes.push({id,name,vars});
-  savePersonalThemes(themes);
-  if(document.getElementById('theme-name-input')) document.getElementById('theme-name-input').value='';
-  if(status){status.textContent='✓ Saved: '+name;status.style.color='var(--green)';}
+  if(_editingPersonalId){
+    // Update existing theme in-place
+    const idx=themes.findIndex(t=>t.id===_editingPersonalId);
+    if(idx!==-1){ themes[idx]={...themes[idx],name,vars}; }
+    _editingPersonalId=null;
+    savePersonalThemes(themes);
+    if(status){status.textContent='✓ Updated: '+name;status.style.color='var(--green)';}
+  } else {
+    // Create new
+    themes.push({id:'custom_'+Date.now(),name,vars});
+    savePersonalThemes(themes);
+    if(document.getElementById('theme-name-input')) document.getElementById('theme-name-input').value='';
+    if(status){status.textContent='✓ Saved: '+name;status.style.color='var(--green)';}
+  }
   setTimeout(()=>{if(status)status.textContent='';},2000);
   renderCustomThemes();
+}
+
+async function publishPersonalToLodge(id){
+  const pt=getPersonalThemes().find(t=>t.id===id);
+  if(!pt) return;
+  const lodgeId='lodge_'+pt.name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  const userName=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'archmage';
+  const{error}=await db.from('lodge_settings').upsert({
+    key:'lodge_theme:'+lodgeId,
+    value:{name:pt.name,vars:pt.vars},
+    updated_by:userName,
+    updated_at:new Date().toISOString()
+  },{onConflict:'key'});
+  const status=document.getElementById('editor-status');
+  if(error){if(status){status.textContent='Error: '+error.message;status.style.color='#e06060';}}
+  else{
+    if(status){status.textContent='🏠 Published "'+pt.name+'" to Lodge';status.style.color='var(--purple2)';}
+    setTimeout(()=>{if(status)status.textContent='';},2500);
+    loadLodgeThemes();
+  }
 }
 
 function deletePersonalTheme(id){
@@ -450,12 +556,15 @@ function renderCustomThemes(){
     return;
   }
   const applied=localStorage.getItem('lodge-theme-id')||'default';
+  const isArch=document.getElementById('btn-share-lodge')?.style.display!=='none';
   grid.innerHTML=themes.map(t=>`
     <div class="theme-card${t.id===applied?' applied':''}">
       <div class="theme-swatches">${getSwatchColors(t.vars).map(c=>`<div class="theme-swatch" style="background:${c}"></div>`).join('')}</div>
       <div class="theme-name">${t.name}</div>
       <div class="lodge-card-actions">
         <button class="lc-btn primary" onclick="applyTheme('${t.id}','personal')">Apply</button>
+        <button class="lc-btn" onclick="editPersonalTheme('${t.id}')">✎ Edit</button>
+        ${isArch?`<button class="lc-btn" style="border-color:var(--purple2);color:var(--purple2);" onclick="publishPersonalToLodge('${t.id}')">🏠 Publish</button>`:''}
         <button class="lc-btn danger" onclick="deletePersonalTheme('${t.id}')">Delete</button>
       </div>
     </div>`).join('');
