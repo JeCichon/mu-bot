@@ -330,6 +330,7 @@ function showSection(id, navEl){
   document.getElementById('sec-'+id)?.classList.add('active');
   if(navEl) navEl.classList.add('active');
   if(id==='colors'){
+    initThemeState();
     renderThemes();
     renderCustomThemes();
     renderColorEditor();
@@ -557,20 +558,51 @@ function renderCustomThemes(){
   }
   const applied=localStorage.getItem('lodge-theme-id')||'default';
   const isArch=document.getElementById('btn-share-lodge')?.style.display!=='none';
-  grid.innerHTML=themes.map(t=>`
-    <div class="theme-card${t.id===applied?' applied':''}">
-      <div class="theme-swatches">${getSwatchColors(t.vars).map(c=>`<div class="theme-swatch" style="background:${c}"></div>`).join('')}</div>
-      <div class="theme-name">${t.name}</div>
-      <div class="lodge-card-actions">
-        <button class="lc-btn primary" onclick="applyTheme('${t.id}','personal')">Apply</button>
-        <button class="lc-btn" onclick="editPersonalTheme('${t.id}')">✎ Edit</button>
-        ${isArch?`<button class="lc-btn" style="border-color:var(--purple2);color:var(--purple2);" onclick="publishPersonalToLodge('${t.id}')">🏠 Publish</button>`:''}
-        <button class="lc-btn danger" onclick="deletePersonalTheme('${t.id}')">Delete</button>
-      </div>
-    </div>`).join('');
+  grid.innerHTML=themes.map(t=>{
+    const bg=t.vars['--brown2']||'rgb(60,42,26)';
+    const dim=t.vars['--dim']||'rgb(120,100,80)';
+    const btnBg=t.vars['--brown']||'rgb(43,28,16)';
+    const btnG=t.vars['--green']||'rgb(144,171,153)';
+    const btnG3=t.vars['--green3']||'rgb(80,105,90)';
+    const btnP2=t.vars['--purple2']||'rgb(100,65,112)';
+    const extras=`<button class="lc-btn" style="background:${btnBg};border-color:${btnG3};color:${dim};" onclick="event.stopPropagation();editPersonalTheme('${t.id}')">✎ Edit</button>`
+      +(isArch?`<button class="lc-btn" style="background:${btnBg};border-color:${btnP2};color:${btnP2};" onclick="event.stopPropagation();publishPersonalToLodge('${t.id}')">🏠 Publish</button>`:'')
+      +`<button class="lc-btn danger" style="background:${btnBg};border-color:#e06060;color:#e06060;" onclick="event.stopPropagation();deletePersonalTheme('${t.id}')">Delete</button>`;
+    return themeCardHTML(t, extras);
+  }).join('');
 }
 
 // ── Lodge themes (Supabase) ────────────────────────────────────────────────────
+// ── Preview state ─────────────────────────────────────────────────────────────
+let _committedVars = null;  // vars currently saved to localStorage
+let _committedId   = 'default';
+let _previewingId  = null;  // which theme is being previewed (not yet applied)
+
+function initThemeState(){
+  const savedId  = localStorage.getItem('lodge-theme-id') || 'default';
+  const savedRaw = localStorage.getItem('lodge-theme');
+  _committedId   = savedId;
+  try{ _committedVars = savedRaw ? JSON.parse(savedRaw) : null; }
+  catch(e){ _committedVars = null; }
+  _previewingId = null;
+}
+
+function revertTheme(){
+  if(!_committedVars && _committedId === 'default'){
+    // revert to hard-coded default
+    const def = THEMES.find(t=>t.id==='default');
+    if(def){ _committedVars = def.vars; }
+  }
+  if(!_committedVars) return;
+  const root=document.documentElement;
+  Object.entries(_committedVars).forEach(([k,v])=>root.style.setProperty(k,v));
+  try{const p=window.parent.document.documentElement;Object.entries(_committedVars).forEach(([k,v])=>p.style.setProperty(k,v));}catch(e){}
+}
+
+// Revert when user navigates away from Systems
+window.addEventListener('beforeunload', revertTheme);
+window.addEventListener('pagehide',     revertTheme);
+
 let lodgeThemes=[];
 let lodgeDefaultId=null;
 
@@ -640,51 +672,92 @@ async function deleteLodgeTheme(id){
   loadLodgeThemes();
 }
 
+// ── Preview (apply without saving) ────────────────────────────────────────────
+function previewTheme(id){
+  let vars=null;
+  const preset=THEMES.find(t=>t.id===id);
+  if(preset) vars=preset.vars;
+  if(!vars){const pt=getPersonalThemes().find(t=>t.id===id);if(pt) vars=pt.vars;}
+  if(!vars){const lt=lodgeThemes.find(t=>t.id===id);if(lt) vars=lt.vars;}
+  if(!vars) return;
+  _previewingId=id;
+  // Apply to site without touching localStorage
+  const root=document.documentElement;
+  Object.entries(vars).forEach(([k,v])=>root.style.setProperty(k,v));
+  try{const p=window.parent.document.documentElement;Object.entries(vars).forEach(([k,v])=>p.style.setProperty(k,v));}catch(e){}
+  // Sync editor pickers
+  loadVarsIntoEditor(vars);
+  // Refresh cards to update preview indicator
+  renderThemes(); renderCustomThemes();
+}
+
 // ── Apply (handles preset, personal, lodge) ────────────────────────────────────
 function applyTheme(id, source){
   let vars=null;
-  // Preset
   const preset=THEMES.find(t=>t.id===id);
   if(preset) vars=preset.vars;
-  // Personal
-  if(!vars){ const pt=getPersonalThemes().find(t=>t.id===id); if(pt) vars=pt.vars; }
-  // Lodge
-  if(!vars){ const lt=lodgeThemes.find(t=>t.id===id); if(lt) vars=lt.vars; }
+  if(!vars){const pt=getPersonalThemes().find(t=>t.id===id);if(pt) vars=pt.vars;}
+  if(!vars){const lt=lodgeThemes.find(t=>t.id===id);if(lt) vars=lt.vars;}
   if(!vars) return;
   // Apply to both pages
   const root=document.documentElement;
   Object.entries(vars).forEach(([k,v])=>root.style.setProperty(k,v));
   try{const p=window.parent.document.documentElement;Object.entries(vars).forEach(([k,v])=>p.style.setProperty(k,v));}catch(e){}
-  // Save
+  // Commit to localStorage and state
   localStorage.setItem('lodge-theme',JSON.stringify(vars));
   localStorage.setItem('lodge-theme-id',id);
+  _committedVars=vars;
+  _committedId=id;
+  _previewingId=null;
   // Refresh all grids
   renderThemes();
   renderCustomThemes();
   loadLodgeThemes();
-  renderColorEditor(); // sync pickers to new theme
+  renderColorEditor();
 }
 
 function resetTheme(){
-  applyTheme('default');
   localStorage.removeItem('lodge-theme');
   localStorage.removeItem('lodge-theme-id');
+  _committedVars=null; _committedId='default'; _previewingId=null;
+  applyTheme('default');
 }
 
 function getSwatchColors(vars){
   return[vars['--brown'],vars['--brown2'],vars['--green'],vars['--purple2'],vars['--parchment']];
 }
 
+function themeCardHTML(t, extraActions=''){
+  const isSaved   = t.id===_committedId;
+  const isPrev    = t.id===_previewingId;
+  const bg        = t.vars['--brown2']||'rgb(60,42,26)';
+  const border    = isPrev ? (t.vars['--green']||'rgb(144,171,153)')
+                           : isSaved ? (t.vars['--green3']||'rgb(80,105,90)')
+                           : (t.vars['--brown3']||'rgb(80,58,36)');
+  const txt       = t.vars['--parchment']||'rgb(220,210,190)';
+  const dim       = t.vars['--dim']||'rgb(120,100,80)';
+  const btnBg     = t.vars['--brown']||'rgb(43,28,16)';
+  const btnGreen  = t.vars['--green']||'rgb(144,171,153)';
+  const btnGreen3 = t.vars['--green3']||'rgb(80,105,90)';
+  const statusTag = isSaved
+    ? `<span style="font-size:9px;color:${btnGreen};margin-left:4px;">✓ saved</span>`
+    : isPrev ? `<span style="font-size:9px;color:${dim};margin-left:4px;">previewing…</span>` : '';
+  return `<div class="theme-card" style="background:${bg};border-color:${border};" onclick="previewTheme('${t.id}')">
+    <div class="theme-swatches">${getSwatchColors(t.vars).map(c=>`<div class="theme-swatch" style="background:${c}"></div>`).join('')}</div>
+    <div class="theme-name" style="color:${txt};">${t.name}${statusTag}</div>
+    <div class="theme-desc" style="color:${dim};">${t.desc||''}</div>
+    <div class="lodge-card-actions">
+      <button class="lc-btn" style="background:${btnBg};border-color:${btnGreen3};color:${btnGreen};"
+        onclick="event.stopPropagation();applyTheme('${t.id}')">✓ Apply</button>
+      ${extraActions}
+    </div>
+  </div>`;
+}
+
 function renderThemes(){
-  const applied=localStorage.getItem('lodge-theme-id')||'default';
   const grid=document.getElementById('theme-grid');
   if(!grid) return;
-  grid.innerHTML=THEMES.map(t=>`
-    <div class="theme-card${t.id===applied?' applied':''}" onclick="applyTheme('${t.id}')">
-      <div class="theme-swatches">${getSwatchColors(t.vars).map(c=>`<div class="theme-swatch" style="background:${c}"></div>`).join('')}</div>
-      <div class="theme-name">${t.name}</div>
-      <div class="theme-desc">${t.desc}</div>
-    </div>`).join('');
+  grid.innerHTML=THEMES.map(t=>themeCardHTML(t)).join('');
 }
 
 
@@ -820,6 +893,7 @@ function renderCapabilities(){
 }
 
 renderCapabilities();
+initThemeState();
 renderCustomThemes();
 renderColorEditor();
 loadLodgeThemes();
