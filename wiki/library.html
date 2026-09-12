@@ -213,6 +213,10 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
   });
 }
 </script>
+<script>
+/* Apply saved Lodge color theme before first paint */
+(function(){try{const s=localStorage.getItem('lodge-theme');if(s){const v=JSON.parse(s);const r=document.documentElement;Object.entries(v).forEach(([k,val])=>r.style.setProperty(k,val));}}catch(e){}})();
+</script>
 </head>
 <body>
 

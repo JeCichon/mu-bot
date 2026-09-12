@@ -10,6 +10,10 @@ if(window.self!==window.top){
   document.addEventListener('DOMContentLoaded',()=>{const h=document.querySelector('header');if(h)h.style.display='none';});
 }
 </script>
+<script>
+/* Apply saved Lodge color theme before first paint */
+(function(){try{const s=localStorage.getItem('lodge-theme');if(s){const v=JSON.parse(s);const r=document.documentElement;Object.entries(v).forEach(([k,val])=>r.style.setProperty(k,val));}}catch(e){}})();
+</script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   :root{
