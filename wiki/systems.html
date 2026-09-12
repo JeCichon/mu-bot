@@ -617,21 +617,25 @@ async function loadLodgeThemes(){
     grid.innerHTML='<div style="color:var(--dim);font-family:var(--mono);font-size:11px;font-style:italic;">No Lodge themes yet. Share one to get started.</div>';
     return;
   }
-  const applied=localStorage.getItem('lodge-theme-id')||'default';
   const isArch=document.getElementById('btn-share-lodge')?.style.display!=='none';
   grid.innerHTML=lodgeThemes.map(t=>{
     const isDef=t.id===lodgeDefaultId;
-    return`<div class="theme-card lodge-theme-card${t.id===applied?' applied':''}">
-      ${isDef?'<div class="lodge-badge">★ default</div>':''}
-      <div class="theme-swatches" style="margin-top:${isDef?'20px':'0'}">${getSwatchColors(t.vars).map(c=>`<div class="theme-swatch" style="background:${c}"></div>`).join('')}</div>
-      <div class="theme-name">${t.name}</div>
-      <div style="font-size:10px;color:var(--dim);font-family:var(--mono);">by ${t.updatedBy||'archmage'}</div>
-      <div class="lodge-card-actions">
-        <button class="lc-btn primary" onclick="applyTheme('${t.id}','lodge')">Apply</button>
-        ${isArch?`<button class="lc-btn" onclick="setLodgeDefault('${t.id}')">${isDef?'★ default':'Set default'}</button>
-        <button class="lc-btn danger" onclick="deleteLodgeTheme('${t.id}')">Delete</button>`:''}
-      </div>
-    </div>`;
+    const bg=t.vars['--brown2']||'rgb(60,42,26)';
+    const btnBg=t.vars['--brown']||'rgb(43,28,16)';
+    const btnG=t.vars['--green']||'rgb(144,171,153)';
+    const btnG3=t.vars['--green3']||'rgb(80,105,90)';
+    const dimC=t.vars['--dim']||'rgb(120,100,80)';
+    const defBadge=isDef
+      ?`<div style="font-size:9px;font-family:var(--mono);background:${t.vars['--purple']||'rgb(76,46,87)'};color:${t.vars['--parchment']||'rgb(220,210,190)'};padding:1px 6px;border-radius:8px;display:inline-block;margin-bottom:6px;text-transform:uppercase;">★ default</div><br>`:'' ;
+    const extras=`<button class="lc-btn" style="background:${btnBg};border-color:${btnG3};color:${dimC};"
+        onclick="event.stopPropagation();setLodgeDefault('${t.id}')">${isDef?'★ default':'Set default'}</button>
+      <button class="lc-btn danger" style="background:${btnBg};border-color:#e06060;color:#e06060;"
+        onclick="event.stopPropagation();deleteLodgeTheme('${t.id}')">Delete</button>`;
+    const byLine=`<div style="font-size:10px;color:${dimC};font-family:var(--mono);margin-bottom:4px;">by ${t.updatedBy||'archmage'}</div>`;
+    // Build self-colored card using themeCardHTML but inject defBadge + byLine
+    const base=themeCardHTML({...t, desc:byLine}, isArch?extras:'');
+    // Insert defBadge at top of card content (after first div.theme-swatches)
+    return isDef ? base.replace('<div class="theme-swatches"', defBadge+'<div class="theme-swatches"') : base;
   }).join('');
 }
 
