@@ -429,10 +429,6 @@
   </div>
 </header>
 
-<!-- Mu brain — hidden iframe, communicates via postMessage -->
-<iframe id="mu-brain" src="mu-brain.html" style="display:none;width:0;height:0;border:none;"
-  title="Mu language system" aria-hidden="true"></iframe>
-
 <div class="main-wrap" id="main-wrap">
   <div class="login-screen" id="login-screen">
     <div style="font-size:52px">🌀</div>
@@ -709,36 +705,123 @@ const SUPABASE_URL = 'https://tngvginwtsldulqgufoe.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZ3ZnaW53dHNsZHVscWd1Zm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTc3NTAsImV4cCI6MjA5NDUzMzc1MH0.4NzjqjdB_56gtbt_lf3ZAiE6Gfn0zpaZC36hIcjmIMI';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── Mu brain iframe ────────────────────────────────────────────────────────────
-// mu-brain.html holds all language data and generation logic.
-// index.html only handles flow control (cooldowns, triggers) and Supabase writes.
-// To upgrade to Option C: remove the iframe and subscribe to Supabase Realtime
-// for Mu's replies from the bot instead.
-function muBrain(){ return document.getElementById('mu-brain')?.contentWindow||null; }
-let _pendingGreetDate=null;
-
-window.addEventListener('message', async e=>{
-  if(!e.data) return;
-  if(e.data.type==='mu_response'){
-    await saveMuMessage(e.data.sentence, e.data.cardLine||null);
-  } else if(e.data.type==='mu_greeting'){
-    const{sentence,cardLine,date}=e.data;
-    await saveMuMessage(sentence,cardLine||null);
-    if(currentUser&&date){
-      await db.from('daily_greeted').insert({user_id:currentUser.id,greeted_date:date})
-        .catch(()=>{});
-    }
-    _pendingGreetDate=null;
-  }
-  // mu_ready fires when the iframe loads — passive, nothing needed
-});
-
 // ── Card data ─────────────────────────────────────────────────────────────────
 const W={adj:"Courageous",noun:"Spirit",subject:"Your talents",verb:"ignite",adv:"energetically",timeframe:"The journey begins today",command:"Initiate"};
 const C={adj:"Compassionate",noun:"Grace",subject:"The secret of love",verb:"enlightens",adv:"together",timeframe:"Love at first sip",command:"Embody"};
 const So={adj:"Mindful",noun:"Balance",subject:"Your mind",verb:"cuts through",adv:"objectively",timeframe:"To find your path",command:"Discern"};
 const D={adj:"Stable",noun:"Matter",subject:"Great happiness",verb:"shines",adv:"within and without",timeframe:"Experience this moment",command:"Materialize"};
+const CARDS=[
+  {id:0,name:"The Fool",suit:"major",sn:0,r:255,g:255,b:55,adj:"Curious",noun:"Endeavor",subject:"It is I that",verb:"embarks on quest",adv:"without looking",timeframe:"Just for today",command:"Begin"},
+  {id:1,name:"The Magus",suit:"major",sn:1,r:255,g:255,b:0,adj:"Inward",noun:"Vigor",subject:"My resolution",verb:"wills itself",adv:"dynamically",timeframe:"For this moment",command:"Manifest"},
+  {id:2,name:"The Priestess",suit:"major",sn:2,r:42,g:42,b:255,adj:"Hidden",noun:"Intelligence",subject:"My mind",verb:"perceives",adv:"intuitively",timeframe:"For the next few breaths",command:"Divine"},
+  {id:3,name:"The Empress",suit:"major",sn:3,r:0,g:170,b:0,adj:"Pregnant",noun:"Devotion",subject:"A mother's love",verb:"bridges",adv:"safely",timeframe:"For this turning of the wheel",command:"Nurture"},
+  {id:4,name:"The Emperor",suit:"major",sn:4,r:255,g:0,b:0,adj:"Just",noun:"Absolution",subject:"Justice and Order",verb:"dominates",adv:"objectively",timeframe:"Within this cycle",command:"Command"},
+  {id:5,name:"The Hierophant",suit:"major",sn:5,r:255,g:102,b:0,adj:"Illuminated",noun:"Truth",subject:"Knowledge and Understanding",verb:"discovers",adv:"faithfully",timeframe:"An experiment for today",command:"Teach"},
+  {id:6,name:"The Lovers",suit:"major",sn:6,r:255,g:138,b:13,adj:"Brave",noun:"Decision",subject:"Opposites",verb:"consecrate",adv:"whole heartedly",timeframe:"Only for now",command:"Unite"},
+  {id:7,name:"The Chariot",suit:"major",sn:7,r:255,g:193,b:3,adj:"Conquered",noun:"Ego",subject:"The spirit of adventure",verb:"overcomes",adv:"bravely",timeframe:"As the worm turns",command:"Conquer"},
+  {id:8,name:"The Adjustment",suit:"major",sn:8,r:0,g:170,b:68,adj:"Balanced",noun:"Law",subject:"Harmony",verb:"seeks",adv:"responsibly",timeframe:"Think for a moment",command:"Balance"},
+  {id:9,name:"The Hermit",suit:"major",sn:9,r:85,g:212,b:0,adj:"Deep",noun:"Disillusionment",subject:"That which is within",verb:"embraces",adv:"seriously",timeframe:"When you choose to",command:"Reflect"},
+  {id:10,name:"Fortune",suit:"major",sn:10,r:178,g:0,b:109,adj:"Projected",noun:"Wealth",subject:"A calmness of spirit",verb:"rises",adv:"in time",timeframe:"Today is awesome",command:"Prosper"},
+  {id:11,name:"Lust",suit:"major",sn:11,r:182,g:234,b:0,adj:"Passionate",noun:"Energy",subject:"Your animal nature",verb:"transforms",adv:"lovingly",timeframe:"Oh yeah!",command:"Passion"},
+  {id:12,name:"The Hanged Man",suit:"major",sn:12,r:0,g:102,b:255,adj:"Sacrificial",noun:"Solution",subject:"Acceptance",verb:"matures",adv:"wisely",timeframe:"This may surprise you",command:"Surrender"},
+  {id:13,name:"Death",suit:"major",sn:13,r:0,g:136,b:131,adj:"Cyclical",noun:"Rebirth",subject:"Death",verb:"returns",adv:"consistently",timeframe:"A reset",command:"Transform"},
+  {id:14,name:"Art",suit:"major",sn:14,r:42,g:42,b:255,adj:"Appropriate",noun:"Measurement",subject:"The philosopher's stone",verb:"dissolves and bonds",adv:"completely",timeframe:"Your barriers are thinning",command:"Synthesize"},
+  {id:15,name:"The Devil",suit:"major",sn:15,r:145,g:0,b:178,adj:"Illuminating",noun:"Darkness",subject:"Dark magic",verb:"opens awareness",adv:"ritually",timeframe:"Stand in this moment",command:"Tempt"},
+  {id:16,name:"The Tower",suit:"major",sn:16,r:255,g:0,b:0,adj:"Productive",noun:"Destruction",subject:"Old systems",verb:"are leveled",adv:"in a blink",timeframe:"Through your pain",command:"Reconstruct"},
+  {id:17,name:"The Star",suit:"major",sn:17,r:178,g:0,b:109,adj:"Reckless",noun:"Progress",subject:"A creative moment",verb:"innovates",adv:"faithfully",timeframe:"Your light speaks",command:"Innovate"},
+  {id:18,name:"The Moon",suit:"major",sn:18,r:206,g:0,b:82,adj:"Intuitive",noun:"Knowledge",subject:"The depths of my soul",verb:"confronts",adv:"profoundly",timeframe:"A feeling rushes over you",command:"Illusion"},
+  {id:19,name:"The Sun",suit:"major",sn:19,r:255,g:138,b:13,adj:"Confident",noun:"Illumination",subject:"That which is beyond me",verb:"fuels",adv:"boundlessly",timeframe:"With great warmth",command:"Illuminate"},
+  {id:20,name:"The Aeon",suit:"major",sn:20,r:255,g:69,b:69,adj:"Liberating",noun:"Power",subject:"A great correlation",verb:"awakens",adv:"endlessly",timeframe:"Upon waking",command:"Awaken"},
+  {id:21,name:"The Universe",suit:"major",sn:21,r:145,g:0,b:178,adj:"Karmic",noun:"Conclusion",subject:"All that is",verb:"spins together",adv:"freely",timeframe:"As this cycle ends",command:"Complete"},
+  {id:22,name:"Ace of Wands",suit:"wands",sn:1,r:255,g:255,b:255,...W},
+  {id:23,name:"Dominion",suit:"wands",sn:2,r:0,g:148,b:214,...W},
+  {id:36,name:"Ace of Cups",suit:"cups",sn:1,r:250,g:250,b:250,...C},
+  {id:37,name:"Love",suit:"cups",sn:2,r:174,g:177,b:178,...C},
+  {id:38,name:"Abundance",suit:"cups",sn:3,r:0,g:0,b:0,...C},
+  {id:44,name:"Happiness",suit:"cups",sn:9,r:178,g:0,b:109,...C},
+  {id:50,name:"Ace of Swords",suit:"swords",sn:1,r:242,g:242,b:242,...So},
+  {id:64,name:"Ace of Disks",suit:"disks",sn:1,r:255,g:246,b:205,...D},
+  {id:66,name:"Works",suit:"disks",sn:3,r:202,g:184,b:184,...D},
+];
+
 const ENTRY_EMOJI={item:"📖",character:"🧙",session:"🎭",concept:"🌀",place:"🗺️"};
+const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+const clean=s=>s.replace(/\s{2,}/g," ").replace(/ \./g,".").replace(/ ,/g,",").trim();
+
+const KOAN_FRAMES=[
+  (a,b)=>`${a.adj} ${a.noun} does not explain itself to ${b.adj} ${b.noun}.`,
+  (a,b)=>`You are looking for ${b.noun}. ${a.adj} is the door.`,
+  (a,b)=>`Before ${a.adj} ${a.noun} — what were you?`,
+  (a,b)=>`${b.adj} ${b.noun} waits at the end of every ${a.adj} path.`,
+  (a,b)=>`${a.noun} and ${b.noun} are the same word in a language no one speaks anymore.`,
+  (a,b)=>`You already have ${b.noun}. That's why ${a.adj} ${a.noun} is so loud right now.`,
+  (a,b)=>`${a.adj} ${a.noun} crossed the river. On the other side: ${b.adj} ${b.noun}. It turned back.`,
+  (a,b)=>`Ask ${a.adj} ${a.noun} what it costs. Then ask ${b.noun} what it gives.`,
+];
+const SENTENCE_TEMPLATES=[
+  c=>`${c[0].subject} ${c[1].verb} ${c[0].adv}.`,
+  c=>`${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.`,
+  c=>`${c[0].subject} ${c[1].verb} — ${c[1].adj} ${c[1].noun} ${c[0].adv}.`,
+  c=>`${c[0].adj} ${c[1].noun} ${c[0].verb} ${c[1].adv}. ${c[1].subject} listens.`,
+];
+const MU_INTROS=[
+  "*Mu sets something on the table.*",
+  "*The library is quiet. Mu draws two threads together.*",
+  "*Mu looks at you the way water looks at a stone.*",
+  "*He draws. He does not interpret. He offers.*",
+  "*Something shifts in the archive.*",
+];
+
+function drawCards(n){ return [...CARDS].sort(()=>Math.random()-0.5).slice(0,n); }
+function cardName(c){ return c.suit==="major"?c.name:`${c.sn}·${c.suit[0].toUpperCase()}·${c.name}`; }
+
+function isCasualGreeting(text){
+  const t=text.toLowerCase();
+  return /\bmu\b/.test(t) && (/\bsup\b/.test(t) || /what.?s?\s*up/.test(t));
+}
+
+// Best-effort verb -> gerund. Card verbs are written 3rd-person-present
+// ("dominates", "confronts"), sometimes multi-word ("dissolves and bonds") —
+// this only reshapes the first word and leaves the rest, which is loose but
+// keeps the playful, slightly-off tone the rest of Mu's voice already has.
+function gerund(verbPhrase){
+  const words=verbPhrase.trim().split(/\s+/);
+  const irregular={are:"being",is:"being",were:"having been",was:"having been"};
+  const head=words[0].toLowerCase();
+  let out;
+  if(irregular[head]){ out=irregular[head]; }
+  else{
+    let v=head.replace(/s$/,"");
+    if(/e$/.test(v)&&!/ee$/.test(v)) v=v.slice(0,-1);
+    out=v+"ing";
+  }
+  return [out,...words.slice(1)].join(" ");
+}
+
+function buildCasualReply(){
+  const card=drawCards(1)[0];
+  const article=/^[aeiou]/i.test(card.noun)?"an":"a";
+  return{sentence:`Not much, just ${gerund(card.verb)} like ${article} ${card.noun.toLowerCase()}.`,cards:[card]};
+}
+
+function buildMuReply(userText){
+  if(isCasualGreeting(userText)) return buildCasualReply();
+  const cards=drawCards(2);
+  let sentence;
+  const isQuestion=userText.includes("?");
+  if(!userText||!userText.trim()||(!userText.toLowerCase().includes("mu")&&!isQuestion)){
+    sentence=pick(KOAN_FRAMES)(cards[0],cards[1]);
+  } else {
+    const intro=Math.random()>0.4?pick(MU_INTROS)+"\n\n":"";
+    sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
+    const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
+    if(kw.length>0&&Math.random()>0.5){
+      const word=pick(kw);
+      sentence=pick([`*${word}* — ${sentence}`,`${sentence} What of *${word}*?`,`Before *${word}* — ${sentence}`]);
+    }
+  }
+  return{sentence,cards};
+}
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 let currentUser=null;
@@ -952,16 +1035,26 @@ async function showApp(user){
 
 // ── Realtime ─────────────────────────────────────────────────────────────────
 // ── Greeting templates ───────────────────────────────────────────────────────
-// Daily greeting — delegated to mu-brain.html
+const GREETING_TEMPLATES=[
+  (n,c)=>`Hello ${n} — ${c.timeframe}, ${c.command} the ${c.adj} ${c.noun}.`,
+  (n,c)=>`${n}. *${c.adj} ${c.noun}* greets you today.`,
+  (n,c)=>`Welcome, ${n}. ${c.timeframe} — ${c.command} your ${c.adj} ${c.noun}.`,
+  (n,c)=>`The archive stirs. ${n} has entered. *${c.command} the ${c.adj} ${c.noun}.*`,
+  (n,c)=>`${n} — ${c.timeframe}. *${c.adj} ${c.noun}.*`,
+  (n,c)=>`*${c.timeframe}.* Hello ${n} — the ${c.adj} ${c.noun} is yours today.`,
+];
+
 async function checkDailyGreeting(user){
   const today=new Date().toISOString().split('T')[0];
   try{
     const{data}=await db.from('daily_greeted').select('id')
       .eq('user_id',user.id).eq('greeted_date',today).maybeSingle();
     if(data) return; // already greeted today
+    const card=pick(CARDS);
     const name=user.user_metadata?.full_name||user.user_metadata?.name||'traveler';
-    _pendingGreetDate=today;
-    muBrain()?.postMessage({type:'mu_query',queryType:'greeting',name,date:today},'*');
+    const sentence=clean(pick(GREETING_TEMPLATES)(name,card));
+    await saveMuMessage(sentence,cardName(card));
+    await db.from('daily_greeted').insert({user_id:user.id,greeted_date:today});
   } catch(err){ console.log('Greeting check failed (non-fatal):',err.message); }
 }
 
@@ -1234,8 +1327,9 @@ async function sendMessage(){
   if(isQuestion && timeSinceMu>MU_COOLDOWN_MS && humansSinceMu>=2) shouldRespond=true;
 
   if(shouldRespond){
-    setTimeout(()=>{
-      muBrain()?.postMessage({type:'mu_query',queryType:'response',text},'*');
+    setTimeout(async()=>{
+      const{sentence,cards}=buildMuReply(text);
+      await saveMuMessage(sentence,cards.map(c=>cardName(c)).join(" · "));
     },600+Math.random()*800);
   }
 }
