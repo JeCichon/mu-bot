@@ -175,15 +175,15 @@ if(window.self!==window.top){
   <!-- Left nav -->
   <nav class="sys-nav">
     <input class="sys-search" type="text" placeholder="search settings…" oninput="filterSections(this.value)">
-    <div class="sys-nav-item active" onclick="showSection('members',this)">👥 Members &amp; Roles</div>
-    <div class="sys-nav-item" onclick="showSection('colors',this)">🎨 Color Templates</div>
+    <div class="sys-nav-item" onclick="showSection('members',this)">👥 Members &amp; Roles</div>
+    <div class="sys-nav-item active" onclick="showSection('colors',this)">🎨 Color Templates</div>
   </nav>
 
   <!-- Right content -->
   <div class="sys-content" id="sys-content">
 
     <!-- ── Section: Members & Roles ── -->
-    <div class="sys-section active" id="sec-members">
+    <div class="sys-section" id="sec-members">
 
       <div class="section-hdr">
         <span class="section-title">lodge members</span>
@@ -243,7 +243,7 @@ if(window.self!==window.top){
     </div><!-- /sec-members -->
 
     <!-- ── Section: Color Templates ── -->
-    <div class="sys-section" id="sec-colors">
+    <div class="sys-section active" id="sec-colors">
       <div class="section-hdr">
         <span class="section-title">Color Templates</span>
         <span class="section-count">personal · shared · persistent</span>

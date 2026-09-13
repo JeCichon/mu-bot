@@ -1000,15 +1000,19 @@ async function showApp(user){
   // Check role — show archmage tools
   try{
     const{data:roleData}=await db.from('user_roles').select('role').eq('user_id',user.id).maybeSingle();
-    if(roleData?.role==='archmage'){
+    const role=roleData?.role||'apprentice';
+    // Systems is open to practitioners and archmages
+    if(role==='practitioner'||role==='archmage'){
+      const sy=document.getElementById('link-systems');
+      if(sy) sy.style.display='block';
+    }
+    if(role==='archmage'){
       const fl=document.getElementById('link-muflow');
       if(fl) fl.style.display='block';
       const ac=document.getElementById('btn-add-changelog');
       if(ac) ac.style.display='block';
       const fb=document.getElementById('link-feedback');
       if(fb) fb.style.display='block';
-      const sy=document.getElementById('link-systems');
-      if(sy) sy.style.display='block';
       // Emoji managed via git — no upload panel needed
       const dbg=document.getElementById('debug-toggle-btn');
       if(dbg) dbg.style.display='inline-block';
