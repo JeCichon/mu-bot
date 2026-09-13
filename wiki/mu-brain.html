@@ -11,6 +11,14 @@
 </head>
 <body>
 <script>
+// ── Suit defaults for minor arcana cards ─────────────────────────────────────
+// Each suit constant provides the language properties shared across that suit.
+// Individual cards override with their own rgb values; language comes from here.
+const W={adj:"Fiery",  noun:"Will",    verb:"ignites",   adv:"boldly",    subject:"The creative fire",  timeframe:"In this breath",   command:"Act"    };
+const C={adj:"Fluid",  noun:"Feeling", verb:"receives",  adv:"openly",    subject:"The heart's knowing",timeframe:"Feel this now",     command:"Open"   };
+const So={adj:"Sharp", noun:"Truth",   verb:"discerns",  adv:"clearly",   subject:"Thought cuts through",timeframe:"In this clarity",  command:"Discern"};
+const D={adj:"Grounded",noun:"Work",   verb:"manifests", adv:"steadily",  subject:"The body knows",     timeframe:"In this moment",   command:"Build"  };
+
 const CARDS=[
   {id:0,name:"The Fool",suit:"major",sn:0,r:255,g:255,b:55,adj:"Curious",noun:"Endeavor",subject:"It is I that",verb:"embarks on quest",adv:"without looking",timeframe:"Just for today",command:"Begin"},
   {id:1,name:"The Magus",suit:"major",sn:1,r:255,g:255,b:0,adj:"Inward",noun:"Vigor",subject:"My resolution",verb:"wills itself",adv:"dynamically",timeframe:"For this moment",command:"Manifest"},
@@ -171,6 +179,31 @@ window.addEventListener('message', e => {
       cardLine: cardName(card),
       date
     }, '*');
+
+  } else if(queryType === 'test'){
+    // Diagnostic — check all systems, report back immediately
+    const errors=[];
+    try{
+      if(!CARDS||!CARDS.length)        errors.push('CARDS array empty');
+      else{
+        const tc=pick(CARDS);
+        if(!tc.adj)     errors.push('card missing .adj');
+        if(!tc.noun)    errors.push('card missing .noun');
+        if(!tc.verb)    errors.push('card missing .verb');
+        if(!tc.command) errors.push('card missing .command');
+      }
+      if(!KOAN_FRAMES||!KOAN_FRAMES.length)           errors.push('KOAN_FRAMES empty');
+      if(!GREETING_TEMPLATES||!GREETING_TEMPLATES.length) errors.push('GREETING_TEMPLATES empty');
+      const tr=buildMuReply('test mu');
+      if(!tr||!tr.sentence) errors.push('buildMuReply returned nothing');
+    }catch(e){ errors.push('runtime error: '+e.message); }
+    window.parent.postMessage({
+      type:    'mu_response',
+      sentence: errors.length
+        ? '🔴 *Mu found issues:* '+errors.join(' · ')
+        : '🟢 *Mu is present.* '+CARDS.length+' cards loaded, all systems nominal.',
+      cardLine: null
+    },'*');
   }
 });
 

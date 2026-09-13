@@ -1205,6 +1205,12 @@ async function sendMessage(){
     return;
   }
 
+  // test mu — diagnostic, bypasses cooldown, Mu reports his status
+  if(text.toLowerCase().trim()==='test mu'){
+    muBrain()?.postMessage({type:'mu_query',queryType:'test'},'*');
+    return;
+  }
+
   const user=currentUser;
   const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
