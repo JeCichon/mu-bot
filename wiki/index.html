@@ -719,9 +719,7 @@ let _pendingGreetDate=null;
 
 window.addEventListener('message', async e=>{
   if(!e.data) return;
-  console.log('[Mu listener] received:', e.data?.type);
   if(e.data.type==='mu_response'){
-    console.log('[Mu listener] calling saveMuMessage with:', e.data.sentence?.slice(0,40));
     await saveMuMessage(e.data.sentence, e.data.cardLine||null);
   } else if(e.data.type==='mu_greeting'){
     const{sentence,cardLine,date}=e.data;
@@ -767,8 +765,8 @@ async function loadMuAvatar(){
 const shownIds=new Set();
 
 // ── Mu response throttling ────────────────────────────────────────────────────
-const MU_COOLDOWN_MS         = 0; // temporarily disabled for testing
-const MU_COOLDOWN_MENTION_MS = 0; // temporarily disabled for testing
+const MU_COOLDOWN_MS         = 5 * 60 * 1000; // 5 min between responses
+const MU_COOLDOWN_MENTION_MS = 2 * 60 * 1000; // 2 min when directly mentioned
 let lastMuTime    = 0;
 let humansSinceMu = 0;
 
@@ -1238,17 +1236,13 @@ async function sendMessage(){
   const timeSinceMu=now-lastMuTime;
 
   let shouldRespond=false;
-  if(mentionsMu) shouldRespond=true;  // cooldowns disabled for testing
-  if(isQuestion) shouldRespond=true;
-
-  console.log('[Mu trigger] text:', text, '| mentionsMu:', mentionsMu, '| shouldRespond:', shouldRespond, '| muBrain found:', !!document.getElementById('mu-brain'));
+  if(mentionsMu && timeSinceMu>MU_COOLDOWN_MENTION_MS) shouldRespond=true;
+  if(isQuestion && timeSinceMu>MU_COOLDOWN_MS && humansSinceMu>=2) shouldRespond=true;
 
   if(shouldRespond){
     setTimeout(()=>{
-      const brain=muBrain();
-      console.log('[Mu trigger] posting to brain, brain exists:', !!brain);
-      brain?.postMessage({type:'mu_query',queryType:'response',text},'*');
-    },0);
+      muBrain()?.postMessage({type:'mu_query',queryType:'response',text},'*');
+    },600+Math.random()*800);
   }
 }
 
