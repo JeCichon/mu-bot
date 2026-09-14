@@ -723,7 +723,9 @@ window.addEventListener('message', async e=>{
     await saveMuMessage(e.data.sentence, e.data.cardLine||null);
   } else if(e.data.type==='mu_greeting'){
     const{sentence,cardLine,date}=e.data;
-    await saveMuMessage(sentence,cardLine||null);
+    // Set localStorage guard immediately — prevents re-greeting if DB insert fails
+    if(currentUser&&date) localStorage.setItem('mu_greeted_'+currentUser.id+'_'+date,'1');
+    await saveMuMessage(sentence,cardLine||null,true); // true = greeting, don't set lastMuTime
     if(currentUser&&date){
       await db.from('daily_greeted').insert({user_id:currentUser.id,greeted_date:date})
         .catch(()=>{});
@@ -955,10 +957,13 @@ async function showApp(user){
 // Daily greeting — delegated to mu-brain.html
 async function checkDailyGreeting(user){
   const today=new Date().toISOString().split('T')[0];
+  // localStorage guard — prevents re-greeting on same device even if DB insert fails
+  const lsKey='mu_greeted_'+user.id+'_'+today;
+  if(localStorage.getItem(lsKey)) return;
   try{
     const{data}=await db.from('daily_greeted').select('id')
       .eq('user_id',user.id).eq('greeted_date',today).maybeSingle();
-    if(data) return; // already greeted today
+    if(data){ localStorage.setItem(lsKey,'1'); return; } // already in DB, cache it
     const name=user.user_metadata?.full_name||user.user_metadata?.name||'traveler';
     _pendingGreetDate=today;
     muBrain()?.postMessage({type:'mu_query',queryType:'greeting',name,date:today},'*');
@@ -1256,8 +1261,8 @@ async function sendMessage(){
   }
 }
 
-async function saveMuMessage(sentence,cardLine){
-  lastMuTime=Date.now();
+async function saveMuMessage(sentence,cardLine,isGreeting=false){
+  if(!isGreeting) lastMuTime=Date.now();
   humansSinceMu=0;
   const{data}=await db.from("messages").insert({
     user_id:"mu",
