@@ -140,6 +140,10 @@ header{background:var(--brown2);border-bottom:2px solid var(--purple);padding:10
 ::-webkit-scrollbar-track{background:var(--brown);}
 ::-webkit-scrollbar-thumb{background:var(--brown3);border-radius:3px;}
 </style>
+<script>
+/* Apply saved Lodge color theme before first paint */
+(function(){try{const s=localStorage.getItem('lodge-theme');if(s){const v=JSON.parse(s);const r=document.documentElement;Object.entries(v).forEach(([k,val])=>r.style.setProperty(k,val));}}catch(e){}})();
+</script>
 </head>
 <body>
 <header>
