@@ -115,14 +115,13 @@
   .sidebar-backdrop.open{display:block;}
   @media(max-width:680px){
     .hamburger{display:flex;align-items:center;}
-    /* Prevent outer page bounce; each panel below scrolls on its own instead.
-       min-height:0 cancels the base rule's min-height:100vh — on mobile browsers
-       100vh can exceed the visible viewport (address bar), which made body taller
-       than the screen and let the whole page scroll despite overflow:hidden. */
+    /* Lock the body against touch-drag scrolling — real touch devices don't
+       reliably honor overflow:hidden for finger gestures the way mouse-wheel
+       does, so position:fixed is needed here (unlike the old version, .main-wrap
+       is NOT given a hardcoded top offset below — it stays in normal flex flow,
+       so it can never overlap the header regardless of the header's real height). */
     html,body{height:100%;overflow:hidden;}
-    body{min-height:0;overscroll-behavior:none;}
-    /* .main-wrap stays in normal flex flow (flex:1 below header) — no hardcoded
-       header-height offset, so it can never overlap the header. */
+    body{position:fixed;inset:0;min-height:0;overscroll-behavior:none;}
     /* Sidebar overlay */
     #sidebar{position:fixed!important;top:0;left:0;bottom:0;width:260px;z-index:150;
       transform:translateX(-100%);transition:transform .25s ease;
