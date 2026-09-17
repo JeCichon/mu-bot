@@ -2720,11 +2720,16 @@ document.addEventListener('click',e=>{
     closeMobileSidebar();
   }
 });
-// Prevent body scroll when touching inside scrollable containers (iOS)
-['#chat-messages','#sidebar'].forEach(sel=>{
-  const el=document.querySelector(sel);
-  if(el) el.addEventListener('touchmove',e=>e.stopPropagation(),{passive:true});
-});
+// ── iOS touch scroll fix ─────────────────────────────────────────────────────
+// On real iOS touchscreens, finger-drag gestures can fall through to the body
+// even when body is position:fixed. preventDefault on the document blocks that.
+// Each scrollable container handles its own touch gestures independently.
+const SCROLLABLE_SELECTORS='.chat-messages,#sidebar,#backpack-inner,.sys-content,#content-frame,.feedback-list,.entry-list';
+document.addEventListener('touchmove',function(e){
+  if(!e.target.closest(SCROLLABLE_SELECTORS)){
+    e.preventDefault();
+  }
+},{passive:false});
 </script>
 
 <!-- Mobile sidebar backdrop -->
