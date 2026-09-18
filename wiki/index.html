@@ -44,10 +44,10 @@
   /* ── Header ── */
   header { background:var(--brown2); border-bottom:2px solid var(--purple); padding:12px 20px; display:flex; align-items:center; gap:16px; flex-shrink:0; }
   .logo-wrap { display:flex; flex-direction:column; align-items:flex-start; gap:1px; }
-  .lodge-logo-wrap { display:flex; align-items:center; gap:8px; margin-left:0px; margin-top:0px; }
-  .lodge-logo-circle { width:48px; height:48px; border-radius:50%; border:1.5px solid var(--purple); background:var(--brown3); flex-shrink:0; }
-  .lodge-svg-stack { display:grid; }
-  .lodge-svg { grid-area:1/1; height:40px; width:auto; display:block; }
+  .lodge-logo-wrap { display:flex; align-items:center; gap:0; }
+  .lodge-logo-circle { width:48px; height:48px; border-radius:50%; border:1.5px solid var(--purple); background:var(--brown3); flex-shrink:0; margin-left:20px; }
+  .lodge-svg-stack { display:grid; margin-left:0px; margin-top:0px; }
+  .lodge-svg { grid-area:1/1; height:60px; width:auto; display:block; }
   .logo-sub { font-size:11px; color:var(--dim); letter-spacing:0.08em; font-family:var(--mono); }
   .header-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
   .user-name { font-size:13px; color:var(--green); font-family:var(--mono); }
@@ -2510,14 +2510,14 @@ const _DBG_TABS={
       apply:v=>_dbgCSS('au-sz',`.msg-author-name{font-size:${v}px!important;}`)},
   ],
   logo:[
-    {label:'Logo height',key:'logo-h',min:20,max:80,step:2,def:40,unit:'px',
+    {label:'Logo height',key:'logo-h',min:20,max:100,step:2,def:60,unit:'px',
       apply:v=>_dbgCSS('logo-h',`.lodge-svg{height:${v}px!important;}`)},
     {label:'Logo max-width',key:'logo-mw',min:80,max:500,step:10,def:300,unit:'px',
       apply:v=>_dbgCSS('logo-mw',`.lodge-svg{max-width:${v}px!important;}`)},
-    {label:'X offset',key:'logo-x',min:-80,max:80,step:2,def:0,unit:'px',
-      apply:v=>_dbgCSS('logo-x',`.lodge-logo-wrap{margin-left:${v}px!important;}`)},
-    {label:'Y offset',key:'logo-y',min:-20,max:20,step:1,def:0,unit:'px',
-      apply:v=>_dbgCSS('logo-y',`.lodge-logo-wrap{margin-top:${v}px!important;}`)},
+    {label:'Text X offset',key:'logo-x',min:-80,max:120,step:2,def:0,unit:'px',
+      apply:v=>_dbgCSS('logo-x',`.lodge-svg-stack{margin-left:${v}px!important;}`)},
+    {label:'Text Y offset',key:'logo-y',min:-30,max:30,step:1,def:0,unit:'px',
+      apply:v=>_dbgCSS('logo-y',`.lodge-svg-stack{margin-top:${v}px!important;}`)},
     {label:'Opacity',key:'logo-op',min:10,max:100,step:5,def:100,unit:'%',
       apply:v=>_dbgCSS('logo-op',`.lodge-svg{opacity:${v/100}!important;}`)},
   ],
