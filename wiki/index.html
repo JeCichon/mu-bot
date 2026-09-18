@@ -875,6 +875,25 @@ let realtimeChannel=null;
 let muAvatarUrl=null;
 
 async function loadMuAvatar(){
+  const CACHE_KEY_URL='mu_avatar_url';
+  const CACHE_KEY_TS='mu_avatar_ts';
+  const TTL_MS=30*60*1000; // 30 minutes
+  function _setAvatar(url){
+    muAvatarUrl=url;
+    const sidebarAvatar=document.getElementById('mu-sidebar-avatar');
+    if(sidebarAvatar) sidebarAvatar.innerHTML=`<img src="${url}" alt="Mu" style="width:100%;height:100%;object-fit:cover">`;
+  }
+  // Check localStorage cache first
+  try{
+    const cachedUrl=localStorage.getItem(CACHE_KEY_URL);
+    const cachedTs=parseInt(localStorage.getItem(CACHE_KEY_TS)||'0',10);
+    if(cachedUrl && (Date.now()-cachedTs)<TTL_MS){
+      console.log('Mu avatar from cache:', cachedUrl.split('/').pop());
+      _setAvatar(cachedUrl);
+      return;
+    }
+  } catch(e){ /* localStorage unavailable, fall through to fetch */ }
+  // Fetch fresh from GitHub
   try{
     const res=await fetch('https://api.github.com/repos/JeCichon/mu-bot/contents/images/mu',{headers:{'User-Agent':'mu-bot'}});
     const data=await res.json();
@@ -883,11 +902,13 @@ async function loadMuAvatar(){
     const imgs=data.filter(f=>exts.some(e=>f.name.toLowerCase().endsWith(e)));
     if(imgs.length===0) return;
     const chosen=imgs[Math.floor(Math.random()*imgs.length)];
-    muAvatarUrl=`https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/mu/${chosen.name}`;
-    console.log('Mu avatar loaded:', chosen.name);
-    // Update sidebar avatar
-    const sidebarAvatar=document.getElementById('mu-sidebar-avatar');
-    if(sidebarAvatar) sidebarAvatar.innerHTML=`<img src="${muAvatarUrl}" alt="Mu" style="width:100%;height:100%;object-fit:cover">`;
+    const url=`https://raw.githubusercontent.com/JeCichon/mu-bot/main/images/mu/${chosen.name}`;
+    console.log('Mu avatar fetched:', chosen.name);
+    try{
+      localStorage.setItem(CACHE_KEY_URL,url);
+      localStorage.setItem(CACHE_KEY_TS,Date.now().toString());
+    } catch(e){ /* storage full or blocked, non-fatal */ }
+    _setAvatar(url);
   } catch(err){ console.log('Mu avatar load failed (non-fatal):', err.message); }
 }
 const shownIds=new Set();
