@@ -45,7 +45,7 @@
   header { background:var(--brown2); border-bottom:2px solid var(--purple); padding:12px 20px; display:flex; align-items:center; gap:16px; flex-shrink:0; }
   .logo-wrap { display:flex; flex-direction:column; align-items:flex-start; gap:1px; }
   .lodge-logo-wrap { display:flex; align-items:center; gap:0; }
-  .lodge-logo-circle { width:46px; height:46px; border-radius:50%; border:1.5px solid var(--purple); background:var(--brown3); flex-shrink:0; margin-left:20px; }
+  .lodge-logo-circle { width:36px; height:36px; border-radius:50%; border:1.5px solid var(--purple); background:var(--brown3); flex-shrink:0; margin-left:20px; }
   .lodge-svg-stack { display:grid; margin-left:-28px; margin-top:-15px; }
   .lodge-svg { grid-area:1/1; height:64px; width:auto; display:block; }
   .logo-sub { font-size:11px; color:var(--dim); letter-spacing:0.08em; font-family:var(--mono); }
@@ -2539,7 +2539,7 @@ const _DBG_TABS={
       apply:v=>_dbgCSS('logo-x',`.lodge-svg-stack{margin-left:${v}px!important;}`)},
     {label:'Text Y offset',key:'logo-y',min:-30,max:30,step:1,def:-15,unit:'px',
       apply:v=>_dbgCSS('logo-y',`.lodge-svg-stack{margin-top:${v}px!important;}`)},
-    {label:'Circle size',key:'logo-c',min:28,max:72,step:2,def:46,unit:'px',
+    {label:'Circle size',key:'logo-c',min:28,max:72,step:2,def:36,unit:'px',
       apply:v=>_dbgCSS('logo-c',`.lodge-logo-circle{width:${v}px!important;height:${v}px!important;}`)},
     {label:'Opacity',key:'logo-op',min:10,max:100,step:5,def:100,unit:'%',
       apply:v=>_dbgCSS('logo-op',`.lodge-svg{opacity:${v/100}!important;}`)},
