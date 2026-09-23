@@ -11,14 +11,11 @@
 </head>
 <body>
 <script>
-// ── Suit defaults for minor arcana cards ─────────────────────────────────────
-// Each suit constant provides the language properties shared across that suit.
-// Individual cards override with their own rgb values; language comes from here.
-const W={adj:"Fiery",  noun:"Will",    verb:"ignites",   adv:"boldly",    subject:"The creative fire",  timeframe:"In this breath",   command:"Act"    };
-const C={adj:"Fluid",  noun:"Feeling", verb:"receives",  adv:"openly",    subject:"The heart's knowing",timeframe:"Feel this now",     command:"Open"   };
-const So={adj:"Sharp", noun:"Truth",   verb:"discerns",  adv:"clearly",   subject:"Thought cuts through",timeframe:"In this clarity",  command:"Discern"};
-const D={adj:"Grounded",noun:"Work",   verb:"manifests", adv:"steadily",  subject:"The body knows",     timeframe:"In this moment",   command:"Build"  };
-
+// ── All 78 cards, pulled from the `cards` table in Supabase ──────────────────
+// Every card has its own hand-authored language properties now (not a shared
+// suit default) — this is the same data the rest of the project (index.js,
+// the Color Lab) already treats as canonical. If a card's wording changes in
+// Supabase, re-generate this block from that table rather than hand-editing it.
 const CARDS=[
   {id:0,name:"The Fool",suit:"major",sn:0,r:255,g:255,b:55,adj:"Curious",noun:"Endeavor",subject:"It is I that",verb:"embarks on quest",adv:"without looking",timeframe:"Just for today",command:"Begin"},
   {id:1,name:"The Magus",suit:"major",sn:1,r:255,g:255,b:0,adj:"Inward",noun:"Vigor",subject:"My resolution",verb:"wills itself",adv:"dynamically",timeframe:"For this moment",command:"Manifest"},
@@ -31,26 +28,73 @@ const CARDS=[
   {id:8,name:"The Adjustment",suit:"major",sn:8,r:0,g:170,b:68,adj:"Balanced",noun:"Law",subject:"Harmony",verb:"seeks",adv:"responsibly",timeframe:"Think for a moment",command:"Balance"},
   {id:9,name:"The Hermit",suit:"major",sn:9,r:85,g:212,b:0,adj:"Deep",noun:"Disillusionment",subject:"That which is within",verb:"embraces",adv:"seriously",timeframe:"When you choose to",command:"Reflect"},
   {id:10,name:"Fortune",suit:"major",sn:10,r:178,g:0,b:109,adj:"Projected",noun:"Wealth",subject:"A calmness of spirit",verb:"rises",adv:"in time",timeframe:"Today is awesome",command:"Prosper"},
-  {id:11,name:"Lust",suit:"major",sn:11,r:182,g:234,b:0,adj:"Passionate",noun:"Energy",subject:"Your animal nature",verb:"transforms",adv:"lovingly",timeframe:"Oh yeah!",command:"Passion"},
+  {id:11,name:"Lust",suit:"major",sn:11,r:182,g:234,b:0,adj:"Passionate",noun:"Energy",subject:"Your animal nature",verb:"transforms",adv:"lovingly",timeframe:"*Kool-Aid Man bursts in* Oh yeah!",command:"Passion"},
   {id:12,name:"The Hanged Man",suit:"major",sn:12,r:0,g:102,b:255,adj:"Sacrificial",noun:"Solution",subject:"Acceptance",verb:"matures",adv:"wisely",timeframe:"This may surprise you",command:"Surrender"},
-  {id:13,name:"Death",suit:"major",sn:13,r:0,g:136,b:131,adj:"Cyclical",noun:"Rebirth",subject:"Death",verb:"returns",adv:"consistently",timeframe:"A reset",command:"Transform"},
+  {id:13,name:"Death",suit:"major",sn:13,r:0,g:136,b:131,adj:"Cyclical",noun:"Rebirth",subject:"Death",verb:"returns",adv:"consistently",timeframe:"Ahh yes, a reset — try to",command:"Transform"},
   {id:14,name:"Art",suit:"major",sn:14,r:42,g:42,b:255,adj:"Appropriate",noun:"Measurement",subject:"The philosopher's stone",verb:"dissolves and bonds",adv:"completely",timeframe:"Your barriers are thinning",command:"Synthesize"},
   {id:15,name:"The Devil",suit:"major",sn:15,r:145,g:0,b:178,adj:"Illuminating",noun:"Darkness",subject:"Dark magic",verb:"opens awareness",adv:"ritually",timeframe:"Stand in this moment",command:"Tempt"},
-  {id:16,name:"The Tower",suit:"major",sn:16,r:255,g:0,b:0,adj:"Productive",noun:"Destruction",subject:"Old systems",verb:"are leveled",adv:"in a blink",timeframe:"Through your pain",command:"Reconstruct"},
+  {id:16,name:"The Tower",suit:"major",sn:16,r:255,g:0,b:0,adj:"Productive",noun:"Destruction",subject:"Old systems",verb:"are leveled and replaced",adv:"in the blink of an eye",timeframe:"Through your pain, you hear",command:"Reconstruct"},
   {id:17,name:"The Star",suit:"major",sn:17,r:178,g:0,b:109,adj:"Reckless",noun:"Progress",subject:"A creative moment",verb:"innovates",adv:"faithfully",timeframe:"Your light speaks",command:"Innovate"},
   {id:18,name:"The Moon",suit:"major",sn:18,r:206,g:0,b:82,adj:"Intuitive",noun:"Knowledge",subject:"The depths of my soul",verb:"confronts",adv:"profoundly",timeframe:"A feeling rushes over you",command:"Illusion"},
   {id:19,name:"The Sun",suit:"major",sn:19,r:255,g:138,b:13,adj:"Confident",noun:"Illumination",subject:"That which is beyond me",verb:"fuels",adv:"boundlessly",timeframe:"With great warmth",command:"Illuminate"},
   {id:20,name:"The Aeon",suit:"major",sn:20,r:255,g:69,b:69,adj:"Liberating",noun:"Power",subject:"A great correlation",verb:"awakens",adv:"endlessly",timeframe:"Upon waking",command:"Awaken"},
   {id:21,name:"The Universe",suit:"major",sn:21,r:145,g:0,b:178,adj:"Karmic",noun:"Conclusion",subject:"All that is",verb:"spins together",adv:"freely",timeframe:"As this cycle ends",command:"Complete"},
-  {id:22,name:"Ace of Wands",suit:"wands",sn:1,r:255,g:255,b:255,...W},
-  {id:23,name:"Dominion",suit:"wands",sn:2,r:0,g:148,b:214,...W},
-  {id:36,name:"Ace of Cups",suit:"cups",sn:1,r:250,g:250,b:250,...C},
-  {id:37,name:"Love",suit:"cups",sn:2,r:174,g:177,b:178,...C},
-  {id:38,name:"Abundance",suit:"cups",sn:3,r:0,g:0,b:0,...C},
-  {id:44,name:"Happiness",suit:"cups",sn:9,r:178,g:0,b:109,...C},
-  {id:50,name:"Ace of Swords",suit:"swords",sn:1,r:242,g:242,b:242,...So},
-  {id:64,name:"Ace of Disks",suit:"disks",sn:1,r:255,g:246,b:205,...D},
-  {id:66,name:"Works",suit:"disks",sn:3,r:202,g:184,b:184,...D},
+  {id:22,name:"Ace of Wands",suit:"wands",sn:1,r:255,g:255,b:255,adj:"Pioneering",noun:"Spirit",subject:"Your talents",verb:"ignite",adv:"energetically",timeframe:"The journey begins today",command:"Initiate"},
+  {id:23,name:"Dominion",suit:"wands",sn:2,r:0,g:148,b:214,adj:"Assertive",noun:"Will",subject:"My Will",verb:"dominates",adv:"assertively",timeframe:"A world of possibility awaits",command:"Govern"},
+  {id:24,name:"Virtue",suit:"wands",sn:3,r:206,g:0,b:82,adj:"Creative",noun:"Harmony",subject:"Creative strength",verb:"reinforces",adv:"brilliantly",timeframe:"Through your creation",command:"Establish"},
+  {id:25,name:"Completion",suit:"wands",sn:4,r:142,g:0,b:100,adj:"Inner",noun:"Order",subject:"A perfected work",verb:"aligns with intention",adv:"",timeframe:"In this moment of order",command:"Perfect"},
+  {id:26,name:"Strife",suit:"wands",sn:5,r:255,g:138,b:13,adj:"Challenging",noun:"Impulse",subject:"Competition",verb:"burns away",adv:"individually",timeframe:"While competing for progress",command:"Challenge"},
+  {id:27,name:"Victory",suit:"wands",sn:6,r:255,g:168,b:168,adj:"Bright",noun:"Personality",subject:"My fire",verb:"expands",adv:"joyfully",timeframe:"Tomorrow's in my eyes",command:"Succeed"},
+  {id:28,name:"Valour",suit:"wands",sn:7,r:255,g:193,b:3,adj:"Renewable",noun:"Capacity",subject:"Resistance",verb:"fights on",adv:"courageously",timeframe:"Against the odds",command:"Endure"},
+  {id:29,name:"Swiftness",suit:"wands",sn:8,r:178,g:0,b:109,adj:"Unexpected",noun:"Motivation",subject:"Your knowledge",verb:"implements",adv:"straightaway",timeframe:"No time to waste",command:"Communicate"},
+  {id:30,name:"Strength",suit:"wands",sn:9,r:145,g:0,b:178,adj:"Spiritual",noun:"Wholeness",subject:"Emotion",verb:"becomes whole",adv:"powerfully",timeframe:"When you find your power within",command:"Strengthen"},
+  {id:31,name:"Oppression",suit:"wands",sn:10,r:255,g:255,b:0,adj:"Self",noun:"Determination",subject:"My structure",verb:"grows",adv:"responsibly",timeframe:"When the weight of expectation is heavy",command:"Subjugate"},
+  {id:32,name:"Prince",suit:"wands",sn:11,r:243,g:111,b:12,adj:"Attractive",noun:"Arrogance",subject:"Rich experience",verb:"calls out",adv:"fiercely",timeframe:"With great focus",command:"Inspire"},
+  {id:33,name:"Princess",suit:"wands",sn:12,r:170,g:106,b:0,adj:"Enthusiastic",noun:"Love",subject:"The love of life",verb:"sublimates",adv:"beautifully",timeframe:"In a flash of inspiration",command:"Transform"},
+  {id:34,name:"Queen",suit:"wands",sn:13,r:128,g:51,b:128,adj:"Righteous",noun:"Vision",subject:"Compassion",verb:"changes",adv:"naturally",timeframe:"For this transformation",command:"Transform"},
+  {id:35,name:"Knight",suit:"wands",sn:14,r:244,g:31,b:33,adj:"Personal",noun:"Potential",subject:"Ideal humanity",verb:"affirms",adv:"inherently",timeframe:"In this spirit of chivalry",command:"Inspire"},
+  {id:36,name:"Ace of Cups",suit:"cups",sn:1,r:250,g:250,b:250,adj:"Experiencing",noun:"Grace",subject:"The secret of love",verb:"enlightens",adv:"together",timeframe:"Love at first sip",command:"Embody"},
+  {id:37,name:"Love",suit:"cups",sn:2,r:174,g:177,b:178,adj:"Dissolving",noun:"Boundaries",subject:"The happiness of love",verb:"balances",adv:"harmoniously",timeframe:"In this moment",command:"Exchange"},
+  {id:38,name:"Abundance",suit:"cups",sn:3,r:0,g:0,b:0,adj:"Overflowing",noun:"Value",subject:"All that is needed",verb:"flows",adv:"bountifully",timeframe:"For this turning of the wheel",command:"Flow"},
+  {id:39,name:"Luxury",suit:"cups",sn:4,r:42,g:42,b:255,adj:"Emotional",noun:"Prosperity",subject:"Safety",verb:"stabilizes",adv:"generously",timeframe:"Within your safe harbor",command:"Indulge"},
+  {id:40,name:"Disappointment",suit:"cups",sn:5,r:255,g:39,b:0,adj:"Painful",noun:"Birth",subject:"A new consciousness",verb:"tears through",adv:"painfully",timeframe:"Within this time of reflection",command:"Nurture"},
+  {id:41,name:"Pleasure",suit:"cups",sn:6,r:251,g:180,b:2,adj:"Sensual",noun:"Desire",subject:"Your emotional power",verb:"is found within",adv:"blissfully",timeframe:"Embrace this pleasure",command:"Indulge"},
+  {id:42,name:"Debauch",suit:"cups",sn:7,r:0,g:170,b:0,adj:"Ephemeral",noun:"Pleasure",subject:"A lack of balance",verb:"dissolves",adv:"longingly",timeframe:"Even when you choose not to",command:"Dissipate"},
+  {id:43,name:"Indolence",suit:"cups",sn:8,r:255,g:138,b:13,adj:"Abandoned",noun:"Values",subject:"Self-denial",verb:"breaks down form",adv:"resignedly",timeframe:"The resistance you feel is love",command:"Forsake"},
+  {id:44,name:"Happiness",suit:"cups",sn:9,r:178,g:0,b:109,adj:"Optimistic",noun:"Future",subject:"Love",verb:"opens everything",adv:"profoundly",timeframe:"A state of mind",command:"Fulfill"},
+  {id:45,name:"Satiety",suit:"cups",sn:10,r:100,g:79,b:14,adj:"Satisfied",noun:"Being",subject:"A new intensity",verb:"gathers",adv:"warmly",timeframe:"Acknowledge this bliss",command:"Satiate"},
+  {id:46,name:"Prince",suit:"cups",sn:11,r:117,g:112,b:139,adj:"Sincere",noun:"Emotion",subject:"Sincerity",verb:"connects",adv:"logically",timeframe:"In a peaceful state",command:"Embrace"},
+  {id:47,name:"Princess",suit:"cups",sn:12,r:117,g:112,b:139,adj:"Esoteric",noun:"Intuition",subject:"Fantasy",verb:"dances",adv:"aesthetically",timeframe:"As a dream unfolds",command:"Imagine"},
+  {id:48,name:"Queen",suit:"cups",sn:13,r:1,g:52,b:255,adj:"Feminine",noun:"Wisdom",subject:"The collective unconscious",verb:"understands",adv:"affectionately",timeframe:"In this flow",command:"Comprehend"},
+  {id:49,name:"Knight",suit:"cups",sn:14,r:117,g:32,b:161,adj:"Renouncing",noun:"Instincts",subject:"A compassionate spirit",verb:"shares",adv:"hesitantly",timeframe:"Wait for his return",command:"Offer"},
+  {id:50,name:"Ace of Swords",suit:"swords",sn:1,r:242,g:242,b:242,adj:"Mindful",noun:"Activities",subject:"Your mind",verb:"cuts through the noise",adv:"objectively",timeframe:"To find your path",command:"Discern"},
+  {id:51,name:"Peace",suit:"swords",sn:2,r:146,g:161,b:188,adj:"Seeking",noun:"Balance",subject:"Stillness",verb:"holds",adv:"without incident",timeframe:"Find the quiet center",command:"Harmonize"},
+  {id:52,name:"Sorrow",suit:"swords",sn:3,r:117,g:66,b:0,adj:"Growing",noun:"Pains",subject:"An ending",verb:"embodies purpose",adv:"through suffering",timeframe:"In the depths of night",command:"Mourn"},
+  {id:53,name:"Truce",suit:"swords",sn:4,r:84,g:11,b:85,adj:"Arranging",noun:"Peace",subject:"Stability",verb:"maintains",adv:"temporarily",timeframe:"While finding stillness",command:"Perfect"},
+  {id:54,name:"Defeat",suit:"swords",sn:5,r:255,g:111,b:99,adj:"Passive",noun:"Suffering",subject:"Your limit",verb:"reveals",adv:"intrinsically",timeframe:"When you admit your boundaries",command:"Yield"},
+  {id:55,name:"Science",suit:"swords",sn:6,r:255,g:95,b:93,adj:"Objective",noun:"Understanding",subject:"My objectivity",verb:"measures",adv:"comprehensibly",timeframe:"For a deeper study",command:"Examine"},
+  {id:56,name:"Futility",suit:"swords",sn:7,r:231,g:221,b:23,adj:"Stupid",noun:"Trust",subject:"My lack of trust",verb:"turns in on me",adv:"dishonestly",timeframe:"Stop looking back",command:"Surrender"},
+  {id:57,name:"Interference",suit:"swords",sn:8,r:133,g:27,b:28,adj:"Total",noun:"Correlation",subject:"Restraint and inhibition",verb:"ensures development",adv:"steadily",timeframe:"Through self-discipline, you find",command:"Hinder"},
+  {id:58,name:"Cruelty",suit:"swords",sn:9,r:51,g:0,b:68,adj:"Psychopathic",noun:"Extremes",subject:"Fear, guilt, and helplessness",verb:"torments",adv:"toxically",timeframe:"Break free from the grip",command:"Torment"},
+  {id:59,name:"Ruin",suit:"swords",sn:10,r:65,g:60,b:5,adj:"Disruptive",noun:"Ending",subject:"A final blow",verb:"ends a cycle",adv:"inevitably",timeframe:"At the inevitable end",command:"Conclude"},
+  {id:60,name:"Prince",suit:"swords",sn:11,r:243,g:238,b:12,adj:"Breaking",noun:"Chains",subject:"A creative spirit",verb:"seeks solutions",adv:"with an open mind",timeframe:"As you solve problems",command:"Invent"},
+  {id:61,name:"Princess",suit:"swords",sn:12,r:170,g:234,b:0,adj:"Intellectual",noun:"Revolution",subject:"Transparent insight",verb:"rises",adv:"clairvoyantly",timeframe:"Then you will know the truth",command:"Rebel"},
+  {id:62,name:"Queen",suit:"swords",sn:13,r:128,g:179,b:128,adj:"Independent",noun:"Resourcefulness",subject:"Unbiased intelligence",verb:"decides",adv:"honestly",timeframe:"In your sharp mind",command:"Discern"},
+  {id:63,name:"Knight",suit:"swords",sn:14,r:244,g:158,b:33,adj:"Mental",noun:"Strength",subject:"Abstract thinking",verb:"refines",adv:"like a storm",timeframe:"With swift focus",command:"Focus"},
+  {id:64,name:"Ace of Disks",suit:"disks",sn:1,r:255,g:246,b:205,adj:"Tangible",noun:"Matter",subject:"Great happiness",verb:"shines",adv:"within and without",timeframe:"Experience this moment",command:"Materialize"},
+  {id:65,name:"Change",suit:"disks",sn:2,r:166,g:153,b:142,adj:"Mirrored",noun:"Reality",subject:"Division",verb:"changes",adv:"infinitely",timeframe:"For this moment",command:"Transform"},
+  {id:66,name:"Works",suit:"disks",sn:3,r:202,g:184,b:184,adj:"Crystallized",noun:"Force",subject:"Self-development",verb:"grows",adv:"constructively",timeframe:"For this labor of love",command:"Construct"},
+  {id:67,name:"Power",suit:"disks",sn:4,r:67,g:136,b:146,adj:"Reinforced",noun:"Stability",subject:"Your fortress",verb:"defines reality",adv:"for now",timeframe:"Within this cycle",command:"Consolidate"},
+  {id:68,name:"Worry",suit:"disks",sn:5,r:132,g:56,b:56,adj:"Unfortunate",noun:"Thought",subject:"The current crisis",verb:"opens your eyes",adv:"urgently",timeframe:"Within this trial",command:"Concern"},
+  {id:69,name:"Success",suit:"disks",sn:6,r:163,g:121,b:15,adj:"Heavenly",noun:"Conditions",subject:"Prosperity",verb:"overcomes",adv:"abundantly",timeframe:"Enjoy the fruit of your labor",command:"Succeed"},
+  {id:70,name:"Failure",suit:"disks",sn:7,r:158,g:163,b:15,adj:"Prolonged",noun:"Emptiness",subject:"Darkness",verb:"disintegrates",adv:"effortlessly",timeframe:"Through your disappointment, you see",command:"Vanish"},
+  {id:71,name:"Prudence",suit:"disks",sn:8,r:174,g:145,b:98,adj:"Comprehensive",noun:"View",subject:"Self-discipline",verb:"adapts",adv:"orderly",timeframe:"With steady intention",command:"Cultivate"},
+  {id:72,name:"Gain",suit:"disks",sn:9,r:67,g:146,b:130,adj:"Material",noun:"Adequacy",subject:"Financial luck",verb:"achieves",adv:"satisfactorily",timeframe:"In your abundance",command:"Acquire"},
+  {id:73,name:"Wealth",suit:"disks",sn:10,r:57,g:57,b:13,adj:"Prosperous",noun:"Foundation",subject:"Earthly happiness",verb:"culminates",adv:"splendidly",timeframe:"You reap what you sowed",command:"Accumulate"},
+  {id:74,name:"Prince",suit:"disks",sn:11,r:116,g:238,b:12,adj:"Industrious",noun:"Temperament",subject:"Work",verb:"shapes you",adv:"reliably",timeframe:"Your hard work is noticed",command:"Cultivate"},
+  {id:75,name:"Princess",suit:"disks",sn:12,r:43,g:234,b:0,adj:"Physical",noun:"Connection",subject:"Motherly intuition",verb:"nurtures",adv:"calmly",timeframe:"Rooted in the earth",command:"Nurture"},
+  {id:76,name:"Queen",suit:"disks",sn:13,r:0,g:179,b:128,adj:"Luxurious",noun:"Matriarchy",subject:"Family",verb:"strengthens",adv:"sensibly",timeframe:"As the cycle continues",command:"Ground"},
+  {id:77,name:"Knight",suit:"disks",sn:14,r:116,g:158,b:33,adj:"Masculine",noun:"Influence",subject:"Perseverance",verb:"communes with Mother Nature",adv:"patiently",timeframe:"With steady resolve",command:"Commune"},
 ];
 
 const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
@@ -81,6 +125,20 @@ const MU_INTROS=[
 ];
 
 function drawCards(n){ return [...CARDS].sort(()=>Math.random()-0.5).slice(0,n); }
+
+// If the matched library entry has cards linked to it in the Lodge editor,
+// let one of Mu's two draws come from that link instead of both being
+// fully random. Falls back to a normal random draw whenever there's no
+// match, no linked cards, or none of the linked ids are in this file's
+// card set yet.
+function drawCardsWithBias(topEntry){
+  const linkedIds=topEntry&&Array.isArray(topEntry.cardIds)?topEntry.cardIds:[];
+  const candidates=linkedIds.map(id=>CARDS.find(c=>c.id===id)).filter(Boolean);
+  if(candidates.length===0) return drawCards(2);
+  const anchor=pick(candidates);
+  const other=pick(CARDS.filter(c=>c.id!==anchor.id));
+  return Math.random()>0.5 ? [anchor,other] : [other,anchor];
+}
 function cardName(c){ return c.suit==="major"?c.name:`${c.sn}·${c.suit[0].toUpperCase()}·${c.name}`; }
 
 function isCasualGreeting(text){
@@ -114,7 +172,7 @@ function buildCasualReply(){
 
 function buildMuReply(userText, topEntry){
   if(isCasualGreeting(userText)) return buildCasualReply();
-  const cards=drawCards(2);
+  const cards=drawCardsWithBias(topEntry);
   let sentence;
   const isQuestion=userText.includes("?");
   if(!userText||!userText.trim()||(!userText.toLowerCase().includes("mu")&&!isQuestion)){

@@ -861,25 +861,39 @@ function parseEmbedding(raw){
   if(typeof raw==='string'){ try{ return JSON.parse(raw); }catch{ return null; } }
   return null;
 }
-// Returns {title, score} for the closest library entry, or null if nothing
-// clears MATCH_THRESHOLD (or the model/lookup isn't ready) — never blocks or
-// throws, since Mu should still reply even if his memory is unavailable.
+// "Mu" is almost always present in a message just to address him — it's a
+// vocative, not a topic. Left in, it competes as real content and can pull
+// the match toward anything else that happens to say "mu" a lot. Strip it
+// before embedding the query (only for matching — the saved chat message is
+// untouched). Falls back to the original text if stripping leaves nothing.
+function stripAddress(text){
+  const stripped=text.replace(/\bmu\b/gi,' ').replace(/\s+/g,' ').trim();
+  return stripped || text;
+}
+// Returns {title, score, cardIds} for the closest library entry, or null if
+// nothing clears MATCH_THRESHOLD (or the model/lookup isn't ready) — never
+// blocks or throws, since Mu should still reply even if his memory isn't.
 async function findTopLibraryMatch(text){
   try{
     const emb=embedder||await loadEmbedder();
     if(!libraryCache){
-      const{data}=await db.from('library_entries').select('title,embedding').not('embedding','is',null);
-      libraryCache=(data||[]).map(e=>({title:e.title,vec:parseEmbedding(e.embedding)})).filter(e=>e.vec);
+      const{data}=await db.from('library_entries').select('id,title,embedding').not('embedding','is',null);
+      libraryCache=(data||[]).map(e=>({id:e.id,title:e.title,vec:parseEmbedding(e.embedding)})).filter(e=>e.vec);
     }
     if(libraryCache.length===0) return null;
-    const output=await emb(text,{pooling:'mean',normalize:true});
+    const output=await emb(stripAddress(text),{pooling:'mean',normalize:true});
     const qvec=Array.from(output.data);
     let best=null;
     for(const e of libraryCache){
       const score=dot(qvec,e.vec);
-      if(!best||score>best.score) best={title:e.title,score};
+      if(!best||score>best.score) best={id:e.id,title:e.title,score};
     }
-    return (best && best.score>=MATCH_THRESHOLD) ? best : null;
+    if(!best||best.score<MATCH_THRESHOLD) return null;
+
+    // Cards linked to this entry in the Lodge library editor, if any — lets
+    // Mu's card draw lean toward the topic instead of staying pure decoration.
+    const{data:assignments}=await db.from('library_card_assignments').select('card_id').eq('entry_id',best.id);
+    return { title:best.title, score:best.score, cardIds:(assignments||[]).map(a=>a.card_id) };
   }catch(err){
     console.warn('Mu memory lookup failed (non-fatal):',err);
     return null;
