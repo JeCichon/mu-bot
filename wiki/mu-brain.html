@@ -112,7 +112,7 @@ function buildCasualReply(){
   return{sentence:`Not much, just ${gerund(card.verb)} like ${article} ${card.noun.toLowerCase()}.`,cards:[card]};
 }
 
-function buildMuReply(userText){
+function buildMuReply(userText, topEntry){
   if(isCasualGreeting(userText)) return buildCasualReply();
   const cards=drawCards(2);
   let sentence;
@@ -122,10 +122,18 @@ function buildMuReply(userText){
   } else {
     const intro=Math.random()>0.4?pick(MU_INTROS)+"\n\n":"";
     sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
-    const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
-    if(kw.length>0&&Math.random()>0.5){
-      const word=pick(kw);
-      sentence=pick([`*${word}* — ${sentence}`,`${sentence} What of *${word}*?`,`Before *${word}* — ${sentence}`]);
+    // Prefer referencing something Mu actually knows (a matched library
+    // entry, passed in by index.html) over echoing a random word back from
+    // what you said. Only ever the entry's title — never its full text.
+    let ref=null;
+    if(topEntry&&topEntry.title){
+      ref=topEntry.title;
+    } else {
+      const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
+      if(kw.length>0&&Math.random()>0.5) ref=pick(kw);
+    }
+    if(ref){
+      sentence=pick([`*${ref}* — ${sentence}`,`${sentence} What of *${ref}*?`,`Before *${ref}* — ${sentence}`]);
     }
   }
   return{sentence,cards};
@@ -160,10 +168,10 @@ async function checkDailyGreeting(user){
 // ── Message interface ─────────────────────────────────────────────────────────
 window.addEventListener('message', e => {
   if(!e.data || e.data.type !== 'mu_query') return;
-  const { queryType, text, name, date } = e.data;
+  const { queryType, text, name, date, topEntry } = e.data;
 
   if(queryType === 'response'){
-    const { sentence, cards } = buildMuReply(text||'');
+    const { sentence, cards } = buildMuReply(text||'', topEntry||null);
     window.parent.postMessage({
       type:     'mu_response',
       sentence,
