@@ -388,6 +388,36 @@ async function loadUserRole(userId){
   }
 }
 
+// ── Embedding (Mu's memory) ───────────────────────────────────────────────────
+// Same free, local model already used for the 78 card embeddings
+// (Xenova/all-MiniLM-L6-v2, via transformers.js). Loaded only for users who
+// can create/edit entries, and only once they actually open the entry form —
+// ordinary browsing visitors never download the model. If it fails to load
+// or embed, the entry still saves normally; the standalone backfill tool
+// can pick up anything that's missing an embedding later.
+const EMBED_MODEL = 'Xenova/all-MiniLM-L6-v2';
+let embedder = null;
+let embedderPromise = null;
+function loadEmbedder(){
+  if(!embedderPromise){
+    embedderPromise = import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2')
+      .then(({pipeline}) => pipeline('feature-extraction', EMBED_MODEL))
+      .then(p => { embedder = p; return p; })
+      .catch(err => { console.warn('Mu embedding model failed to load:', err); embedderPromise = null; throw err; });
+  }
+  return embedderPromise;
+}
+function truncateWords(text, n){
+  const words = (text||'').trim().split(/\s+/);
+  return words.length<=n ? (text||'').trim() : words.slice(0,n).join(' ');
+}
+async function embedEntry(title, content){
+  const emb = embedder || await loadEmbedder();
+  const raw = title ? `${title}. ${content}` : content;
+  const output = await emb(truncateWords(raw,220), { pooling:'mean', normalize:true });
+  return Array.from(output.data);
+}
+
 // ── Card cache (loaded on init) ───────────────────────────────────────────────
 let CARDS_CACHE = [];
 const SUIT_LABEL={major:"Major Arcana",wands:"Wands",cups:"Cups",swords:"Swords",disks:"Disks"};
@@ -629,6 +659,7 @@ async function loadEntryCards(entryId){
 }
 
 function openCreateModal(entryData=null, cardGroups=null){
+  if(CAN_CREATE.includes(userRole)) loadEmbedder(); // warm the model in the background
   editingEntryId = entryData?.id || null;
   creationGroups = cardGroups || [[null,null,null]];
   document.getElementById('f-title').value   = entryData?.title || '';
@@ -931,13 +962,26 @@ async function saveEntry(){
 
   const author = currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'unknown';
 
+  // Embed title+content so this entry becomes part of Mu's searchable memory.
+  // Non-fatal: if the model isn't ready or fails, the entry still saves —
+  // it'll just be missing an embedding until the backfill tool catches it.
+  let embedFields = {};
+  try{
+    statusEl.textContent = 'embedding…';
+    const vec = await embedEntry(title, content);
+    embedFields = { model: EMBED_MODEL, dims: vec.length, embedding: vec };
+  } catch(err){
+    console.warn('Could not embed this entry:', err);
+  }
+  statusEl.textContent = 'saving…';
+
   let finalEntry;
 
   if(editingEntryId){
     // UPDATE existing entry
     const url = (document.getElementById('f-url').value||'').trim()||null;
     const{data:updated,error}=await db.from('library_entries')
-      .update({title,entry_type:type,content,subtype,tags,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrls[0]||null,image_url_2:pendingImageUrls[1]||null,image_url_3:pendingImageUrls[2]||null})
+      .update({title,entry_type:type,content,subtype,tags,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrls[0]||null,image_url_2:pendingImageUrls[1]||null,image_url_3:pendingImageUrls[2]||null,...embedFields})
       .eq('id', editingEntryId).select().single();
     if(error||!updated){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
@@ -961,7 +1005,7 @@ async function saveEntry(){
     // INSERT new entry
     const url=(document.getElementById('f-url')?.value||'').trim()||null;
   const{data:inserted,error}=await db.from('library_entries')
-      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrls[0]||null,image_url_2:pendingImageUrls[1]||null,image_url_3:pendingImageUrls[2]||null})
+      .insert({title,entry_type:type,content,subtype,tags,author,r,g,b,url,url_label:(document.getElementById('f-url-label')?.value||'').trim()||null,image_url:pendingImageUrls[0]||null,image_url_2:pendingImageUrls[1]||null,image_url_3:pendingImageUrls[2]||null,...embedFields})
       .select().single();
     if(error||!inserted){
       statusEl.textContent=`Error: ${error?.message||'unknown error'}`;
