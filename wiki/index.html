@@ -329,6 +329,9 @@
   .member-avatar img { width:100%; height:100%; object-fit:cover; }
   .member-name { font-size:12px; color:var(--parchment2); font-family:var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .member-dot { width:7px; height:7px; border-radius:50%; background:var(--green3); flex-shrink:0; }
+  .member-listen { margin-left:auto; font-size:12px; opacity:0.65; flex-shrink:0; }
+  .member-listen.mine { cursor:pointer; opacity:0.9; }
+  .member-listen.mine:hover { opacity:1; transform:scale(1.15); }
 
   /* Chat media */
   .yt-preview { display:block; position:relative; max-width:380px; margin-top:8px; border-radius:4px; overflow:hidden; cursor:pointer; border:1px solid var(--brown3); }
@@ -870,9 +873,26 @@ function stripAddress(text){
   const stripped=text.replace(/\bmu\b/gi,' ').replace(/\s+/g,' ').trim();
   return stripped || text;
 }
-// Returns {title, score, cardIds} for the closest library entry, or null if
-// nothing clears MATCH_THRESHOLD (or the model/lookup isn't ready) — never
-// blocks or throws, since Mu should still reply even if his memory isn't.
+// Embeds one chat message and files it into `memories` (Phase 2 personal/
+// communal memory). "Personal" and "communal" aren't two separate tables —
+// every row is tagged with the speaker's user_id, and findTopLibraryMatch
+// below searches all of them (communal) while a future pass can filter to
+// one user_id for anything that wants strictly personal recall.
+async function captureMemory(messageId,userId,userName,content){
+  const emb=embedder||await loadEmbedder();
+  const output=await emb(content,{pooling:'mean',normalize:true});
+  const vec=Array.from(output.data);
+  const{error}=await db.from('memories').insert({
+    message_id:messageId, user_id:userId, user_name:userName,
+    content, embedding:vec
+  });
+  if(error) throw error;
+}
+
+// Returns {title, score, cardIds} for the closest thing Mu actually knows
+// about — either a curated library entry or a captured chat memory — or
+// null if nothing clears MATCH_THRESHOLD (or the model/lookup isn't ready).
+// Never blocks or throws, since Mu should still reply even if his memory isn't.
 async function findTopLibraryMatch(text){
   try{
     const emb=embedder||await loadEmbedder();
@@ -880,16 +900,33 @@ async function findTopLibraryMatch(text){
       const{data}=await db.from('library_entries').select('id,title,embedding').not('embedding','is',null);
       libraryCache=(data||[]).map(e=>({id:e.id,title:e.title,vec:parseEmbedding(e.embedding)})).filter(e=>e.vec);
     }
-    if(libraryCache.length===0) return null;
+    // Memories aren't cached like library_entries — the table grows every
+    // time someone chats, so a fresh query keeps this current. Cheap because
+    // this only runs when Mu is actually about to respond (cooldown-gated).
+    const{data:memRows}=await db.from('memories').select('id,content,embedding');
+    const memCandidates=(memRows||[]).map(m=>({
+      id:'mem:'+m.id,
+      title:m.content.length>60?m.content.slice(0,57)+'…':m.content,
+      vec:parseEmbedding(m.embedding),
+      isMemory:true
+    })).filter(e=>e.vec);
+
+    const pool=[...libraryCache, ...memCandidates];
+    if(pool.length===0) return null;
     const output=await emb(stripAddress(text),{pooling:'mean',normalize:true});
     const qvec=Array.from(output.data);
     let best=null;
-    for(const e of libraryCache){
+    for(const e of pool){
       const score=dot(qvec,e.vec);
-      if(!best||score>best.score) best={id:e.id,title:e.title,score};
+      if(!best||score>best.score) best=e.isMemory?{title:e.title,score,isMemory:true}:{id:e.id,title:e.title,score};
     }
     if(!best||best.score<MATCH_THRESHOLD) return null;
 
+    if(best.isMemory){
+      // Chat memories don't have cards linked to them the way curated
+      // library entries do — Mu just falls back to a normal random draw.
+      return { title:best.title, score:best.score, cardIds:[] };
+    }
     // Cards linked to this entry in the Lodge library editor, if any — lets
     // Mu's card draw lean toward the topic instead of staying pure decoration.
     const{data:assignments}=await db.from('library_card_assignments').select('card_id').eq('entry_id',best.id);
@@ -984,6 +1021,15 @@ const MU_COOLDOWN_MENTION_MS = 2 * 60 * 1000; // 2 min when directly mentioned
 let lastMuTime    = 0;
 let humansSinceMu = 0;
 
+// ── Presence / meditating (Phase 2 memory) ──────────────────────────────────
+// Whether MU is currently listening (memorizing) the current user's messages.
+// Present (true) by default — matches how Lodge chat already works (public,
+// everyone already sees everything), so memorizing it isn't new exposure.
+// Meditating (false) just pauses memory capture; Mu still responds normally.
+let muListening=true;
+let listeningStates={};   // { userId: bool } — other members' state, for the member list
+let lastMembers=[];       // last member list render, so toggling doesn't need a refetch
+
 async function signIn(){
   await db.auth.signInWithOAuth({provider:"discord",options:{redirectTo:window.location.origin+window.location.pathname}});
 }
@@ -1021,6 +1067,32 @@ async function loadBubbleColors(){
     bubbleColors={};
     (data||[]).forEach(r=>{if(r.bubble_color) bubbleColors[r.user_id]=r.bubble_color;});
   }catch(e){}
+}
+
+// Loads everyone's "Mu is present / Mu is meditating" state so the member
+// list can show it. mu_listening defaults to true in the DB, so anyone
+// missing from this map (row not created yet) is treated as listening.
+async function loadMuListening(){
+  try{
+    const{data}=await db.from('user_roles').select('user_id,mu_listening');
+    listeningStates={};
+    (data||[]).forEach(r=>{ listeningStates[r.user_id]=r.mu_listening!==false; });
+    if(currentUser) muListening=listeningStates[currentUser.id]!==false;
+  }catch(e){ console.warn('Listening-state load failed (non-fatal):',e.message); }
+}
+
+// Click handler for your own row in the member list — flips Mu's listening
+// state for you specifically. Optimistic: updates the UI immediately, then
+// writes to the DB; if the write fails, memory capture just keeps using
+// whatever muListening was last set to locally (non-fatal either way).
+async function toggleMuListening(){
+  if(!currentUser) return;
+  muListening=!muListening;
+  listeningStates[currentUser.id]=muListening;
+  updateMembersList(lastMembers);
+  try{
+    await db.from('user_roles').update({mu_listening:muListening}).eq('user_id',currentUser.id);
+  }catch(err){ console.warn('Failed to save listening state (non-fatal):',err.message); }
 }
 
 // Loads Lodge-wide default theme if member has no personal preference
@@ -1094,6 +1166,7 @@ async function showApp(user){
   loadBackpack();
   loadLodgeThemeDefault();
   loadBubbleColors();
+  loadMuListening();
 
   // Load custom emojis FIRST — must be ready before messages and reactions render
   await loadCustomEmojis().catch(()=>{});
@@ -1215,6 +1288,7 @@ document.addEventListener('visibilitychange',()=>{
 function updateMembersList(members){
   const el=document.getElementById("members-list");
   if(!el) return;
+  lastMembers=members||[];
   if(!members||members.length===0){
     el.innerHTML=`<div class="loading">just you…</div>`;
     return;
@@ -1222,10 +1296,18 @@ function updateMembersList(members){
   el.innerHTML=members.map(m=>{
     const avatarHtml=m.user_avatar?`<img src="${m.user_avatar}" alt="">`:"👤";
     const isMe=currentUser&&m.user_id===currentUser.id;
+    // 🧿 present (Mu is listening/memorizing) vs 🧘 meditating (paused).
+    // Your own row is clickable; everyone else's is a read-only ambient cue.
+    const listening=isMe?muListening:(listeningStates[m.user_id]!==false);
+    const icon=listening?"🧿":"🧘";
+    const label=isMe
+      ? (listening?"Mu is present — click to let him meditate":"Mu is meditating — click to have him listen again")
+      : (listening?"Mu is listening":"Mu is meditating");
     return`<div class="member-row">
       <div class="member-dot"></div>
       <div class="member-avatar">${avatarHtml}</div>
       <span class="member-name">${m.user_name||'traveler'}${isMe?" (you)":""}</span>
+      <span class="member-listen${isMe?" mine":""}" title="${label}"${isMe?' onclick="toggleMuListening()"':''}>${icon}</span>
     </div>`;
   }).join("");
 }
@@ -1452,6 +1534,18 @@ async function sendMessage(){
     card_line:null,
   }).select().single();
   if(inserted){ renderMessage(inserted); } // renderMessage adds to shownIds itself
+
+  // File this into Mu's memory — unless this user has him meditating right
+  // now. Every message that gets captured is both communal (anyone's later
+  // question can surface it) and personal (it's tagged with user_id, so it
+  // also surfaces when Mu is specifically talking with this person) — see
+  // findTopLibraryMatch, which searches across all of it. Skipped for very
+  // short messages ("lol", "hi") since they're not retrievable content, just
+  // noise in the meaning-space.
+  if(muListening && text.trim().length>=12 && inserted){
+    captureMemory(inserted.id,user.id,name,text)
+      .catch(err=>console.warn('Memory capture failed (non-fatal):',err.message));
+  }
 
   // Track humans speaking since Mu last responded
   humansSinceMu++;
