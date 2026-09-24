@@ -116,6 +116,17 @@ const SENTENCE_TEMPLATES=[
   c=>`${c[0].subject} ${c[1].verb} — ${c[1].adj} ${c[1].noun} ${c[0].adv}.`,
   c=>`${c[0].adj} ${c[1].noun} ${c[0].verb} ${c[1].adv}. ${c[1].subject} listens.`,
 ];
+// Three-slot frames — two drawn cards plus "the subject at hand" (a matched
+// library entry's title). Only used when Mu actually has something relevant
+// to say; otherwise he sticks to the plain two-card SENTENCE_TEMPLATES.
+const SUBJECT_FRAMES=[
+  (a,b,s)=>`${a.adj} ${a.noun} remembers ${s}. ${b.adj} ${b.noun} does not.`,
+  (a,b,s)=>`You ask of ${s}. ${a.subject} ${b.verb} ${a.adv}.`,
+  (a,b,s)=>`${s} is not ${a.noun}. It is closer to ${b.noun}.`,
+  (a,b,s)=>`Before ${s}, there was only ${a.adj} ${a.noun}.`,
+  (a,b,s)=>`${a.adj} ${a.noun} circles ${s} — ${b.adj} ${b.noun} waits at the center.`,
+  (a,b,s)=>`Ask ${s} what ${a.noun} costs. It answers with ${b.noun}.`,
+];
 const MU_INTROS=[
   "*Mu sets something on the table.*",
   "*The library is quiet. Mu draws two threads together.*",
@@ -179,19 +190,25 @@ function buildMuReply(userText, topEntry){
     sentence=pick(KOAN_FRAMES)(cards[0],cards[1]);
   } else {
     const intro=Math.random()>0.4?pick(MU_INTROS)+"\n\n":"";
-    sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
     // Prefer referencing something Mu actually knows (a matched library
     // entry, passed in by index.html) over echoing a random word back from
     // what you said. Only ever the entry's title — never its full text.
-    let ref=null;
     if(topEntry&&topEntry.title){
-      ref=topEntry.title;
+      if(Math.random()>0.5){
+        // A dedicated three-part shape: two cards plus the subject itself,
+        // instead of bolting the reference onto an ordinary sentence.
+        sentence=intro+clean(pick(SUBJECT_FRAMES)(cards[0],cards[1],topEntry.title));
+      } else {
+        sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
+        sentence=pick([`*${topEntry.title}* — ${sentence}`,`${sentence} What of *${topEntry.title}*?`,`Before *${topEntry.title}* — ${sentence}`]);
+      }
     } else {
+      sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
       const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
-      if(kw.length>0&&Math.random()>0.5) ref=pick(kw);
-    }
-    if(ref){
-      sentence=pick([`*${ref}* — ${sentence}`,`${sentence} What of *${ref}*?`,`Before *${ref}* — ${sentence}`]);
+      if(kw.length>0&&Math.random()>0.5){
+        const word=pick(kw);
+        sentence=pick([`*${word}* — ${sentence}`,`${sentence} What of *${word}*?`,`Before *${word}* — ${sentence}`]);
+      }
     }
   }
   return{sentence,cards};
