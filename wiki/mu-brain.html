@@ -117,26 +117,94 @@ const KOAN_FRAMES=[
 // allowed in as a noun phrase (adj+noun) or a fixed present-participle
 // ("listening", "waiting") — neither has to agree in number with anything,
 // so there's nothing left to mismatch.
+//
+// Each template returns an array of segments — {text} for plain connective
+// glue, {text, card} for a phrase quoting one drawn card's own fields
+// (card is 0 or 1, indexing into the two cards Mu drew) — instead of one
+// flat string. That's what lets the chat UI color each phrase by the card
+// it actually came from, without losing track of which is which. Nothing
+// about the wording changed from the plain-string versions — this only
+// splits the same text at its existing boundaries.
 const SENTENCE_TEMPLATES=[
-  c=>`${c[0].subject} ${c[0].verb} ${c[0].adv} — a shape of ${c[1].noun.toLowerCase()}.`,
-  c=>`${c[0].adj} ${c[0].noun}: ${c[1].subject} ${c[1].verb} ${c[1].adv}.`,
-  c=>`${c[1].noun}, ${c[1].adj.toLowerCase()} and waiting — ${c[0].subject} ${c[0].verb} ${c[0].adv}.`,
-  c=>`${c[0].subject} ${c[0].verb} ${c[0].adv}, ${c[1].noun.toLowerCase()} listening nearby.`,
+  c=>[
+    {text:`${c[0].subject} ${c[0].verb} ${c[0].adv}`,card:0},
+    {text:` — a shape of `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`.`},
+  ],
+  c=>[
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:`: `},
+    {text:`${c[1].subject} ${c[1].verb} ${c[1].adv}`,card:1},
+    {text:`.`},
+  ],
+  c=>[
+    {text:c[1].noun,card:1},
+    {text:`, `},
+    {text:`${c[1].adj.toLowerCase()} and waiting`,card:1},
+    {text:` — `},
+    {text:`${c[0].subject} ${c[0].verb} ${c[0].adv}`,card:0},
+    {text:`.`},
+  ],
+  c=>[
+    {text:`${c[0].subject} ${c[0].verb} ${c[0].adv}`,card:0},
+    {text:`, `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:` listening nearby.`},
+  ],
 ];
 // Three-slot frames — two drawn cards plus "the subject at hand" (a matched
 // library entry's title). Only used when Mu actually has something relevant
 // to say; otherwise he sticks to the plain two-card SENTENCE_TEMPLATES.
 // Same rule as above: a card's own subject only ever pairs with its own
 // verb. The entry title (s) is always a singular named thing, so fixed
-// verbs like "is" / "costs" are safe to pair with it directly.
+// verbs like "is" / "costs" are safe to pair with it directly — and s
+// itself is left uncolored, since it comes from a library entry/memory
+// match, not from either drawn card.
 const SUBJECT_FRAMES=[
-  (a,b,s)=>`${a.subject} ${a.verb} ${a.adv}, remembering ${s}.`,
-  (a,b,s)=>`You ask of ${s}. ${a.subject} ${a.verb} ${a.adv}.`,
-  (a,b,s)=>`${s} is not ${a.noun}. It is closer to ${b.noun}.`,
-  (a,b,s)=>`Before ${s}, there was only ${a.adj} ${a.noun}.`,
-  (a,b,s)=>`${s}, circled by ${a.adj} ${a.noun} — ${b.subject} ${b.verb} ${b.adv}.`,
-  (a,b,s)=>`${s} costs nothing but ${a.noun}. It gives ${b.noun} in return.`,
+  (a,b,s)=>[
+    {text:`${a.subject} ${a.verb} ${a.adv}`,card:0},
+    {text:`, remembering ${s}.`},
+  ],
+  (a,b,s)=>[
+    {text:`You ask of ${s}. `},
+    {text:`${a.subject} ${a.verb} ${a.adv}`,card:0},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`${s} is not `},
+    {text:a.noun,card:0},
+    {text:`. It is closer to `},
+    {text:b.noun,card:1},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`Before ${s}, there was only `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`${s}, circled by `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` — `},
+    {text:`${b.subject} ${b.verb} ${b.adv}`,card:1},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`${s} costs nothing but `},
+    {text:a.noun,card:0},
+    {text:`. It gives `},
+    {text:b.noun,card:1},
+    {text:` in return.`},
+  ],
 ];
+// Turns a segment array into the plain string Mu's message is actually
+// stored/searched as — same cleanup as before (collapse doubled spaces,
+// fix space-before-punctuation), just applied to the joined text instead
+// of one template literal.
+function segmentsToPlain(segments){
+  return clean(segments.map(s=>s.text).join(''));
+}
 const MU_INTROS=[
   "*Mu sets something on the table.*",
   "*The library is quiet. Mu draws two threads together.*",
@@ -188,40 +256,57 @@ function gerund(verbPhrase){
 function buildCasualReply(){
   const card=drawCards(1)[0];
   const article=/^[aeiou]/i.test(card.noun)?"an":"a";
-  return{sentence:`Not much, just ${gerund(card.verb)} like ${article} ${card.noun.toLowerCase()}.`,cards:[card]};
+  const segments=[
+    {text:`Not much, just `},
+    {text:gerund(card.verb),card:0},
+    {text:` like ${article} `},
+    {text:card.noun.toLowerCase(),card:0},
+    {text:`.`},
+  ];
+  return{sentence:segmentsToPlain(segments),segments,cards:[card]};
+}
+
+// Wraps a finished segment array with a "*title/word* — " style flourish,
+// as plain uncolored glue on either side — used for both the topEntry
+// title and the plain-keyword fallback below, so the wrapping itself never
+// needs to know or care about card colors.
+function wrapWithReference(segments,ref){
+  return pick([
+    [{text:`*${ref}* — `},...segments],
+    [...segments,{text:` What of *${ref}*?`}],
+    [{text:`Before *${ref}* — `},...segments],
+  ]);
 }
 
 function buildMuReply(userText, topEntry){
   if(isCasualGreeting(userText)) return buildCasualReply();
   const cards=drawCardsWithBias(topEntry);
-  let sentence;
   const isQuestion=userText.includes("?");
   if(!userText||!userText.trim()||(!userText.toLowerCase().includes("mu")&&!isQuestion)){
-    sentence=pick(KOAN_FRAMES)(cards[0],cards[1]);
-  } else {
-    const intro=Math.random()>0.4?pick(MU_INTROS)+"\n\n":"";
-    // Prefer referencing something Mu actually knows (a matched library
-    // entry, passed in by index.html) over echoing a random word back from
-    // what you said. Only ever the entry's title — never its full text.
-    if(topEntry&&topEntry.title){
-      if(Math.random()>0.5){
-        // A dedicated three-part shape: two cards plus the subject itself,
-        // instead of bolting the reference onto an ordinary sentence.
-        sentence=intro+clean(pick(SUBJECT_FRAMES)(cards[0],cards[1],topEntry.title));
-      } else {
-        sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
-        sentence=pick([`*${topEntry.title}* — ${sentence}`,`${sentence} What of *${topEntry.title}*?`,`Before *${topEntry.title}* — ${sentence}`]);
-      }
-    } else {
-      sentence=intro+clean(pick(SENTENCE_TEMPLATES)(cards));
-      const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
-      if(kw.length>0&&Math.random()>0.5){
-        const word=pick(kw);
-        sentence=pick([`*${word}* — ${sentence}`,`${sentence} What of *${word}*?`,`Before *${word}* — ${sentence}`]);
-      }
-    }
+    // Koans are a separate, simpler voice — not colored by card (for now).
+    return{sentence:pick(KOAN_FRAMES)(cards[0],cards[1]),cards};
   }
-  return{sentence,cards};
+  const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
+  let segments;
+  // Prefer referencing something Mu actually knows (a matched library
+  // entry, passed in by index.html) over echoing a random word back from
+  // what you said. Only ever the entry's title — never its full text.
+  if(topEntry&&topEntry.title){
+    if(Math.random()>0.5){
+      // A dedicated three-part shape: two cards plus the subject itself,
+      // instead of bolting the reference onto an ordinary sentence.
+      segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],topEntry.title)];
+    } else {
+      const core=pick(SENTENCE_TEMPLATES)(cards);
+      segments=[...introSeg,...wrapWithReference(core,topEntry.title)];
+    }
+  } else {
+    const core=pick(SENTENCE_TEMPLATES)(cards);
+    const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
+    const wrapped=(kw.length>0&&Math.random()>0.5)?wrapWithReference(core,pick(kw)):core;
+    segments=[...introSeg,...wrapped];
+  }
+  return{sentence:segmentsToPlain(segments),segments,cards};
 }
 
 
@@ -256,11 +341,16 @@ window.addEventListener('message', e => {
   const { queryType, text, name, date, topEntry } = e.data;
 
   if(queryType === 'response'){
-    const { sentence, cards } = buildMuReply(text||'', topEntry||null);
+    const { sentence, segments, cards } = buildMuReply(text||'', topEntry||null);
     window.parent.postMessage({
       type:     'mu_response',
       sentence,
-      cardLine: cards.map(c=>cardName(c)).join(' · ')
+      cardLine: cards.map(c=>cardName(c)).join(' · '),
+      // segments is only present for the two-card templated replies (not
+      // koans, which stay uncolored for now) — index.html only bothers
+      // building colored spans when this is non-null.
+      segments: segments||null,
+      cardColors: cards.map(c=>({name:cardName(c),r:c.r,g:c.g,b:c.b}))
     }, '*');
 
   } else if(queryType === 'greeting'){

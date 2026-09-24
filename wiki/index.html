@@ -197,6 +197,7 @@
   /* Mu stays left — default alignment */
   .msg.mu-msg { align-self:flex-start; }
   .msg.mu-msg .msg-bubble { background:var(--brown); border-color:var(--green3); border-radius:4px 18px 18px 18px; font-style:italic; }
+  .card-word { cursor:help; }
 
   /* Classic layout toggle (body.chat-classic) — mine right, Mu left */
   body.chat-classic .msg.mine { flex-direction:row-reverse; }
@@ -948,7 +949,7 @@ let _pendingGreetDate=null;
 window.addEventListener('message', async e=>{
   if(!e.data) return;
   if(e.data.type==='mu_response'){
-    await saveMuMessage(e.data.sentence, e.data.cardLine||null);
+    await saveMuMessage(e.data.sentence, e.data.cardLine||null, false, e.data.segments||null, e.data.cardColors||null);
   } else if(e.data.type==='mu_greeting'){
     const{sentence,cardLine,date}=e.data;
     // Set localStorage guard immediately — prevents re-greeting if DB insert fails
@@ -1362,6 +1363,43 @@ function parseMessageContent(raw){
   return{html,media};
 }
 
+// Escapes text and applies the same *italics* / newline handling
+// parseMessageContent uses, for one segment of a colored Mu reply. Skips
+// the image/URL extraction parseMessageContent does — Mu's own generated
+// text never contains either, so there's nothing there to catch.
+function formatSegmentText(text){
+  return (text||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/\n/g,'<br>');
+}
+
+// Renders a Mu reply's colored-by-card segments as a bubble's inner HTML.
+// Each card-tagged segment is tinted with that card's own RGB, lightened
+// against the dark theme so it stays legible; connective glue text (no
+// card) renders plain. Falls back to plain formatted text if the color
+// data is missing or malformed — never lets a bad segment block the reply
+// from showing.
+function renderSegmentsHtml(segments,cardColors){
+  try{
+    return (segments||[]).map(s=>{
+      const html=formatSegmentText(s.text);
+      if(s.card==null||!cardColors||!cardColors[s.card]) return html;
+      const c=cardColors[s.card];
+      // Lighten toward parchment so a dark card color (low r/g/b) doesn't
+      // vanish against the app's dark background — same idea as
+      // getContrastColor, just blending toward a light tone instead of
+      // picking pure black/white.
+      const mix=(v)=>Math.round(v+(230-v)*0.55);
+      const col=`rgb(${mix(c.r)},${mix(c.g)},${mix(c.b)})`;
+      return `<span class="card-word" style="color:${col}" title="${c.name||''}">${html}</span>`;
+    }).join('');
+  }catch(e){
+    console.warn('Segment render failed, falling back to plain text:',e.message);
+    return formatSegmentText((segments||[]).map(s=>s.text).join(''));
+  }
+}
+
 function renderMessage(msg){
   if(shownIds.has(msg.id)) return;
   shownIds.add(msg.id);
@@ -1369,14 +1407,28 @@ function renderMessage(msg){
   const isMu=msg.is_mu;
   const isSystem=msg.is_system||false;
   const time=new Date(msg.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  const{html:msgHtml,media:msgMedia}=parseMessageContent(msg.content);
+
+  // Detect any structured card_line payload up front — slide_rules and
+  // library_entry render as their own special blocks below; mu_segments
+  // (Mu's own colored two-card replies) changes how the bubble text itself
+  // gets built, so it has to be known before msgHtml is computed.
+  let srData=null, leData=null, segData=null;
+  try{
+    if(msg.card_line){
+      const cl=JSON.parse(msg.card_line);
+      if(cl.type==='slide_rules') srData=cl;
+      else if(cl.type==='library_entry') leData=cl;
+      else if(cl.type==='mu_segments') segData=cl;
+    }
+  }catch(e){}
+
+  const{html:msgHtml,media:msgMedia}=segData
+    ? {html:renderSegmentsHtml(segData.segments,segData.cardColors),media:''}
+    : parseMessageContent(msg.content);
   let emojiOnly=false;
   try{ emojiOnly=!srData&&!leData&&isEmojiOnlyText(msg.content||''); }catch(e){}
   const div=document.createElement("div");
   if(msg.id) div.id="msg-"+msg.id;
-  // Detect slide_rules for centered render
-  let srData=null, leData=null;
-  try{if(msg.card_line){const cl=JSON.parse(msg.card_line);if(cl.type==='slide_rules')srData=cl;else if(cl.type==='library_entry')leData=cl;}}catch(e){}
 
   if(srData){
     // Slide Rules — centered block with attribution
@@ -1568,16 +1620,25 @@ async function sendMessage(){
   }
 }
 
-async function saveMuMessage(sentence,cardLine,isGreeting=false){
+async function saveMuMessage(sentence,cardLine,isGreeting=false,segments=null,cardColors=null){
   if(!isGreeting) lastMuTime=Date.now();
   humansSinceMu=0;
+  // Two-card templated replies carry their segment data as JSON in
+  // card_line instead of the plain "13·C·Queen · 10·C·Satiety" string, so
+  // renderMessage can color each phrase by its source card. buildCardLine
+  // tells the two apart by trying JSON.parse first. Koans, greetings and
+  // anything else without segments fall back to the plain string exactly
+  // as before — no change for those.
+  const storedCardLine=segments
+    ? JSON.stringify({type:'mu_segments',cardLine,segments,cardColors})
+    : cardLine;
   const{data}=await db.from("messages").insert({
     user_id:"mu",
     user_name:"Mu",
     user_avatar:muAvatarUrl||null,
     content:sentence,
     is_mu:true,
-    card_line:cardLine,
+    card_line:storedCardLine,
   }).select().single();
   if(data){ renderMessage(data); } // renderMessage adds to shownIds itself
 }
@@ -1856,6 +1917,12 @@ function buildCardLine(cardLine){
           <div class="sim-chat-hint">hover to play · click to open</div>
         </div>
       </div>`;
+    }
+    // Mu's own colored-by-card reply — the tag line underneath just shows
+    // the plain card names, exactly as it always has; the coloring itself
+    // happens up in the bubble text (see renderSegmentsHtml), not here.
+    if(cl.type==='mu_segments'){
+      return`<div class="msg-cards">${cl.cardLine||''}</div>`;
     }
     // Library entry card
     if(cl.type==='library_entry'){
