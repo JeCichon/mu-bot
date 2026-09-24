@@ -2,6 +2,20 @@
 
 A Discord bot for Tricknologic — Thoth Tarot improv RPG system.
 
+Mu's primary home is now the Trickno Lodge web app (`wiki/index.html` +
+`wiki/mu-brain.html`), not Discord — the sections below describing the
+Discord bot are kept for reference but are no longer how most people meet
+Mu day to day.
+
+## Mu's Memory (Lodge)
+Mu can recall things people say in Lodge chat, not just his curated
+`library_entries`. Every chat message gets embedded and filed into a
+`memories` table (see `phase2-memory.sql`), tagged with who said it — so it
+can surface for anyone (communal) or specifically when Mu is talking with
+that person (personal). Each person can pause this for themselves with the
+🧿 / 🧘 "Mu is present / Mu is meditating" toggle next to their name in the
+Lodge member list.
+
 ## Commands
 - `/draw` — draws three cards: one focus, two context
 
@@ -50,4 +64,3 @@ Render will build and start the bot. Watch the logs — you should see:
 - **Koan system expansion:** add more frames to `KOAN_FRAMES` — each is a function `(cardA, cardB) => string`
 - **Separate koan word lists:** create arrays of words and build frames that pull from them independently of card draws
 - **Character storage:** add a JSON file or free Supabase database to save player characters
-"# mu-bot" 
