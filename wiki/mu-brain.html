@@ -110,22 +110,32 @@ const KOAN_FRAMES=[
   (a,b)=>`${a.adj} ${a.noun} crossed the river. On the other side: ${b.adj} ${b.noun}. It turned back.`,
   (a,b)=>`Ask ${a.adj} ${a.noun} what it costs. Then ask ${b.noun} what it gives.`,
 ];
+// A card's subject/verb/adv were hand-written together to agree with each
+// other ("Old systems / are leveled" — plural with plural). That pairing
+// only holds within a single card, so every template below keeps subject,
+// verb and adv coming from the SAME card. The other card is only ever
+// allowed in as a noun phrase (adj+noun) or a fixed present-participle
+// ("listening", "waiting") — neither has to agree in number with anything,
+// so there's nothing left to mismatch.
 const SENTENCE_TEMPLATES=[
-  c=>`${c[0].subject} ${c[1].verb} ${c[0].adv}.`,
-  c=>`${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.`,
-  c=>`${c[0].subject} ${c[1].verb} — ${c[1].adj} ${c[1].noun} ${c[0].adv}.`,
-  c=>`${c[0].adj} ${c[1].noun} ${c[0].verb} ${c[1].adv}. ${c[1].subject} listens.`,
+  c=>`${c[0].subject} ${c[0].verb} ${c[0].adv} — a shape of ${c[1].noun.toLowerCase()}.`,
+  c=>`${c[0].adj} ${c[0].noun}: ${c[1].subject} ${c[1].verb} ${c[1].adv}.`,
+  c=>`${c[1].noun}, ${c[1].adj.toLowerCase()} and waiting — ${c[0].subject} ${c[0].verb} ${c[0].adv}.`,
+  c=>`${c[0].subject} ${c[0].verb} ${c[0].adv}, ${c[1].noun.toLowerCase()} listening nearby.`,
 ];
 // Three-slot frames — two drawn cards plus "the subject at hand" (a matched
 // library entry's title). Only used when Mu actually has something relevant
 // to say; otherwise he sticks to the plain two-card SENTENCE_TEMPLATES.
+// Same rule as above: a card's own subject only ever pairs with its own
+// verb. The entry title (s) is always a singular named thing, so fixed
+// verbs like "is" / "costs" are safe to pair with it directly.
 const SUBJECT_FRAMES=[
-  (a,b,s)=>`${a.adj} ${a.noun} remembers ${s}. ${b.adj} ${b.noun} does not.`,
-  (a,b,s)=>`You ask of ${s}. ${a.subject} ${b.verb} ${a.adv}.`,
+  (a,b,s)=>`${a.subject} ${a.verb} ${a.adv}, remembering ${s}.`,
+  (a,b,s)=>`You ask of ${s}. ${a.subject} ${a.verb} ${a.adv}.`,
   (a,b,s)=>`${s} is not ${a.noun}. It is closer to ${b.noun}.`,
   (a,b,s)=>`Before ${s}, there was only ${a.adj} ${a.noun}.`,
-  (a,b,s)=>`${a.adj} ${a.noun} circles ${s} — ${b.adj} ${b.noun} waits at the center.`,
-  (a,b,s)=>`Ask ${s} what ${a.noun} costs. It answers with ${b.noun}.`,
+  (a,b,s)=>`${s}, circled by ${a.adj} ${a.noun} — ${b.subject} ${b.verb} ${b.adv}.`,
+  (a,b,s)=>`${s} costs nothing but ${a.noun}. It gives ${b.noun} in return.`,
 ];
 const MU_INTROS=[
   "*Mu sets something on the table.*",
