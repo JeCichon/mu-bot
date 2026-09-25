@@ -86,6 +86,8 @@
 
   .output-sentence{background:var(--brown);border-left:3px solid var(--purple);padding:10px 14px;border-radius:0 4px 4px 0;font-size:14px;color:var(--parchment);font-style:italic;line-height:1.6;margin-top:10px;}
   .output-sentence em{color:var(--green2);}
+  .card-word{cursor:help;}
+  .template-card .t-body .card-word{cursor:help;}
 
   .template-highlight{background:rgba(76,46,87,0.35) !important;border-color:var(--purple2) !important;}
 
@@ -186,10 +188,13 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
         </div>
       </div>
       <div class="state-section">
-        <div class="state-section-title">template counts</div>
-        <div class="state-row"><span class="state-label">koan frames</span><span class="state-val" id="t-koan-count">20</span></div>
-        <div class="state-row"><span class="state-label">sentence templates</span><span class="state-val" id="t-sent-count">—</span></div>
-        <div class="state-row"><span class="state-label">greeting templates</span><span class="state-val" id="t-greet-count">—</span></div>
+        <div class="state-section-title">voice counts</div>
+        <div class="state-row"><span class="state-label">koans</span><span class="state-val" id="t-koan-count">—</span></div>
+        <div class="state-row"><span class="state-label">sentence</span><span class="state-val" id="t-sent-count">—</span></div>
+        <div class="state-row"><span class="state-label">funny</span><span class="state-val" id="t-funny-count">—</span></div>
+        <div class="state-row"><span class="state-label">inquisitive</span><span class="state-val" id="t-inq-count">—</span></div>
+        <div class="state-row"><span class="state-label">subject-anchored</span><span class="state-val" id="t-subj-count">—</span></div>
+        <div class="state-row"><span class="state-label">greetings</span><span class="state-val" id="t-greet-count">—</span></div>
         <div class="state-row"><span class="state-label">cards loaded</span><span class="state-val" id="t-card-count">—</span></div>
       </div>
     </div>
@@ -200,10 +205,14 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
     <div class="panel-header">message simulator</div>
     <div class="sim-input-wrap">
       <textarea class="sim-textarea" id="sim-input" placeholder="type a test message… try mentioning 'mu', asking a '?', or just saying something"></textarea>
+      <input class="word-search" id="sim-ref-title" style="margin-top:8px;margin-bottom:0" placeholder="optional: simulate a library/memory match title (e.g. Tricknologic)">
       <div class="sim-controls">
         <button class="sim-btn" onclick="runSim()">simulate →</button>
         <button class="sim-btn-clear" onclick="clearSim()">clear</button>
         <span class="sim-hint">shift+enter = new line</span>
+      </div>
+      <div class="sim-controls" style="margin-top:6px">
+        <button class="sim-btn-clear" onclick="runShowcase()" style="border-color:var(--purple2);color:var(--parchment2)">🎲 showcase (mu***) — one of all six voices</button>
       </div>
     </div>
     <div class="sim-output" id="sim-output">
@@ -216,9 +225,12 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
     <div class="panel-header" style="padding:0">
       <div class="tabs" id="tabs">
         <div class="tab active" onclick="setTab('koans',this)">koans</div>
-        <div class="tab" onclick="setTab('sentences',this)">sentences</div>
-        <div class="tab" onclick="setTab('greetings',this)">greetings</div>
-        <div class="tab" onclick="setTab('words',this)">word pool</div>
+        <div class="tab" onclick="setTab('sentences',this)">sentence</div>
+        <div class="tab" onclick="setTab('funny',this)">funny</div>
+        <div class="tab" onclick="setTab('inquisitive',this)">inquis.</div>
+        <div class="tab" onclick="setTab('subject',this)">subject</div>
+        <div class="tab" onclick="setTab('greetings',this)">greet</div>
+        <div class="tab" onclick="setTab('words',this)">words</div>
       </div>
     </div>
     <div class="panel-body" id="template-body"></div>
@@ -246,43 +258,263 @@ const MU_COOLDOWN_MENTION_MS = 2 * 60 * 1000;
 const clean = s => s.replace(/\s{2,}/g,' ').replace(/ \./g,'.').replace(/ ,/g,',').trim();
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-const KOAN_FRAMES = [
-  (a,b) => `${a.adj} ${a.noun} does not explain itself to ${b.adj} ${b.noun}.`,
-  (a,b) => `You are looking for ${b.noun}. ${a.adj} is the door.`,
-  (a,b) => `The one who carries ${a.noun} cannot yet hold ${b.adj} ${b.noun}.`,
-  (a,b) => `Before ${a.adj} ${a.noun} — what were you?`,
-  (a,b) => `${b.adj} ${b.noun} waits at the end of every ${a.adj} path.`,
-  (a,b) => `Ask ${a.adj} ${a.noun} what it costs. Then ask ${b.noun} what it gives.`,
-  (a,b) => `${a.noun} speaks. ${b.adj} ${b.noun} listens. Neither moves.`,
-  (a,b) => `The fool mistakes ${a.adj} ${a.noun} for the destination. The sage knows it is the weather.`,
-  (a,b) => `What would ${a.adj} ${a.noun} do if it knew about ${b.adj} ${b.noun}?`,
-  (a,b) => `${b.adj} is not the opposite of ${a.adj}. It is ${a.adj} after a long sleep.`,
-  (a,b) => `You said you wanted ${b.noun}. Was that before or after you met ${a.adj} ${a.noun}?`,
-  (a,b) => `${a.adj} ${a.noun} crossed the river. On the other side: ${b.adj} ${b.noun}. It turned back.`,
-  (a,b) => `To become ${b.adj} is to release ${a.noun}. Have you thanked it yet?`,
-  (a,b) => `${a.noun} and ${b.noun} are the same word in a language no one speaks anymore.`,
-  (a,b) => `The ${a.adj} path leads here. The ${b.adj} path leads here. Both are correct.`,
-  (a,b) => `Something ${a.adj} is asking for ${b.noun}. Give it nothing. See what it offers instead.`,
-  (a,b) => `If ${a.adj} ${a.noun} is the question — ${b.adj} ${b.noun} is what you asked before you forgot.`,
-  (a,b) => `${b.noun} cannot be reached by ${a.adj} means. Try stillness.`,
-  (a,b) => `${a.adj} ${a.noun} once tried to become ${b.noun}. The attempt was the arrival.`,
-  (a,b) => `You already have ${b.noun}. That's why ${a.adj} ${a.noun} is so loud right now.`,
+// ── Everything below, through buildMuReply/buildShowcaseReply, is copied
+// verbatim from mu-brain.html (the file this page is meant to mirror) —
+// this page had drifted badly out of sync with it (an old 20-koan set, old
+// sentence templates that no longer matched, no Funny/Inquisitive/Subject
+// voices at all). There's no shared-module setup in this project, so this
+// is still a hand-kept copy and CAN drift again — if you change
+// mu-brain.html's language engine, this file needs the same change pasted
+// in, same as before. What's fixed for good is the raw-JSON leak lower down
+// in loadLastMuMessage(), which didn't need mu-brain.html to be involved.
+const KOAN_FRAMES=[
+  (a,b)=>[
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` does not explain itself to `},
+    {text:`${b.adj} ${b.noun}`,card:1},
+    {text:`.`},
+  ],
+  (a,b)=>[
+    {text:`You are looking for `},
+    {text:b.noun,card:1},
+    {text:`. `},
+    {text:a.adj,card:0},
+    {text:` is the door.`},
+  ],
+  (a,b)=>[
+    {text:`Before `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` — what were you?`},
+  ],
+  (a,b)=>[
+    {text:`${b.adj} ${b.noun}`,card:1},
+    {text:` waits at the end of every `},
+    {text:a.adj,card:0},
+    {text:` path.`},
+  ],
+  (a,b)=>[
+    {text:a.noun,card:0},
+    {text:` and `},
+    {text:b.noun,card:1},
+    {text:` are the same word in a language no one speaks anymore.`},
+  ],
+  (a,b)=>[
+    {text:`You already have `},
+    {text:b.noun,card:1},
+    {text:`. That's why `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` is so loud right now.`},
+  ],
+  (a,b)=>[
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` crossed the river. On the other side: `},
+    {text:`${b.adj} ${b.noun}`,card:1},
+    {text:`. It turned back.`},
+  ],
+  (a,b)=>[
+    {text:`Ask `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` what it costs. Then ask `},
+    {text:b.noun,card:1},
+    {text:` what it gives.`},
+  ],
 ];
 
-const SENTENCE_TEMPLATES = [
-  c => `${c[0].subject} ${c[1].verb} ${c[0].adv}.`,
-  c => `${c[0].adj} ${c[0].noun} — ${c[1].verb} ${c[1].adv}.`,
-  c => `${c[0].subject} ${c[1].verb} — ${c[1].adj} ${c[1].noun} ${c[0].adv}.`,
-  c => `${c[0].adj} ${c[1].noun} ${c[0].verb} ${c[1].adv}. ${c[1].subject} listens.`,
+const SENTENCE_TEMPLATES=[
+  c=>[
+    {text:`${c[0].subject} ${c[0].verb} ${c[0].adv}`,card:0},
+    {text:` — a shape of `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`.`},
+  ],
+  c=>[
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:`: `},
+    {text:`${c[1].subject} ${c[1].verb} ${c[1].adv}`,card:1},
+    {text:`.`},
+  ],
+  c=>[
+    {text:c[1].noun,card:1},
+    {text:`, `},
+    {text:`${c[1].adj.toLowerCase()} and waiting`,card:1},
+    {text:` — `},
+    {text:`${c[0].subject} ${c[0].verb} ${c[0].adv}`,card:0},
+    {text:`.`},
+  ],
+  c=>[
+    {text:`${c[0].subject} ${c[0].verb} ${c[0].adv}`,card:0},
+    {text:`, `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:` listening nearby.`},
+  ],
 ];
 
-const GREETING_TEMPLATES = [
-  (n,c) => `Hello ${n} — ${c.timeframe}, ${c.command} the ${c.adj} ${c.noun}.`,
-  (n,c) => `${n}. *${c.adj} ${c.noun}* greets you today.`,
-  (n,c) => `Welcome, ${n}. ${c.timeframe} — ${c.command} your ${c.adj} ${c.noun}.`,
-  (n,c) => `The archive stirs. ${n} has entered. *${c.command} the ${c.adj} ${c.noun}.*`,
-  (n,c) => `${n} — ${c.timeframe}. *${c.adj} ${c.noun}.*`,
-  (n,c) => `*${c.timeframe}.* Hello ${n} — the ${c.adj} ${c.noun} is yours today.`,
+const art=w=>/^[aeiou]/i.test(w)?"an":"a";
+
+const FUNNY_FRAMES=[
+  c=>[
+    {text:`The `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` is currently juggling `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` in order to `},
+    {text:c[0].command.toLowerCase(),card:0},
+    {text:` it.`},
+  ],
+  c=>[
+    {text:`${art(c[0].adj)} `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` interrupts `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` mid-sentence, insisting it must `},
+    {text:c[1].command.toLowerCase(),card:1},
+    {text:` first.`},
+  ],
+  c=>[
+    {text:`Somewhere, `},
+    {text:`${art(c[0].adj)} `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` is arguing with `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` about whose turn it is to `},
+    {text:c[1].command.toLowerCase(),card:1},
+    {text:`.`},
+  ],
+  c=>[
+    {text:`The `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` accidentally summons `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` while trying to `},
+    {text:c[0].command.toLowerCase(),card:0},
+    {text:` the `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`.`},
+  ],
+];
+
+const INQUISITIVE_FRAMES=[
+  c=>[
+    {text:`If `},
+    {text:c[0].noun,card:0},
+    {text:` could speak, would it tell us the secret to `},
+    {text:gerund(c[1].verb),card:1},
+    {text:`, or would it just ask for `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`?`},
+  ],
+  c=>[
+    {text:`Why does `},
+    {text:c[0].noun.toLowerCase(),card:0},
+    {text:` always arrive right before `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:` leaves?`},
+  ],
+  c=>[
+    {text:`If `},
+    {text:`${c[0].adj.toLowerCase()} ${c[0].noun.toLowerCase()}`,card:0},
+    {text:` and `},
+    {text:`${c[1].adj.toLowerCase()} ${c[1].noun.toLowerCase()}`,card:1},
+    {text:` switched places for a day, would either of them notice?`},
+  ],
+  c=>[
+    {text:`If you had to choose between `},
+    {text:c[0].noun.toLowerCase(),card:0},
+    {text:` and `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`, which one would actually `},
+    {text:c[1].command.toLowerCase(),card:1},
+    {text:` you?`},
+  ],
+];
+
+const CORE_FRAME_SETS=[SENTENCE_TEMPLATES, FUNNY_FRAMES, INQUISITIVE_FRAMES];
+
+const SUBJECT_FRAMES=[
+  (a,b,s)=>[
+    {text:`${a.subject} ${a.verb} ${a.adv}`,card:0},
+    {text:`, remembering ${s}.`},
+  ],
+  (a,b,s)=>[
+    {text:`You ask of ${s}. `},
+    {text:`${a.subject} ${a.verb} ${a.adv}`,card:0},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`${s} is not `},
+    {text:a.noun,card:0},
+    {text:`. It is closer to `},
+    {text:b.noun,card:1},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`Before ${s}, there was only `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`${s}, circled by `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` — `},
+    {text:`${b.subject} ${b.verb} ${b.adv}`,card:1},
+    {text:`.`},
+  ],
+  (a,b,s)=>[
+    {text:`${s} costs nothing but `},
+    {text:a.noun,card:0},
+    {text:`. It gives `},
+    {text:b.noun,card:1},
+    {text:` in return.`},
+  ],
+];
+
+function segmentsToPlain(segments){
+  return clean(segments.map(s=>s.text).join(''));
+}
+const MU_INTROS=[
+  "*Mu sets something on the table.*",
+  "*The library is quiet. Mu draws two threads together.*",
+  "*Mu looks at you the way water looks at a stone.*",
+  "*He draws. He does not interpret. He offers.*",
+  "*Something shifts in the archive.*",
+];
+
+const SHOWCASE_REF_TITLE='this thread';
+
+const GREETING_TEMPLATES=[
+  (n,c)=>[
+    {text:`Hello ${n} — ${c.timeframe}, ${c.command} the `},
+    {text:`${c.adj} ${c.noun}`,card:0},
+    {text:`.`},
+  ],
+  (n,c)=>[
+    {text:`${n}. `},
+    {text:`*${c.adj} ${c.noun}*`,card:0},
+    {text:` greets you today.`},
+  ],
+  (n,c)=>[
+    {text:`Welcome, ${n}. ${c.timeframe} — ${c.command} your `},
+    {text:`${c.adj} ${c.noun}`,card:0},
+    {text:`.`},
+  ],
+  (n,c)=>[
+    {text:`The archive stirs. ${n} has entered. `},
+    {text:`*${c.command} the ${c.adj} ${c.noun}.*`,card:0},
+  ],
+  (n,c)=>[
+    {text:`${n} — ${c.timeframe}. `},
+    {text:`*${c.adj} ${c.noun}.*`,card:0},
+  ],
+  (n,c)=>[
+    {text:`*${c.timeframe}.*`,card:0},
+    {text:` Hello ${n} — the `},
+    {text:`${c.adj} ${c.noun}`,card:0},
+    {text:` is yours today.`},
+  ],
 ];
 
 const SUIT_COLOR = {major:'#9955cc',wands:'#cc3333',cups:'#4477dd',swords:'#ccaa22',disks:'#33aa55'};
@@ -296,6 +528,146 @@ function cardName(c){
 
 function drawCards(n){
   return [...CARDS].sort(()=>Math.random()-0.5).slice(0,n);
+}
+
+// This simulator never has a real matched library/memory entry with real
+// linked cards, so topEntry.cardIds is always empty here — drawCardsWithBias
+// always falls through to a plain drawCards(2) in practice. Kept identical
+// to mu-brain.html anyway so buildMuReply below is a true, unmodified copy.
+function drawCardsWithBias(topEntry){
+  const linkedIds=topEntry&&Array.isArray(topEntry.cardIds)?topEntry.cardIds:[];
+  const candidates=linkedIds.map(id=>CARDS.find(c=>c.id===id)).filter(Boolean);
+  if(candidates.length===0) return drawCards(2);
+  const anchor=pick(candidates);
+  const other=pick(CARDS.filter(c=>c.id!==anchor.id));
+  return Math.random()>0.5 ? [anchor,other] : [other,anchor];
+}
+
+function isCasualGreeting(text){
+  const t=text.toLowerCase();
+  return /\bmu\b/.test(t) && (/\bsup\b/.test(t) || /what.?s?\s*up/.test(t));
+}
+
+function gerund(verbPhrase){
+  const words=verbPhrase.trim().split(/\s+/);
+  const irregular={are:"being",is:"being",were:"having been",was:"having been"};
+  const head=words[0].toLowerCase();
+  let out;
+  if(irregular[head]){ out=irregular[head]; }
+  else{
+    let v=head.replace(/s$/,"");
+    if(/e$/.test(v)&&!/ee$/.test(v)) v=v.slice(0,-1);
+    out=v+"ing";
+  }
+  return [out,...words.slice(1)].join(" ");
+}
+
+function buildCasualReply(){
+  const card=drawCards(1)[0];
+  const article=/^[aeiou]/i.test(card.noun)?"an":"a";
+  const segments=[
+    {text:`Not much, just `},
+    {text:gerund(card.verb),card:0},
+    {text:` like ${article} `},
+    {text:card.noun.toLowerCase(),card:0},
+    {text:`.`},
+  ];
+  return{sentence:segmentsToPlain(segments),segments,cards:[card]};
+}
+
+function wrapWithReference(segments,ref){
+  return pick([
+    [{text:`*${ref}* — `},...segments],
+    [...segments,{text:` What of *${ref}*?`}],
+    [{text:`Before *${ref}* — `},...segments],
+  ]);
+}
+
+// The real, unmodified reply logic — calling this directly (rather than
+// re-deriving "what Mu would say" by hand) is what guarantees this
+// simulator can't silently drift from mu-brain.html's actual behavior the
+// way the old hand-copied version did.
+function buildMuReply(userText, topEntry){
+  if(isCasualGreeting(userText)) return buildCasualReply();
+  const cards=drawCardsWithBias(topEntry);
+  const isQuestion=userText.includes("?");
+  if(!userText||!userText.trim()||(!userText.toLowerCase().includes("mu")&&!isQuestion)){
+    const segments=pick(KOAN_FRAMES)(cards[0],cards[1]);
+    return{sentence:segmentsToPlain(segments),segments,cards};
+  }
+  const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
+  let segments;
+  if(topEntry&&topEntry.title){
+    if(Math.random()>0.5){
+      segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],topEntry.title)];
+    } else {
+      const core=pick(pick(CORE_FRAME_SETS))(cards);
+      segments=[...introSeg,...wrapWithReference(core,topEntry.title)];
+    }
+  } else {
+    const core=pick(pick(CORE_FRAME_SETS))(cards);
+    const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
+    const wrapped=(kw.length>0&&Math.random()>0.5)?wrapWithReference(core,pick(kw)):core;
+    segments=[...introSeg,...wrapped];
+  }
+  return{sentence:segmentsToPlain(segments),segments,cards};
+}
+
+// Same "mu***" showcase logic as mu-brain.html — lets this page's simulator
+// also preview every voice Mu has in one click (see the showcase button).
+function buildShowcaseReply(){
+  const cards=drawCards(2);
+  const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
+  const voice=pick(['casual','koan','sentence','funny','inquisitive','subject']);
+  if(voice==='casual') return{...buildCasualReply(),voice};
+  if(voice==='koan'){
+    const segments=pick(KOAN_FRAMES)(cards[0],cards[1]);
+    return{sentence:segmentsToPlain(segments),segments,cards,voice};
+  }
+  if(voice==='subject'){
+    const segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],SHOWCASE_REF_TITLE)];
+    return{sentence:segmentsToPlain(segments),segments,cards,voice};
+  }
+  const setByVoice={sentence:SENTENCE_TEMPLATES,funny:FUNNY_FRAMES,inquisitive:INQUISITIVE_FRAMES};
+  const segments=[...introSeg,...pick(setByVoice[voice])(cards)];
+  return{sentence:segmentsToPlain(segments),segments,cards,voice};
+}
+
+// Copied from index.html — same *italics* handling, same lightening formula
+// so a card's tint reads the same here as it does in the actual Lodge chat.
+function formatSegmentText(text){
+  return (text||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/\n/g,'<br>');
+}
+function renderSegmentsHtml(segments,cardColors){
+  try{
+    return (segments||[]).map(s=>{
+      const html=formatSegmentText(s.text);
+      if(s.card==null||!cardColors||!cardColors[s.card]) return html;
+      const c=cardColors[s.card];
+      const mix=(v)=>Math.round(v+(230-v)*0.55);
+      const col=`rgb(${mix(c.r)},${mix(c.g)},${mix(c.b)})`;
+      return `<span class="card-word" style="color:${col}" title="${c.name||''}">${html}</span>`;
+    }).join('');
+  }catch(e){
+    return formatSegmentText((segments||[]).map(s=>s.text).join(''));
+  }
+}
+
+// Never shows raw internal JSON, on any message type, known or not — the
+// direct cause of the bug your friend saw (loadLastMuMessage below used to
+// just print msg.card_line straight into the page with no parsing at all).
+function cardLineText(cardLine){
+  if(!cardLine) return '—';
+  let cl=null;
+  try{ cl=JSON.parse(cardLine); }catch(e){ /* not JSON — legacy plain card-name line */ }
+  if(cl===null) return cardLine;
+  if(cl.cardLine) return cl.cardLine;
+  if(cl.type==='library_entry') return cl.title?`📖 ${cl.title}`:'library entry';
+  if(cl.type==='slide_rules') return cl.name?`🌀 ${cl.name}`:'slide rules sim';
+  return '—';
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -318,9 +690,19 @@ db.auth.onAuthStateChange(async(_e, session) => {
 
 async function init(){
   await Promise.all([loadCards(), loadLastMuMessage()]);
+  setVoiceCounts();
   renderTemplates();
   updateStateCounts();
   setInterval(updateStateCounts, 10000);
+}
+
+function setVoiceCounts(){
+  document.getElementById('t-koan-count').textContent  = KOAN_FRAMES.length;
+  document.getElementById('t-sent-count').textContent  = SENTENCE_TEMPLATES.length;
+  document.getElementById('t-funny-count').textContent = FUNNY_FRAMES.length;
+  document.getElementById('t-inq-count').textContent   = INQUISITIVE_FRAMES.length;
+  document.getElementById('t-subj-count').textContent  = SUBJECT_FRAMES.length;
+  document.getElementById('t-greet-count').textContent = GREETING_TEMPLATES.length;
 }
 
 async function loadCards(){
@@ -336,7 +718,7 @@ async function loadLastMuMessage(){
     const ago = timeSince(new Date(data.created_at));
     document.getElementById('s-last').textContent = ago;
     document.getElementById('last-mu-sentence').textContent = data.content.replace(/\*/g,'');
-    document.getElementById('last-mu-meta').textContent = `${new Date(data.created_at).toLocaleTimeString()} · ${data.card_line||'—'}`;
+    document.getElementById('last-mu-meta').textContent = `${new Date(data.created_at).toLocaleTimeString()} · ${cardLineText(data.card_line)}`;
     if(data.user_avatar){
       let img=document.getElementById('mu-last-avatar');
       if(!img){
@@ -378,17 +760,42 @@ function updateStateCounts(){
 }
 
 // ── Simulator ─────────────────────────────────────────────────────────────────
+const TAB_ORDER=['koans','sentences','funny','inquisitive','subject','greetings','words'];
+
+function renderSimResult(sentence, segments, cards, voiceLabel, tplType, tplIdx){
+  const cardChips = cards.map(c=>{
+    const rgb = `rgb(${c.r},${c.g},${c.b})`;
+    return `<div class="card-chip"><span class="chip-dot" style="background:${rgb}"></span>${cardName(c)}</div>`;
+  }).join('');
+  const cardColors = cards.map(c=>({name:cardName(c),r:c.r,g:c.g,b:c.b}));
+  const rendered = segments ? renderSegmentsHtml(segments, cardColors) : (sentence||'').replace(/\*/g,'');
+
+  const html = `<div style="background:var(--brown);border:1px solid var(--brown3);border-radius:4px;padding:10px 12px;margin-bottom:12px;">
+      <div class="trace-row"><span class="trace-key">voice</span><span class="trace-val highlight">${voiceLabel}</span></div>
+      <div class="trace-row"><span class="trace-key">cards</span><span class="trace-val"><div class="card-chips">${cardChips}</div></span></div>
+    </div>
+    <div class="output-sentence">${rendered}</div>`;
+
+  if(tplType!=null){
+    highlightTemplate(tplType, tplIdx);
+    if(activeTab !== tplType) setTab(tplType, document.querySelector(`.tab:nth-child(${TAB_ORDER.indexOf(tplType)+1})`));
+  }
+  return html;
+}
+
 function runSim(){
   if(CARDS.length===0){
     document.getElementById('sim-output').innerHTML='<div class="output-empty">Cards not loaded yet.</div>';
     return;
   }
   const text = document.getElementById('sim-input').value.trim();
+  const refTitle = (document.getElementById('sim-ref-title')?.value||'').trim();
   const out = document.getElementById('sim-output');
 
+  const isCasual   = isCasualGreeting(text);
   const mentionsMu = text.toLowerCase().includes('mu');
-  const isQuestion  = text.includes('?');
-  const isGreeting  = !text; // empty = greeting simulation
+  const isQuestion = text.includes('?');
+  const isGreeting = !text; // empty input = simulate the once-a-day login greeting
 
   // Cooldown check
   let elapsed = Infinity;
@@ -401,7 +808,10 @@ function runSim(){
   let reason  = '';
 
   if(isGreeting){
-    respond = true; trigger = 'daily greeting'; reason = 'First visit today — personal greeting';
+    respond = true; trigger = 'daily greeting'; reason = 'Empty input simulates the once-a-day login greeting.';
+  } else if(isCasual){
+    respond = true; trigger = 'casual chat';
+    reason  = `"mu" + "sup"/"what's up" detected — casual one-card reply, no cooldown gate at all.`;
   } else if(mentionsMu && mentionReady){
     respond = true; trigger = 'direct mention';
     reason  = `"mu" mentioned · cooldown passed (${Math.floor(elapsed/60000)}m elapsed, threshold 2m)`;
@@ -410,13 +820,13 @@ function runSim(){
     reason  = `"mu" mentioned but cooldown active — ${Math.ceil((MU_COOLDOWN_MENTION_MS-elapsed)/60000)}m remaining`;
   } else if(isQuestion && questionReady){
     respond = true; trigger = 'question';
-    reason  = `"?" detected · cooldown passed · (presence check not simulated)`;
+    reason  = `"?" detected · cooldown passed (real chat also needs 2+ human messages since Mu last spoke — not simulated here)`;
   } else if(isQuestion && !questionReady){
     respond = false; trigger = 'question (blocked)';
     reason  = `"?" detected but cooldown active — ${Math.ceil((MU_COOLDOWN_MS-elapsed)/60000)}m remaining`;
   } else {
     respond = false; trigger = 'no trigger';
-    reason  = 'No "mu" mention, no "?", not a greeting — Mu stays quiet';
+    reason  = 'No "mu" mention, no "?", not a greeting — Mu stays quiet.';
   }
 
   let html = `<div class="decision-block">
@@ -429,51 +839,66 @@ function runSim(){
     </div>`;
 
   if(respond){
-    // Simulate the response
-    let sentence, cards, templateIdx, templateType;
+    let sentence, segments=null, cards, voiceLabel, tplType=null, tplIdx=null;
 
     if(isGreeting){
       cards = [pick(CARDS)];
-      templateIdx = Math.floor(Math.random()*GREETING_TEMPLATES.length);
-      templateType = 'greetings';
+      tplIdx = Math.floor(Math.random()*GREETING_TEMPLATES.length);
+      tplType = 'greetings';
       const name = currentUser?.user_metadata?.full_name||'traveler';
-      sentence = clean(GREETING_TEMPLATES[templateIdx](name, cards[0]).replace(/\*/g,''));
-    } else if(trigger.startsWith('direct mention') || trigger === 'question'){
-      cards = drawCards(2);
-      const hasKw = text.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(w=>w.length>3).length > 0;
-      if(Math.random()>0.4 && hasKw){
-        templateIdx = Math.floor(Math.random()*SENTENCE_TEMPLATES.length);
-        templateType = 'sentences';
-        sentence = clean(SENTENCE_TEMPLATES[templateIdx](cards));
-      } else {
-        templateIdx = Math.floor(Math.random()*KOAN_FRAMES.length);
-        templateType = 'koans';
-        sentence = KOAN_FRAMES[templateIdx](cards[0],cards[1]);
-      }
+      segments = GREETING_TEMPLATES[tplIdx](name, cards[0]);
+      sentence = segmentsToPlain(segments);
+      voiceLabel = 'daily greeting';
+    } else if(isCasual){
+      const r = buildCasualReply();
+      sentence=r.sentence; segments=r.segments; cards=r.cards;
+      voiceLabel = 'casual chat';
+    } else {
+      // Calls the real buildMuReply directly — same function mu-brain.html
+      // uses live — rather than re-deriving "what Mu would say" by hand,
+      // so this can never quietly drift from what actually ships.
+      const topEntry = refTitle ? {title:refTitle} : null;
+      const r = buildMuReply(text, topEntry);
+      sentence=r.sentence; segments=r.segments; cards=r.cards;
+      voiceLabel = topEntry
+        ? 'subject-anchored, or sentence/funny/inquisitive + reference (random)'
+        : 'sentence / funny / inquisitive (random)';
     }
 
-    const cardChips = cards.map(c=>{
-      const rgb = `rgb(${c.r},${c.g},${c.b})`;
-      return `<div class="card-chip"><span class="chip-dot" style="background:${rgb}"></span>${cardName(c)}</div>`;
-    }).join('');
-
-    html += `<div style="background:var(--brown);border:1px solid var(--brown3);border-radius:4px;padding:10px 12px;margin-bottom:12px;">
-      <div class="trace-row"><span class="trace-key">template</span><span class="trace-val highlight">${templateType}[${templateIdx}]</span></div>
-      <div class="trace-row"><span class="trace-key">cards</span><span class="trace-val"><div class="card-chips">${cardChips}</div></span></div>
-    </div>
-    <div class="output-sentence">${sentence}</div>`;
-
-    // Highlight the used template
-    highlightTemplate(templateType, templateIdx);
-    if(activeTab !== templateType) setTab(templateType, document.querySelector(`.tab:nth-child(${['koans','sentences','greetings','words'].indexOf(templateType)+1})`));
+    html += renderSimResult(sentence, segments, cards, voiceLabel, tplType, tplIdx);
   }
 
   html += '</div>';
   out.innerHTML = html;
 }
 
+// "mu***" preview — same buildShowcaseReply used by the real command,
+// sampling uniformly across all six voices regardless of cooldown/relevance.
+function runShowcase(){
+  if(CARDS.length===0){
+    document.getElementById('sim-output').innerHTML='<div class="output-empty">Cards not loaded yet.</div>';
+    return;
+  }
+  const r = buildShowcaseReply();
+  const voiceTabByName = {koan:'koans', sentence:'sentences', funny:'funny', inquisitive:'inquisitive', subject:'subject'};
+  const tplType = voiceTabByName[r.voice] || null; // casual has no template array to highlight
+  let html = `<div class="decision-block">
+    <div class="decision-header">
+      <span class="decision-badge yes">RESPONDS</span>
+      <span class="decision-reason">mu*** showcase</span>
+    </div>
+    <div style="background:var(--brown);border:1px solid var(--brown3);border-radius:4px;padding:10px 12px;margin-bottom:12px;">
+      <div class="trace-row"><span class="trace-key">reason</span><span class="trace-val">Ignores cooldown and relevance entirely — samples uniformly from all six voices.</span></div>
+    </div>`;
+  html += renderSimResult(r.sentence, r.segments, r.cards, `showcase → ${r.voice}`, tplType, null);
+  html += '</div>';
+  document.getElementById('sim-output').innerHTML = html;
+}
+
 function clearSim(){
   document.getElementById('sim-input').value='';
+  const refInput=document.getElementById('sim-ref-title');
+  if(refInput) refInput.value='';
   document.getElementById('sim-output').innerHTML='<div class="output-empty">*Mu watches. Type a message and simulate to see what he would do.*</div>';
   if(lastHighlightedTemplate){
     document.querySelectorAll('.template-highlight').forEach(el=>el.classList.remove('template-highlight'));
@@ -483,6 +908,7 @@ function clearSim(){
 
 function highlightTemplate(type, idx){
   document.querySelectorAll('.template-highlight').forEach(el=>el.classList.remove('template-highlight'));
+  if(idx==null) return; // e.g. casual, or a random core-family pick with no single index to point at
   const el=document.getElementById(`tpl-${type}-${idx}`);
   if(el){
     el.classList.add('template-highlight');
@@ -501,9 +927,13 @@ function setTab(tab, btn){
 
 function renderTemplates(){
   const body = document.getElementById('template-body');
+  const previewColors = CARDS.length>=2
+    ? [0,1].map(i=>({name:cardName(CARDS[i]),r:CARDS[i].r,g:CARDS[i].g,b:CARDS[i].b}))
+    : [];
+
   if(activeTab==='koans'){
     body.innerHTML=`<div class="template-grid">${KOAN_FRAMES.map((f,i)=>{
-      const ex=CARDS.length>=2?f(CARDS[0],CARDS[1]):'adj noun does not explain itself to adj noun.';
+      const ex=CARDS.length>=2?renderSegmentsHtml(f(CARDS[0],CARDS[1]),previewColors):'adj noun does not explain itself to adj noun.';
       return`<div class="template-card" id="tpl-koans-${i}">
         <div class="t-idx">koan[${i}]</div>
         <div class="t-body">${ex}</div>
@@ -512,25 +942,50 @@ function renderTemplates(){
     }).join('')}</div>`;
   } else if(activeTab==='sentences'){
     body.innerHTML=`<div class="template-grid">${SENTENCE_TEMPLATES.map((f,i)=>{
-      const ex=CARDS.length>=2?f([CARDS[0],CARDS[1]]):'subject verb adv.';
+      const ex=CARDS.length>=2?renderSegmentsHtml(f([CARDS[0],CARDS[1]]),previewColors):'subject verb adv.';
       return`<div class="template-card" id="tpl-sentences-${i}">
         <div class="t-idx">sentence[${i}]</div>
         <div class="t-body">${ex}</div>
-        <div class="t-vars">vars: c[0].subject · c[1].verb · c[0].adj · c[1].noun · adv</div>
+        <div class="t-vars">vars: c[0].subject · c[0].verb · c[0].adv · c[1].noun</div>
       </div>`;
     }).join('')}</div>`;
-    document.getElementById('t-sent-count').textContent=SENTENCE_TEMPLATES.length;
+  } else if(activeTab==='funny'){
+    body.innerHTML=`<div class="template-grid">${FUNNY_FRAMES.map((f,i)=>{
+      const ex=CARDS.length>=2?renderSegmentsHtml(f([CARDS[0],CARDS[1]]),previewColors):'adj noun juggling adj noun.';
+      return`<div class="template-card" id="tpl-funny-${i}">
+        <div class="t-idx">funny[${i}]</div>
+        <div class="t-body">${ex}</div>
+        <div class="t-vars">vars: c[0/1].adj · c[0/1].noun · c[0/1].command</div>
+      </div>`;
+    }).join('')}</div>`;
+  } else if(activeTab==='inquisitive'){
+    body.innerHTML=`<div class="template-grid">${INQUISITIVE_FRAMES.map((f,i)=>{
+      const ex=CARDS.length>=2?renderSegmentsHtml(f([CARDS[0],CARDS[1]]),previewColors):'if noun could speak…';
+      return`<div class="template-card" id="tpl-inquisitive-${i}">
+        <div class="t-idx">inquisitive[${i}]</div>
+        <div class="t-body">${ex}</div>
+        <div class="t-vars">vars: c[0].noun · c[1].verb (gerund) · c[0/1].adj/noun · c[1].command</div>
+      </div>`;
+    }).join('')}</div>`;
+  } else if(activeTab==='subject'){
+    body.innerHTML=`<div class="template-grid">${SUBJECT_FRAMES.map((f,i)=>{
+      const ex=CARDS.length>=2?renderSegmentsHtml(f(CARDS[0],CARDS[1],SHOWCASE_REF_TITLE),previewColors):'s is not noun.';
+      return`<div class="template-card" id="tpl-subject-${i}">
+        <div class="t-idx">subject[${i}]</div>
+        <div class="t-body">${ex}</div>
+        <div class="t-vars">vars: a.subject/verb/adv · a/b.noun · s (a real matched title — "${SHOWCASE_REF_TITLE}" is a stand-in here; only fires on a real library/memory match)</div>
+      </div>`;
+    }).join('')}</div>`;
   } else if(activeTab==='greetings'){
     body.innerHTML=`<div class="template-grid">${GREETING_TEMPLATES.map((f,i)=>{
       const name=currentUser?.user_metadata?.full_name||'traveler';
-      const ex=CARDS.length>0?f(name,CARDS[0]).replace(/\*/g,''):`Hello ${name} — greeting template.`;
+      const ex=CARDS.length>0?renderSegmentsHtml(f(name,CARDS[0]),[{name:cardName(CARDS[0]),r:CARDS[0].r,g:CARDS[0].g,b:CARDS[0].b}]):`Hello ${name} — greeting template.`;
       return`<div class="template-card" id="tpl-greetings-${i}">
         <div class="t-idx">greeting[${i}]</div>
         <div class="t-body">${ex}</div>
         <div class="t-vars">vars: name · card.timeframe · card.command · card.adj · card.noun</div>
       </div>`;
     }).join('')}</div>`;
-    document.getElementById('t-greet-count').textContent=GREETING_TEMPLATES.length;
   } else if(activeTab==='words'){
     renderWordPool('');
   }
