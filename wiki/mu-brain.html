@@ -100,15 +100,62 @@ const CARDS=[
 const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
 const clean=s=>s.replace(/\s{2,}/g," ").replace(/ \./g,".").replace(/ ,/g,",").trim();
 
+// Same segment convention used throughout this file (explained in full
+// below, by SENTENCE_TEMPLATES): {text} is plain uncolored glue, {text,card}
+// is a phrase quoting one drawn card's own adj/noun, tagged 0 or 1 so the
+// chat UI can tint it. No wording changed from the plain-string versions —
+// this only splits the same text at its existing boundaries.
 const KOAN_FRAMES=[
-  (a,b)=>`${a.adj} ${a.noun} does not explain itself to ${b.adj} ${b.noun}.`,
-  (a,b)=>`You are looking for ${b.noun}. ${a.adj} is the door.`,
-  (a,b)=>`Before ${a.adj} ${a.noun} — what were you?`,
-  (a,b)=>`${b.adj} ${b.noun} waits at the end of every ${a.adj} path.`,
-  (a,b)=>`${a.noun} and ${b.noun} are the same word in a language no one speaks anymore.`,
-  (a,b)=>`You already have ${b.noun}. That's why ${a.adj} ${a.noun} is so loud right now.`,
-  (a,b)=>`${a.adj} ${a.noun} crossed the river. On the other side: ${b.adj} ${b.noun}. It turned back.`,
-  (a,b)=>`Ask ${a.adj} ${a.noun} what it costs. Then ask ${b.noun} what it gives.`,
+  (a,b)=>[
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` does not explain itself to `},
+    {text:`${b.adj} ${b.noun}`,card:1},
+    {text:`.`},
+  ],
+  (a,b)=>[
+    {text:`You are looking for `},
+    {text:b.noun,card:1},
+    {text:`. `},
+    {text:a.adj,card:0},
+    {text:` is the door.`},
+  ],
+  (a,b)=>[
+    {text:`Before `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` — what were you?`},
+  ],
+  (a,b)=>[
+    {text:`${b.adj} ${b.noun}`,card:1},
+    {text:` waits at the end of every `},
+    {text:a.adj,card:0},
+    {text:` path.`},
+  ],
+  (a,b)=>[
+    {text:a.noun,card:0},
+    {text:` and `},
+    {text:b.noun,card:1},
+    {text:` are the same word in a language no one speaks anymore.`},
+  ],
+  (a,b)=>[
+    {text:`You already have `},
+    {text:b.noun,card:1},
+    {text:`. That's why `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` is so loud right now.`},
+  ],
+  (a,b)=>[
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` crossed the river. On the other side: `},
+    {text:`${b.adj} ${b.noun}`,card:1},
+    {text:`. It turned back.`},
+  ],
+  (a,b)=>[
+    {text:`Ask `},
+    {text:`${a.adj} ${a.noun}`,card:0},
+    {text:` what it costs. Then ask `},
+    {text:b.noun,card:1},
+    {text:` what it gives.`},
+  ],
 ];
 // A card's subject/verb/adv were hand-written together to agree with each
 // other ("Old systems / are leveled" — plural with plural). That pairing
@@ -283,8 +330,9 @@ function buildMuReply(userText, topEntry){
   const cards=drawCardsWithBias(topEntry);
   const isQuestion=userText.includes("?");
   if(!userText||!userText.trim()||(!userText.toLowerCase().includes("mu")&&!isQuestion)){
-    // Koans are a separate, simpler voice — not colored by card (for now).
-    return{sentence:pick(KOAN_FRAMES)(cards[0],cards[1]),cards};
+    // Koans are a separate, simpler voice, but now colored the same way.
+    const segments=pick(KOAN_FRAMES)(cards[0],cards[1]);
+    return{sentence:segmentsToPlain(segments),segments,cards};
   }
   const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
   let segments;
@@ -311,13 +359,42 @@ function buildMuReply(userText, topEntry){
 
 
 
+// Only one card here (greetings draw a single card, not two), so every
+// segment below is tagged card:0 — same convention, just a cast of one.
+// Where the original wording already set a phrase off in *asterisks* for
+// emphasis, the asterisks are kept inside that same colored segment so the
+// italics still render correctly (formatSegmentText matches *..* per
+// segment, not across segment boundaries).
 const GREETING_TEMPLATES=[
-  (n,c)=>`Hello ${n} — ${c.timeframe}, ${c.command} the ${c.adj} ${c.noun}.`,
-  (n,c)=>`${n}. *${c.adj} ${c.noun}* greets you today.`,
-  (n,c)=>`Welcome, ${n}. ${c.timeframe} — ${c.command} your ${c.adj} ${c.noun}.`,
-  (n,c)=>`The archive stirs. ${n} has entered. *${c.command} the ${c.adj} ${c.noun}.*`,
-  (n,c)=>`${n} — ${c.timeframe}. *${c.adj} ${c.noun}.*`,
-  (n,c)=>`*${c.timeframe}.* Hello ${n} — the ${c.adj} ${c.noun} is yours today.`,
+  (n,c)=>[
+    {text:`Hello ${n} — ${c.timeframe}, ${c.command} the `},
+    {text:`${c.adj} ${c.noun}`,card:0},
+    {text:`.`},
+  ],
+  (n,c)=>[
+    {text:`${n}. `},
+    {text:`*${c.adj} ${c.noun}*`,card:0},
+    {text:` greets you today.`},
+  ],
+  (n,c)=>[
+    {text:`Welcome, ${n}. ${c.timeframe} — ${c.command} your `},
+    {text:`${c.adj} ${c.noun}`,card:0},
+    {text:`.`},
+  ],
+  (n,c)=>[
+    {text:`The archive stirs. ${n} has entered. `},
+    {text:`*${c.command} the ${c.adj} ${c.noun}.*`,card:0},
+  ],
+  (n,c)=>[
+    {text:`${n} — ${c.timeframe}. `},
+    {text:`*${c.adj} ${c.noun}.*`,card:0},
+  ],
+  (n,c)=>[
+    {text:`*${c.timeframe}.*`,card:0},
+    {text:` Hello ${n} — the `},
+    {text:`${c.adj} ${c.noun}`,card:0},
+    {text:` is yours today.`},
+  ],
 ];
 
 async function checkDailyGreeting(user){
@@ -328,7 +405,8 @@ async function checkDailyGreeting(user){
     if(data) return; // already greeted today
     const card=pick(CARDS);
     const name=user.user_metadata?.full_name||user.user_metadata?.name||'traveler';
-    const sentence=clean(pick(GREETING_TEMPLATES)(name,card));
+    const segments=pick(GREETING_TEMPLATES)(name,card);
+    const sentence=segmentsToPlain(segments);
     await saveMuMessage(sentence,cardName(card));
     await db.from('daily_greeted').insert({user_id:user.id,greeted_date:today});
   } catch(err){ console.log('Greeting check failed (non-fatal):',err.message); }
@@ -346,20 +424,22 @@ window.addEventListener('message', e => {
       type:     'mu_response',
       sentence,
       cardLine: cards.map(c=>cardName(c)).join(' · '),
-      // segments is only present for the two-card templated replies (not
-      // koans, which stay uncolored for now) — index.html only bothers
-      // building colored spans when this is non-null.
+      // index.html only bothers building colored spans when segments is
+      // non-null — always true now, but kept defensive.
       segments: segments||null,
       cardColors: cards.map(c=>({name:cardName(c),r:c.r,g:c.g,b:c.b}))
     }, '*');
 
   } else if(queryType === 'greeting'){
     const card   = pick(CARDS);
-    const sentence = clean(pick(GREETING_TEMPLATES)(name||'traveler', card));
+    const segments = pick(GREETING_TEMPLATES)(name||'traveler', card);
+    const sentence = segmentsToPlain(segments);
     window.parent.postMessage({
       type:     'mu_greeting',
       sentence,
       cardLine: cardName(card),
+      segments,
+      cardColors: [{name:cardName(card),r:card.r,g:card.g,b:card.b}],
       date
     }, '*');
 

@@ -951,10 +951,11 @@ window.addEventListener('message', async e=>{
   if(e.data.type==='mu_response'){
     await saveMuMessage(e.data.sentence, e.data.cardLine||null, false, e.data.segments||null, e.data.cardColors||null);
   } else if(e.data.type==='mu_greeting'){
-    const{sentence,cardLine,date}=e.data;
+    const{sentence,cardLine,date,segments,cardColors}=e.data;
     // Set localStorage guard immediately — prevents re-greeting if DB insert fails
     if(currentUser&&date) localStorage.setItem('mu_greeted_'+currentUser.id+'_'+date,'1');
-    await saveMuMessage(sentence,cardLine||null,true); // true = greeting, don't set lastMuTime
+    // true = greeting, don't set lastMuTime
+    await saveMuMessage(sentence,cardLine||null,true,segments||null,cardColors||null);
     if(currentUser&&date){
       await db.from('daily_greeted').insert({user_id:currentUser.id,greeted_date:date})
         .catch(()=>{});
@@ -1623,12 +1624,13 @@ async function sendMessage(){
 async function saveMuMessage(sentence,cardLine,isGreeting=false,segments=null,cardColors=null){
   if(!isGreeting) lastMuTime=Date.now();
   humansSinceMu=0;
-  // Two-card templated replies carry their segment data as JSON in
-  // card_line instead of the plain "13·C·Queen · 10·C·Satiety" string, so
-  // renderMessage can color each phrase by its source card. buildCardLine
-  // tells the two apart by trying JSON.parse first. Koans, greetings and
-  // anything else without segments fall back to the plain string exactly
-  // as before — no change for those.
+  // Replies with segment data (templated two-card replies, koans, casual
+  // one-card replies, greetings) carry it as JSON in card_line instead of
+  // the plain "13·C·Queen · 10·C·Satiety" string, so renderMessage can
+  // color each phrase by its source card. buildCardLine tells the two apart
+  // by trying JSON.parse first. Anything without segments (the 🔴/🟢
+  // diagnostic message, e.g.) falls back to the plain string exactly as
+  // before — no change for those.
   const storedCardLine=segments
     ? JSON.stringify({type:'mu_segments',cardLine,segments,cardColors})
     : cardLine;
