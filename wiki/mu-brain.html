@@ -465,7 +465,33 @@ function buildMuReply(userText, topEntry){
   return{sentence:segmentsToPlain(segments),segments,cards};
 }
 
-
+// Manual QA trigger ("mu***" — see index.html) for sampling every reply
+// voice Mu has, instead of waiting on real conversation to happen to
+// trigger each one. Draws two fresh cards and picks uniformly across all
+// six shapes — casual, koan, and the three CORE_FRAME_SETS families, plus
+// the subject-anchored frames, which normally only fire on a real
+// library/memory match. There's no real match here, so a fixed stand-in
+// title keeps that voice in the rotation too; it reads fine in all of
+// SUBJECT_FRAMES ("this thread is not...", "before this thread...") since
+// it's just as generic as any of the real titles those frames are built for.
+const SHOWCASE_REF_TITLE='this thread';
+function buildShowcaseReply(){
+  const cards=drawCards(2);
+  const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
+  const voice=pick(['casual','koan','sentence','funny','inquisitive','subject']);
+  if(voice==='casual') return buildCasualReply();
+  if(voice==='koan'){
+    const segments=pick(KOAN_FRAMES)(cards[0],cards[1]);
+    return{sentence:segmentsToPlain(segments),segments,cards};
+  }
+  if(voice==='subject'){
+    const segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],SHOWCASE_REF_TITLE)];
+    return{sentence:segmentsToPlain(segments),segments,cards};
+  }
+  const setByVoice={sentence:SENTENCE_TEMPLATES,funny:FUNNY_FRAMES,inquisitive:INQUISITIVE_FRAMES};
+  const segments=[...introSeg,...pick(setByVoice[voice])(cards)];
+  return{sentence:segmentsToPlain(segments),segments,cards};
+}
 
 // Only one card here (greetings draw a single card, not two), so every
 // segment below is tagged card:0 — same convention, just a cast of one.
@@ -549,6 +575,20 @@ window.addEventListener('message', e => {
       segments,
       cardColors: [{name:cardName(card),r:card.r,g:card.g,b:card.b}],
       date
+    }, '*');
+
+  } else if(queryType === 'showcase'){
+    // "mu***" QA trigger — see index.html. Same mu_response shape as a
+    // normal reply, so it flows through the exact same render/save path;
+    // the only difference is buildShowcaseReply ignores context entirely
+    // and just samples uniformly across every voice Mu has.
+    const { sentence, segments, cards } = buildShowcaseReply();
+    window.parent.postMessage({
+      type:     'mu_response',
+      sentence,
+      cardLine: cards.map(c=>cardName(c)).join(' · '),
+      segments: segments||null,
+      cardColors: cards.map(c=>({name:cardName(c),r:c.r,g:c.g,b:c.b}))
     }, '*');
 
   } else if(queryType === 'test'){

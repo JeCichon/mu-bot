@@ -1573,6 +1573,15 @@ async function sendMessage(){
     return;
   }
 
+  // mu*** — QA trigger, ignores cooldown/relevance entirely and fires one
+  // of Mu's possible replies at random, sampled uniformly across every
+  // voice he has (see buildShowcaseReply in mu-brain.html), for previewing
+  // the full range without waiting for real conversation to trigger each one.
+  if(text.toLowerCase().trim()==='mu***'){
+    muBrain()?.postMessage({type:'mu_query',queryType:'showcase'},'*');
+    return;
+  }
+
   const user=currentUser;
   const name=user.user_metadata?.full_name||user.user_metadata?.name||user.user_metadata?.user_name||user.user_metadata?.preferred_username||user.email?.split('@')[0]||"traveler";
   const avatar=user.user_metadata?.avatar_url||null;
