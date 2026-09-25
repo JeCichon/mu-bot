@@ -200,6 +200,114 @@ const SENTENCE_TEMPLATES=[
     {text:` listening nearby.`},
   ],
 ];
+// Small local helper — picks "a"/"an" for whatever word comes right after,
+// same rule buildCasualReply already uses for a card's own noun.
+const art=w=>/^[aeiou]/i.test(w)?"an":"a";
+
+// "Funny" replies — a small absurdist scene starring both drawn cards. Only
+// ever combines adj+noun (safe, no number agreement to worry about) and a
+// card's own command word as its "reason why" — literally an in-deck answer
+// to "what are the cards actually trying to do", instead of an invented
+// punchline like "to save the world". Heads up: two of the 78 cards' command
+// fields are nouns, not verbs (Lust: "Passion", The Moon: "Illusion"), so a
+// reply that draws either of them into one of these command slots will read
+// a little broken — e.g. "in order to passion it." Left in on purpose for
+// now, since it's exactly the kind of "mu hasn't got quite the right word
+// yet" glitchiness you said you like; say the word and I'll special-case
+// those two out of this family instead.
+const FUNNY_FRAMES=[
+  c=>[
+    {text:`The `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` is currently juggling `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` in order to `},
+    {text:c[0].command.toLowerCase(),card:0},
+    {text:` it.`},
+  ],
+  c=>[
+    {text:`${art(c[0].adj)} `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` interrupts `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` mid-sentence, insisting it must `},
+    {text:c[1].command.toLowerCase(),card:1},
+    {text:` first.`},
+  ],
+  c=>[
+    {text:`Somewhere, `},
+    {text:`${art(c[0].adj)} `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` is arguing with `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` about whose turn it is to `},
+    {text:c[1].command.toLowerCase(),card:1},
+    {text:`.`},
+  ],
+  c=>[
+    {text:`The `},
+    {text:`${c[0].adj} ${c[0].noun}`,card:0},
+    {text:` accidentally summons `},
+    {text:`${art(c[1].adj)} `},
+    {text:`${c[1].adj} ${c[1].noun}`,card:1},
+    {text:` while trying to `},
+    {text:c[0].command.toLowerCase(),card:0},
+    {text:` the `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`.`},
+  ],
+];
+
+// "Inquisitive" replies — existential either/or questions, built the same
+// safe way the koans are: adj/noun phrases need no number agreement, and
+// where a verb is actually needed it's either a gerund (loose on purpose,
+// same convention buildCasualReply already uses) or paired only with its
+// own card's fields — never a second card's verb bolted onto an invented
+// subject, which is the mismatch the big comment above SENTENCE_TEMPLATES
+// was written to prevent.
+const INQUISITIVE_FRAMES=[
+  c=>[
+    {text:`If `},
+    {text:c[0].noun,card:0},
+    {text:` could speak, would it tell us the secret to `},
+    {text:gerund(c[1].verb),card:1},
+    {text:`, or would it just ask for `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`?`},
+  ],
+  c=>[
+    {text:`Why does `},
+    {text:c[0].noun.toLowerCase(),card:0},
+    {text:` always arrive right before `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:` leaves?`},
+  ],
+  c=>[
+    {text:`If `},
+    {text:`${c[0].adj.toLowerCase()} ${c[0].noun.toLowerCase()}`,card:0},
+    {text:` and `},
+    {text:`${c[1].adj.toLowerCase()} ${c[1].noun.toLowerCase()}`,card:1},
+    {text:` switched places for a day, would either of them notice?`},
+  ],
+  c=>[
+    {text:`If you had to choose between `},
+    {text:c[0].noun.toLowerCase(),card:0},
+    {text:` and `},
+    {text:c[1].noun.toLowerCase(),card:1},
+    {text:`, which one would actually `},
+    {text:c[1].command.toLowerCase(),card:1},
+    {text:` you?`},
+  ],
+];
+
+// The three "voices" Mu can draw a two-card core reply from, picked with
+// equal odds. Adding a new one later is just another array pushed in here —
+// nothing else about buildMuReply needs to change.
+const CORE_FRAME_SETS=[SENTENCE_TEMPLATES, FUNNY_FRAMES, INQUISITIVE_FRAMES];
+
 // Three-slot frames — two drawn cards plus "the subject at hand" (a matched
 // library entry's title). Only used when Mu actually has something relevant
 // to say; otherwise he sticks to the plain two-card SENTENCE_TEMPLATES.
@@ -345,11 +453,11 @@ function buildMuReply(userText, topEntry){
       // instead of bolting the reference onto an ordinary sentence.
       segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],topEntry.title)];
     } else {
-      const core=pick(SENTENCE_TEMPLATES)(cards);
+      const core=pick(pick(CORE_FRAME_SETS))(cards);
       segments=[...introSeg,...wrapWithReference(core,topEntry.title)];
     }
   } else {
-    const core=pick(SENTENCE_TEMPLATES)(cards);
+    const core=pick(pick(CORE_FRAME_SETS))(cards);
     const kw=userText.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!["what","does","that","this","with","from","have","your","they","will"].includes(w));
     const wrapped=(kw.length>0&&Math.random()>0.5)?wrapWithReference(core,pick(kw)):core;
     segments=[...introSeg,...wrapped];
