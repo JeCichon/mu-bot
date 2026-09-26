@@ -197,6 +197,13 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
         <div class="state-row"><span class="state-label">greetings</span><span class="state-val" id="t-greet-count">—</span></div>
         <div class="state-row"><span class="state-label">cards loaded</span><span class="state-val" id="t-card-count">—</span></div>
       </div>
+      <div class="state-section">
+        <div class="state-section-title">🫀 word inventory</div>
+        <div class="state-row"><span class="state-label">card-sourced rows</span><span class="state-val" id="wo-card-count">—</span></div>
+        <div class="state-row"><span class="state-label">distinct lemmas</span><span class="state-val" id="wo-lemma-count">—</span></div>
+        <button class="sim-btn" style="width:100%;margin-top:8px" onclick="reseedCardVocabulary(event)">reseed card vocabulary</button>
+        <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5" id="wo-status">Reads every card's spoken fields (adj/noun/subject/verb/adv/command/timeframe) plus its values inventory (i_am/i_feel/…), lemmatizes each word, and replaces the card-sourced rows in word_occurrences. Library/memory rows are never touched by this button.</div>
+      </div>
     </div>
   </div>
 
@@ -722,6 +729,7 @@ async function init(){
   renderTemplates();
   updateStateCounts();
   setInterval(updateStateCounts, 10000);
+  refreshWordInventoryCounts();
 }
 
 function setVoiceCounts(){
@@ -737,6 +745,156 @@ async function loadCards(){
   const{data}=await db.from('cards').select('*').order('card_id',{ascending:true});
   CARDS = data || [];
   document.getElementById('t-card-count').textContent = CARDS.length;
+}
+
+// ── Word inventory (🫀) ──────────────────────────────────────────────────────
+// Turns each card's authored language into (lemma, form, field) rows in the
+// word_occurrences table — the vocabulary-census phase discussed with Justin.
+// Built as a hand-verified rule set rather than a black-box lemmatizer, since
+// the card deck is small and finite: every exception below was caught by
+// actually reading the real word list, not guessed at. This is deliberately
+// NOT run against user-typed text (library entries / memories) — that's a
+// separate, harder phase for later, and this button never touches those rows.
+
+// Pure grammatical glue — dropped entirely, never becomes a row. Deliberately
+// conservative: prepositions like "within"/"without"/"through" are KEPT
+// because they carry real thematic weight in this deck's voice, not just
+// structure (see "shines within and without", Ace of Disks). "of"/"in"/"on"/
+// "at"/"for"/"with" are dropped because in practice they were pure noise —
+// "of" alone outnumbered every real thematic word in an early test run.
+const WORD_STOPWORDS = new Set([
+  'a','an','the','and','or','but','is','are','was','were','it','i','me','my','your',
+  'that','which','you','his','what','itself','to','this','these','oh','ahh','yeah','yes',
+  'of','in','on','at','for','with',
+]);
+
+// Irregular/exception lemmas caught by reading the actual card data — a naive
+// suffix-stripper alone mangles words like "curious"→"curiou" (see the
+// us/is guard below) and can't fix real irregulars like "leveled"→"level".
+const WORD_LEMMA_EXCEPTIONS = {
+  systems:'system', talents:'talent', opposites:'opposite', depths:'depth',
+  "mother's":'mother', "philosopher's":'philosopher', needed:'need', perfected:'perfect',
+  wills:'will', embarks:'embark', dominates:'dominate', discovers:'discover',
+  overcomes:'overcome', seeks:'seek', embraces:'embrace', rises:'rise',
+  transforms:'transform', matures:'mature', returns:'return', dissolves:'dissolve',
+  bonds:'bond', opens:'open', leveled:'level', replaced:'replace',
+  innovates:'innovate', confronts:'confront', fuels:'fuel', awakens:'awaken',
+  spins:'spin', reinforces:'reinforce', aligns:'align', burns:'burn',
+  expands:'expand', fights:'fight', implements:'implement', becomes:'become',
+  grows:'grow', calls:'call', sublimates:'sublimate', changes:'change',
+  affirms:'affirm', enlightens:'enlighten', balances:'balance', flows:'flow',
+  stabilizes:'stabilize', tears:'tear', found:'find', breaks:'break',
+  gathers:'gather', connects:'connect', dances:'dance', understands:'understand',
+  shares:'share', cuts:'cut', holds:'hold', embodies:'embody', maintains:'maintain',
+  reveals:'reveal', measures:'measure', turns:'turn', ensures:'ensure',
+  torments:'torment', ends:'end', solutions:'solution', decides:'decide',
+  refines:'refine', shines:'shine', defines:'define', disintegrates:'disintegrate',
+  adapts:'adapt', achieves:'achieve', culminates:'culminate', shapes:'shape',
+  nurtures:'nurture', strengthens:'strengthen', communes:'commune', eyes:'eye',
+  awaits:'await', bursts:'burst', begins:'begin', speaks:'speak', sowed:'sow',
+  noticed:'notice', unfolds:'unfold', rushes:'rush', reap:'reap',
+};
+
+function wordLemmatize(word){
+  const w = word.toLowerCase();
+  if(WORD_LEMMA_EXCEPTIONS[w]) return WORD_LEMMA_EXCEPTIONS[w];
+  if(w.endsWith("'s")) return w.slice(0,-2);
+  if(w.endsWith('us') || w.endsWith('is')) return w; // curious, focus, crisis, analysis -- not plurals
+  if(w.endsWith('ies') && w.length>4) return w.slice(0,-3)+'y';
+  if(w.endsWith('es') && /(?:s|x|z|ch|sh)$/.test(w.slice(0,-2))) return w.slice(0,-2);
+  if(w.endsWith('s') && !w.endsWith('ss') && w.length>3) return w.slice(0,-1);
+  return w;
+}
+function wordTokenize(text){
+  if(!text) return [];
+  return text.match(/[A-Za-z']+/g) || [];
+}
+
+const WORD_CORE_FIELDS = ['adj','noun','subject','verb','adv','command','timeframe'];
+const WORD_I_FIELDS = ['i_am','i_feel','i_act','i_love','i_speak','i_see','i_know','i_understand'];
+// The 8 values-inventory fields fold into the same noun/adj taxonomy as
+// everything else, per Justin's call — no i_am/i_feel/etc labels survive.
+// Almost all are plain abstract nouns; these are the real exceptions found
+// by reading all 144 distinct values by hand.
+const WORD_I_MULTI = {
+  'divine will': [['divine','adj'],['will','noun']],
+  'inner voice': [['inner','adj'],['voice','noun']],
+  'order in chaos': [['order','noun'],['chaos','noun']],
+  'psychic awareness': [['psychic','adj'],['awareness','noun']],
+  'self-expression': [['self','noun'],['expression','noun']],
+  'spiritual guidance': [['spiritual','adj'],['guidance','noun']],
+  'work ethic': [['work','noun'],['ethic','noun']],
+};
+const WORD_I_ADJ_SINGLE = new Set(['holistic','unconditional']);
+
+function buildCardWordRows(){
+  const rows = [];
+  for(const c of CARDS){
+    const sourceId = String(c.card_id);
+    for(const field of WORD_CORE_FIELDS){
+      for(const tok of wordTokenize(c[field])){
+        const low = tok.toLowerCase();
+        if(WORD_STOPWORDS.has(low)) continue;
+        rows.push({lemma:wordLemmatize(low), form:low, source_type:'card', source_id:sourceId, field});
+      }
+    }
+    for(const ifield of WORD_I_FIELDS){
+      const val = c[ifield];
+      if(!val) continue;
+      const key = val.toLowerCase();
+      if(WORD_I_MULTI[key]){
+        for(const [word,pos] of WORD_I_MULTI[key]){
+          rows.push({lemma:word, form:word, source_type:'card', source_id:sourceId, field:pos});
+        }
+      } else {
+        const pos = WORD_I_ADJ_SINGLE.has(key) ? 'adj' : 'noun';
+        rows.push({lemma:wordLemmatize(key), form:key, source_type:'card', source_id:sourceId, field:pos});
+      }
+    }
+  }
+  return rows;
+}
+
+async function refreshWordInventoryCounts(){
+  const{count}=await db.from('word_occurrences').select('id',{count:'exact',head:true}).eq('source_type','card');
+  document.getElementById('wo-card-count').textContent = count ?? 0;
+  const{data}=await db.from('word_occurrences').select('lemma').eq('source_type','card');
+  const distinct = new Set((data||[]).map(r=>r.lemma)).size;
+  document.getElementById('wo-lemma-count').textContent = data ? distinct : '—';
+}
+
+// Idempotent by design: always deletes every existing card-sourced row first,
+// then inserts a fresh set computed from whatever CARDS holds right now — so
+// re-running this after editing a card in Supabase just picks up the change,
+// and running it twice in a row never doubles anything up. Library/memory
+// rows (source_type != 'card') are never touched here.
+async function reseedCardVocabulary(evt){
+  const status = document.getElementById('wo-status');
+  const btn = evt?.target;
+  if(btn) btn.disabled = true;
+  status.textContent = 'Building word list from the ' + CARDS.length + ' loaded cards…';
+  try{
+    if(CARDS.length === 0){
+      status.textContent = 'Cards haven\'t loaded yet — wait a moment and try again.';
+      return;
+    }
+    const rows = buildCardWordRows();
+    status.textContent = `Computed ${rows.length} rows. Clearing old card-sourced rows…`;
+    const{error:delErr} = await db.from('word_occurrences').delete().eq('source_type','card');
+    if(delErr) throw delErr;
+    status.textContent = `Inserting ${rows.length} rows…`;
+    const CHUNK = 500;
+    for(let i=0; i<rows.length; i+=CHUNK){
+      const{error:insErr} = await db.from('word_occurrences').insert(rows.slice(i,i+CHUNK));
+      if(insErr) throw insErr;
+    }
+    await refreshWordInventoryCounts();
+    status.textContent = `Done — seeded ${rows.length} rows across ${CARDS.length} cards, just now.`;
+  }catch(err){
+    status.textContent = 'Reseed failed (nothing further was changed beyond what completed): ' + err.message;
+  }finally{
+    if(btn) btn.disabled = false;
+  }
 }
 
 async function loadLastMuMessage(){
