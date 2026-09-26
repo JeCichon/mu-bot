@@ -444,17 +444,33 @@ function buildMuReply(userText, topEntry){
   }
   const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
   let segments;
-  // Prefer referencing something Mu actually knows (a matched library
-  // entry, passed in by index.html) over echoing a random word back from
-  // what you said. Only ever the entry's title — never its full text.
-  if(topEntry&&topEntry.title){
-    if(Math.random()>0.5){
+  // Prefer referencing something Mu actually knows (a matched library entry
+  // or memory, passed in by index.html) over echoing a random word back
+  // from what you said. Never a memory's full raw text — see below.
+  // A memory match's "title" is just a truncated echo of someone's raw chat
+  // text (see findTopLibraryMatch in index.html), not an authored name —
+  // quoting the whole thing back, or slotting it into SUBJECT_FRAMES as if
+  // it were a subject, reads like the bug it used to be ("You ask of dude
+  // heck yeah."). So a memory match is only usable here when index.html
+  // managed to pull one real word out of it (topEntry.refWord) — an
+  // all-filler memory (refWord null) is treated as no match at all, falling
+  // through to the plain-keyword-from-your-own-text branch below, rather
+  // than falling back to quoting the raw memory text as a pseudo-title.
+  const memoryUnusable=topEntry&&topEntry.isMemory&&!topEntry.refWord;
+  if(topEntry&&topEntry.title&&!memoryUnusable){
+    const useWordRef=topEntry.isMemory&&topEntry.refWord;
+    const ref=useWordRef?topEntry.refWord:topEntry.title;
+    if(!useWordRef&&Math.random()>0.5){
       // A dedicated three-part shape: two cards plus the subject itself,
-      // instead of bolting the reference onto an ordinary sentence.
-      segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],topEntry.title)];
+      // instead of bolting the reference onto an ordinary sentence. Only
+      // ever fires for a genuine library title, never a memory's refWord —
+      // "stressed, circled by..." doesn't read as a named subject the way
+      // "Tricknologic, circled by..." does, so refWord always takes the
+      // lighter wrapWithReference treatment below instead.
+      segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],ref)];
     } else {
       const core=pick(pick(CORE_FRAME_SETS))(cards);
-      segments=[...introSeg,...wrapWithReference(core,topEntry.title)];
+      segments=[...introSeg,...wrapWithReference(core,ref)];
     }
   } else {
     const core=pick(pick(CORE_FRAME_SETS))(cards);
@@ -475,10 +491,15 @@ function buildMuReply(userText, topEntry){
 // SUBJECT_FRAMES ("this thread is not...", "before this thread...") since
 // it's just as generic as any of the real titles those frames are built for.
 const SHOWCASE_REF_TITLE='this thread';
+// Stand-in for topEntry.refWord — a single extracted word, playing the role
+// a real memory-derived keyword would (see buildMuReply). Lets mu*** preview
+// the wrapWithReference flourish even though there's no real memory match
+// or user text to pull a word from here.
+const SHOWCASE_REF_WORD='memory';
 function buildShowcaseReply(){
   const cards=drawCards(2);
   const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
-  const voice=pick(['casual','koan','sentence','funny','inquisitive','subject']);
+  const voice=pick(['casual','koan','sentence','funny','inquisitive','subject','memory-word']);
   if(voice==='casual') return buildCasualReply();
   if(voice==='koan'){
     const segments=pick(KOAN_FRAMES)(cards[0],cards[1]);
@@ -486,6 +507,11 @@ function buildShowcaseReply(){
   }
   if(voice==='subject'){
     const segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],SHOWCASE_REF_TITLE)];
+    return{sentence:segmentsToPlain(segments),segments,cards};
+  }
+  if(voice==='memory-word'){
+    const core=pick(pick(CORE_FRAME_SETS))(cards);
+    const segments=[...introSeg,...wrapWithReference(core,SHOWCASE_REF_WORD)];
     return{sentence:segmentsToPlain(segments),segments,cards};
   }
   const setByVoice={sentence:SENTENCE_TEMPLATES,funny:FUNNY_FRAMES,inquisitive:INQUISITIVE_FRAMES};

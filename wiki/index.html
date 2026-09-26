@@ -890,9 +890,29 @@ async function captureMemory(messageId,userId,userName,content){
   if(error) throw error;
 }
 
+// Pulls one meaningful word out of free-form memory text, so Mu can gesture
+// at a remembered fragment naturally instead of quoting the whole (often
+// mid-sentence, truncated) memory back as if it were an entry title — e.g.
+// referencing "thesis" rather than "dude I'm so stressed about my thesis
+// defense…". Mirrors the plain-keyword fallback mu-brain.html already uses
+// for the user's own current message, just aimed at a matched memory's full
+// content instead. Returns null when nothing usable turns up (all filler or
+// too-short words), so the caller can fall back to the old title-quote
+// behavior rather than losing the match entirely.
+const KEYWORD_STOPWORDS=["what","does","that","this","with","from","have","your","they","will","just","like","really","about","there","would","could","should","because","think","going","gonna","wanna","kinda","actually","pretty","still","been","were","when","then","than","much","very","dude","heck","yeah","okay","stuff","things"];
+function extractKeyword(text){
+  const words=(text||'').toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!KEYWORD_STOPWORDS.includes(w));
+  if(words.length===0) return null;
+  // Prefer the longest/most distinctive word over just the first one.
+  return words.reduce((a,b)=>b.length>a.length?b:a);
+}
+
 // Returns {title, score, cardIds} for the closest thing Mu actually knows
 // about — either a curated library entry or a captured chat memory — or
 // null if nothing clears MATCH_THRESHOLD (or the model/lookup isn't ready).
+// A memory match also carries isMemory:true and refWord (see extractKeyword
+// above) so mu-brain.html knows to reference the extracted word instead of
+// quoting the raw memory text as a pseudo-title.
 // Never blocks or throws, since Mu should still reply even if his memory isn't.
 async function findTopLibraryMatch(text){
   try{
@@ -908,6 +928,7 @@ async function findTopLibraryMatch(text){
     const memCandidates=(memRows||[]).map(m=>({
       id:'mem:'+m.id,
       title:m.content.length>60?m.content.slice(0,57)+'…':m.content,
+      content:m.content,
       vec:parseEmbedding(m.embedding),
       isMemory:true
     })).filter(e=>e.vec);
@@ -919,14 +940,14 @@ async function findTopLibraryMatch(text){
     let best=null;
     for(const e of pool){
       const score=dot(qvec,e.vec);
-      if(!best||score>best.score) best=e.isMemory?{title:e.title,score,isMemory:true}:{id:e.id,title:e.title,score};
+      if(!best||score>best.score) best=e.isMemory?{title:e.title,content:e.content,score,isMemory:true}:{id:e.id,title:e.title,score};
     }
     if(!best||best.score<MATCH_THRESHOLD) return null;
 
     if(best.isMemory){
       // Chat memories don't have cards linked to them the way curated
       // library entries do — Mu just falls back to a normal random draw.
-      return { title:best.title, score:best.score, cardIds:[] };
+      return { title:best.title, refWord:extractKeyword(best.content), isMemory:true, score:best.score, cardIds:[] };
     }
     // Cards linked to this entry in the Lodge library editor, if any — lets
     // Mu's card draw lean toward the topic instead of staying pure decoration.

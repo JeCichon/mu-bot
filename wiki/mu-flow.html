@@ -205,7 +205,8 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
     <div class="panel-header">message simulator</div>
     <div class="sim-input-wrap">
       <textarea class="sim-textarea" id="sim-input" placeholder="type a test message… try mentioning 'mu', asking a '?', or just saying something"></textarea>
-      <input class="word-search" id="sim-ref-title" style="margin-top:8px;margin-bottom:0" placeholder="optional: simulate a library/memory match title (e.g. Tricknologic)">
+      <input class="word-search" id="sim-ref-title" style="margin-top:8px;margin-bottom:0" placeholder="optional: simulate a library entry title match (e.g. Tricknologic)">
+      <input class="word-search" id="sim-ref-memory" style="margin-top:6px;margin-bottom:0" placeholder="optional: simulate a memory match's raw content (e.g. dude I'm so stressed about my thesis defense)">
       <div class="sim-controls">
         <button class="sim-btn" onclick="runSim()">simulate →</button>
         <button class="sim-btn-clear" onclick="clearSim()">clear</button>
@@ -484,6 +485,8 @@ const MU_INTROS=[
 ];
 
 const SHOWCASE_REF_TITLE='this thread';
+// Stand-in for topEntry.refWord — see mu-brain.html's buildShowcaseReply.
+const SHOWCASE_REF_WORD='memory';
 
 const GREETING_TEMPLATES=[
   (n,c)=>[
@@ -575,6 +578,17 @@ function buildCasualReply(){
   return{sentence:segmentsToPlain(segments),segments,cards:[card]};
 }
 
+// Copied from index.html's findTopLibraryMatch helper, so this simulator's
+// "memory match" field produces a realistic refWord the same way a real
+// memory match would — instead of the sim requiring you to type the word
+// yourself, which would just test wrapWithReference, not the extraction.
+const KEYWORD_STOPWORDS=["what","does","that","this","with","from","have","your","they","will","just","like","really","about","there","would","could","should","because","think","going","gonna","wanna","kinda","actually","pretty","still","been","were","when","then","than","much","very","dude","heck","yeah","okay","stuff","things"];
+function extractKeyword(text){
+  const words=(text||'').toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).filter(w=>w.length>3&&!KEYWORD_STOPWORDS.includes(w));
+  if(words.length===0) return null;
+  return words.reduce((a,b)=>b.length>a.length?b:a);
+}
+
 function wrapWithReference(segments,ref){
   return pick([
     [{text:`*${ref}* — `},...segments],
@@ -597,12 +611,21 @@ function buildMuReply(userText, topEntry){
   }
   const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
   let segments;
-  if(topEntry&&topEntry.title){
-    if(Math.random()>0.5){
-      segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],topEntry.title)];
+  // Mirrors mu-brain.html: a memory match with no usable extracted word
+  // (refWord null) is treated as no match at all, rather than falling back
+  // to quoting the raw memory text as a pseudo-title.
+  const memoryUnusable=topEntry&&topEntry.isMemory&&!topEntry.refWord;
+  if(topEntry&&topEntry.title&&!memoryUnusable){
+    // A memory match's refWord (a real extracted word) gets the light
+    // wrapWithReference touch; only a genuine library title gets
+    // SUBJECT_FRAMES/title-quote treatment.
+    const useWordRef=topEntry.isMemory&&topEntry.refWord;
+    const ref=useWordRef?topEntry.refWord:topEntry.title;
+    if(!useWordRef&&Math.random()>0.5){
+      segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],ref)];
     } else {
       const core=pick(pick(CORE_FRAME_SETS))(cards);
-      segments=[...introSeg,...wrapWithReference(core,topEntry.title)];
+      segments=[...introSeg,...wrapWithReference(core,ref)];
     }
   } else {
     const core=pick(pick(CORE_FRAME_SETS))(cards);
@@ -618,7 +641,7 @@ function buildMuReply(userText, topEntry){
 function buildShowcaseReply(){
   const cards=drawCards(2);
   const introSeg=Math.random()>0.4?[{text:pick(MU_INTROS)+"\n\n"}]:[];
-  const voice=pick(['casual','koan','sentence','funny','inquisitive','subject']);
+  const voice=pick(['casual','koan','sentence','funny','inquisitive','subject','memory-word']);
   if(voice==='casual') return{...buildCasualReply(),voice};
   if(voice==='koan'){
     const segments=pick(KOAN_FRAMES)(cards[0],cards[1]);
@@ -626,6 +649,11 @@ function buildShowcaseReply(){
   }
   if(voice==='subject'){
     const segments=[...introSeg,...pick(SUBJECT_FRAMES)(cards[0],cards[1],SHOWCASE_REF_TITLE)];
+    return{sentence:segmentsToPlain(segments),segments,cards,voice};
+  }
+  if(voice==='memory-word'){
+    const core=pick(pick(CORE_FRAME_SETS))(cards);
+    const segments=[...introSeg,...wrapWithReference(core,SHOWCASE_REF_WORD)];
     return{sentence:segmentsToPlain(segments),segments,cards,voice};
   }
   const setByVoice={sentence:SENTENCE_TEMPLATES,funny:FUNNY_FRAMES,inquisitive:INQUISITIVE_FRAMES};
@@ -790,6 +818,7 @@ function runSim(){
   }
   const text = document.getElementById('sim-input').value.trim();
   const refTitle = (document.getElementById('sim-ref-title')?.value||'').trim();
+  const refMemory = (document.getElementById('sim-ref-memory')?.value||'').trim();
   const out = document.getElementById('sim-output');
 
   const isCasual   = isCasualGreeting(text);
@@ -856,13 +885,28 @@ function runSim(){
     } else {
       // Calls the real buildMuReply directly — same function mu-brain.html
       // uses live — rather than re-deriving "what Mu would say" by hand,
-      // so this can never quietly drift from what actually ships.
-      const topEntry = refTitle ? {title:refTitle} : null;
+      // so this can never quietly drift from what actually ships. The two
+      // ref fields mirror findTopLibraryMatch's two candidate shapes: a
+      // curated library title (quoted as-is) vs. a memory's raw content
+      // (run through the same extractKeyword a real memory match gets).
+      let topEntry = null, refKind = null;
+      if(refMemory){
+        const refWord = extractKeyword(refMemory);
+        topEntry = { title: refMemory.length>60?refMemory.slice(0,57)+'…':refMemory, refWord, isMemory:true };
+        refKind = refWord ? `memory match → extracted word "${refWord}"` : 'memory match → no usable word extracted, treated as no match (keyword-from-message fallback below, if any)';
+      } else if(refTitle){
+        topEntry = { title: refTitle };
+        refKind = 'library entry title';
+      }
       const r = buildMuReply(text, topEntry);
       sentence=r.sentence; segments=r.segments; cards=r.cards;
-      voiceLabel = topEntry
-        ? 'subject-anchored, or sentence/funny/inquisitive + reference (random)'
-        : 'sentence / funny / inquisitive (random)';
+      // A memory match with no extracted word is treated as no match at all
+      // inside buildMuReply (see there) — reflect that here too, rather than
+      // implying it still anchors on the (unused) truncated memory text.
+      const memoryUnusable = topEntry&&topEntry.isMemory&&!topEntry.refWord;
+      voiceLabel = (topEntry&&!memoryUnusable)
+        ? `subject-anchored, or sentence/funny/inquisitive + reference (random) — ${refKind}`
+        : (topEntry ? `sentence / funny / inquisitive (random) — ${refKind}` : 'sentence / funny / inquisitive (random)');
     }
 
     html += renderSimResult(sentence, segments, cards, voiceLabel, tplType, tplIdx);
@@ -899,6 +943,8 @@ function clearSim(){
   document.getElementById('sim-input').value='';
   const refInput=document.getElementById('sim-ref-title');
   if(refInput) refInput.value='';
+  const refMemInput=document.getElementById('sim-ref-memory');
+  if(refMemInput) refMemInput.value='';
   document.getElementById('sim-output').innerHTML='<div class="output-empty">*Mu watches. Type a message and simulate to see what he would do.*</div>';
   if(lastHighlightedTemplate){
     document.querySelectorAll('.template-highlight').forEach(el=>el.classList.remove('template-highlight'));
