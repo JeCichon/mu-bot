@@ -239,6 +239,7 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
         <div class="tab" onclick="setTab('subject',this)">subject</div>
         <div class="tab" onclick="setTab('greetings',this)">greet</div>
         <div class="tab" onclick="setTab('words',this)">words</div>
+        <div class="tab" onclick="setTab('inventory',this)">inventory</div>
       </div>
     </div>
     <div class="panel-body" id="template-body"></div>
@@ -889,6 +890,8 @@ async function reseedCardVocabulary(evt){
       if(insErr) throw insErr;
     }
     await refreshWordInventoryCounts();
+    WORD_INVENTORY_ROWS = null; // force the inventory tab to refetch next time it's viewed
+    if(activeTab==='inventory') renderWordInventory('');
     status.textContent = `Done — seeded ${rows.length} rows across ${CARDS.length} cards, just now.`;
   }catch(err){
     status.textContent = 'Reseed failed (nothing further was changed beyond what completed): ' + err.message;
@@ -1192,6 +1195,8 @@ function renderTemplates(){
     }).join('')}</div>`;
   } else if(activeTab==='words'){
     renderWordPool('');
+  } else if(activeTab==='inventory'){
+    renderWordInventory('');
   }
 }
 
@@ -1221,6 +1226,78 @@ function renderWordPool(q){
       <div class="word-row"><span class="word-key">timeframe </span><span class="word-val">${c.timeframe||'—'}</span></div>
     </div>
   </div>`).join('')}${cards.length>30?`<div style="color:var(--dim);font-size:11px;text-align:center;padding:8px">+${cards.length-30} more — refine search</div>`:''}`;
+}
+
+// ── Word inventory browser ───────────────────────────────────────────────────
+// Reads the same word_occurrences rows the "reseed card vocabulary" button
+// writes, and aggregates them client-side into per-lemma stats (count, which
+// cards it appears on, which fields it was tagged as). Fetched once and
+// cached in WORD_INVENTORY_ROWS; reseeding clears the cache so the next time
+// this tab is opened it picks up the fresh data.
+let WORD_INVENTORY_ROWS = null;
+let WORD_INVENTORY_SORT = 'count';
+
+async function loadWordInventory(){
+  const{data,error} = await db.from('word_occurrences').select('lemma,source_id,field').eq('source_type','card');
+  WORD_INVENTORY_ROWS = error ? [] : (data||[]);
+  return WORD_INVENTORY_ROWS;
+}
+
+function buildWordInventoryStats(rows){
+  const map = new Map();
+  for(const r of rows){
+    if(!map.has(r.lemma)) map.set(r.lemma,{lemma:r.lemma,count:0,cardIds:new Set(),fields:new Set()});
+    const entry = map.get(r.lemma);
+    entry.count++;
+    entry.cardIds.add(r.source_id);
+    entry.fields.add(r.field);
+  }
+  return [...map.values()];
+}
+
+async function renderWordInventory(q, sort){
+  const body = document.getElementById('template-body');
+  if(sort) WORD_INVENTORY_SORT = sort;
+  if(WORD_INVENTORY_ROWS===null){
+    body.innerHTML = `<div style="color:var(--dim);font-size:12px;padding:12px">loading word inventory…</div>`;
+    await loadWordInventory();
+    if(activeTab!=='inventory') return; // tab changed while the fetch was in flight
+  }
+  let stats = buildWordInventoryStats(WORD_INVENTORY_ROWS);
+  if(q) stats = stats.filter(s=>s.lemma.toLowerCase().includes(q));
+  stats.sort((a,b)=> WORD_INVENTORY_SORT==='alpha'
+    ? a.lemma.localeCompare(b.lemma)
+    : (b.count-a.count || a.lemma.localeCompare(b.lemma)));
+
+  const cardById = new Map(CARDS.map(c=>[String(c.card_id),c]));
+  const CHIP_LIMIT = 6;
+  const rowsHtml = stats.slice(0,60).map(s=>{
+    const ids = [...s.cardIds];
+    const cardChips = ids.slice(0,CHIP_LIMIT).map(id=>{
+      const c = cardById.get(id);
+      if(!c) return '';
+      return `<div class="card-chip"><span class="chip-dot" style="background:rgb(${c.r},${c.g},${c.b})"></span>${cardName(c)}</div>`;
+    }).join('');
+    const more = ids.length>CHIP_LIMIT ? `<div class="card-chip" style="color:var(--dim)">+${ids.length-CHIP_LIMIT} more</div>` : '';
+    return `<div class="word-card">
+      <div class="word-card-name">
+        <span style="color:var(--purple2)">${s.lemma}</span>
+        <span style="margin-left:auto;color:var(--dim);font-size:11px;font-weight:normal">${s.count}× · ${ids.length} card${ids.length===1?'':'s'}</span>
+      </div>
+      <div class="card-chips">${cardChips}${more}</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px">field: ${[...s.fields].join(', ')}</div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <input class="word-search" placeholder="filter lemmas…" value="${q||''}" oninput="renderWordInventory(this.value.toLowerCase())">
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='count'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.querySelector('#template-body .word-search').value,'count')">sort: count</button>
+      <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='alpha'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.querySelector('#template-body .word-search').value,'alpha')">sort: a–z</button>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${stats.length} distinct lemma${stats.length===1?'':'s'} across ${WORD_INVENTORY_ROWS.length} card-sourced word${WORD_INVENTORY_ROWS.length===1?'':'s'}${stats.length>60?' — showing top 60':''}</div>
+    ${rowsHtml || '<div style="color:var(--dim);font-size:12px;padding:12px">no matches</div>'}
+  `;
 }
 
 document.getElementById('sim-input').addEventListener('keydown',e=>{
