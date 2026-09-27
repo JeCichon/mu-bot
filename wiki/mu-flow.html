@@ -204,6 +204,14 @@ if(window.location.search.includes('embed=1')||window.self!==window.top){
         <button class="sim-btn" style="width:100%;margin-top:8px" onclick="reseedCardVocabulary(event)">reseed card vocabulary</button>
         <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5" id="wo-status">Reads every card's spoken fields (adj/noun/subject/verb/adv/command/timeframe) plus its values inventory (i_am/i_feel/…), lemmatizes each word, and replaces the card-sourced rows in word_occurrences. Library/memory rows are never touched by this button.</div>
       </div>
+      <div class="state-section">
+        <div class="state-section-title">📖 library inventory</div>
+        <div class="state-row"><span class="state-label">entries loaded</span><span class="state-val" id="lib-entry-count">—</span></div>
+        <div class="state-row"><span class="state-label">library-sourced rows</span><span class="state-val" id="lo-lib-count">—</span></div>
+        <div class="state-row"><span class="state-label">distinct lemmas</span><span class="state-val" id="lo-lemma-count">—</span></div>
+        <button class="sim-btn" style="width:100%;margin-top:8px" onclick="reseedLibraryVocabulary(event)">reseed library vocabulary</button>
+        <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5" id="lo-status">Tokenizes every entry's title, content, and tags — every word is kept, including "the"/"and"/etc. (nothing is deleted); the inventory tab just hides those by default. Card rows are never touched by this button.</div>
+      </div>
     </div>
   </div>
 
@@ -725,12 +733,13 @@ db.auth.onAuthStateChange(async(_e, session) => {
 });
 
 async function init(){
-  await Promise.all([loadCards(), loadLastMuMessage()]);
+  await Promise.all([loadCards(), loadLastMuMessage(), loadLibraryEntries()]);
   setVoiceCounts();
   renderTemplates();
   updateStateCounts();
   setInterval(updateStateCounts, 10000);
   refreshWordInventoryCounts();
+  refreshLibraryInventoryCounts();
 }
 
 function setVoiceCounts(){
@@ -746,6 +755,13 @@ async function loadCards(){
   const{data}=await db.from('cards').select('*').order('card_id',{ascending:true});
   CARDS = data || [];
   document.getElementById('t-card-count').textContent = CARDS.length;
+}
+
+let LIBRARY_ENTRIES = [];
+async function loadLibraryEntries(){
+  const{data}=await db.from('library_entries').select('id,title,content,tags,r,g,b').order('id',{ascending:true});
+  LIBRARY_ENTRIES = data || [];
+  document.getElementById('lib-entry-count').textContent = LIBRARY_ENTRIES.length;
 }
 
 // ── Word inventory (🫀) ──────────────────────────────────────────────────────
@@ -773,6 +789,16 @@ const WORD_STOPWORDS = new Set([
 // suffix-stripper alone mangles words like "curious"→"curiou" (see the
 // us/is guard below) and can't fix real irregulars like "leveled"→"level".
 const WORD_LEMMA_EXCEPTIONS = {
+  // Found while validating against real library_entries content (not cards):
+  // "chaos"/"mathematics" aren't plurals, "does" is the verb not a noun, and
+  // "douglas"/"james" are proper names — the generic -s/-es stripping rules
+  // below would otherwise mangle all five the same way "curious"->"curiou"
+  // was caught during the card pass. "arises"/"symbolizes" hit the same
+  // "sibilant + es" rule that correctly turns "boxes"->"box", but their root
+  // already ends in a silent e (arise, symbolize), so stripping "es" instead
+  // of just "s" drops the e.
+  chaos:'chaos', mathematics:'mathematics', does:'does', douglas:'douglas', james:'james',
+  arises:'arise', symbolizes:'symbolize',
   systems:'system', talents:'talent', opposites:'opposite', depths:'depth',
   "mother's":'mother', "philosopher's":'philosopher', needed:'need', perfected:'perfect',
   wills:'will', embarks:'embark', dominates:'dominate', discovers:'discover',
@@ -893,6 +919,113 @@ async function reseedCardVocabulary(evt){
     WORD_INVENTORY_ROWS = null; // force the inventory tab to refetch next time it's viewed
     if(activeTab==='inventory') renderWordInventory(document.getElementById('wo-filter-input')?.value||'');
     status.textContent = `Done — seeded ${rows.length} rows across ${CARDS.length} cards, just now.`;
+  }catch(err){
+    status.textContent = 'Reseed failed (nothing further was changed beyond what completed): ' + err.message;
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+
+// ── Library vocabulary (source_type='library_entry') ──────────────────────────
+// Library entries are free prose, not one-word-per-field like cards, so this
+// works differently from buildCardWordRows: every word in title/content/tags
+// is tokenized and lemmatized (same wordLemmatize as cards), and EVERY word is
+// kept as a row — including "the"/"and"/"of" — nothing is deleted at ingestion.
+// Structural/connective words are only ever filtered client-side, in the
+// inventory tab's display (see STRUCTURAL_WORDS below); the underlying table
+// always holds the full, unfiltered word list. Each row is one raw occurrence
+// (a word used 5 times in one entry produces 5 rows), so the inventory's
+// existing count/"N entries" display already gives both raw frequency and
+// document frequency for free, the same way it does for cards.
+const LIBRARY_TEXT_FIELDS = ['title','content','tags'];
+
+// Function/connective words — NOT deleted from word_occurrences, just excluded
+// from the inventory tab's default view (toggleable). Broader than the card
+// stopword list on purpose: real prose has far more connective tissue than a
+// card's single-word fields ever did.
+const STRUCTURAL_WORDS = new Set([
+  'a','an','the','and','or','but','nor','so','yet','for','of','in','on','at','to','from','by','with','without',
+  'as','if','then','than','because','while','during','before','after','above','below','under','over','into','onto',
+  'up','down','out','off','again','further','once','here','there','when','where','why','how','all','any','both',
+  'each','few','more','most','other','some','such','only','own','same','too','very','just','not','no','n',
+  'is','are','was','were','be','been','being','am','it','its','itself','this','that','these','those','which','who',
+  'whom','whose','what','i','me','my','mine','you','your','yours','he','him','his','she','her','hers','we','us',
+  'our','ours','they','them','their','theirs','do','does','did','done','doing','have','has','had','having',
+  'will','would','shall','should','can','could','may','might','must','cannot','oh','ah','ahh','yeah','yes',
+  "aren't","isn't","wasn't","weren't","don't","doesn't","didn't","can't","couldn't","won't","wouldn't",
+  "shouldn't","mustn't","shan't","let's","that's","it's","he's","she's","who's","what's","there's","here's"
+]);
+
+function classifyWord(lemma){
+  return (STRUCTURAL_WORDS.has(lemma) || lemma.length<2) ? 'structural' : 'content';
+}
+
+// Unicode-aware so accented letters (Gödel, café) tokenize as whole words
+// instead of splitting on the accented character; curly quotes are folded to
+// a straight apostrophe first so "he's" and "he's" lemmatize the same way;
+// a hyphen immediately followed by a line break is a mid-word wrap (pasted
+// book text does this — "lan-\nguages") and gets rejoined before tokenizing,
+// so it doesn't split into two garbage fragments; apostrophe-only fragments
+// (a stray " 's" left by a missing word) are dropped since they carry no
+// actual word.
+function libraryTokenize(text){
+  if(!text) return [];
+  const norm = text.replace(/[‘’]/g,"'").replace(/-\n/g,'');
+  const toks = norm.match(/[\p{L}']+/gu) || [];
+  return toks.filter(t=>/\p{L}/u.test(t));
+}
+
+function buildLibraryWordRows(){
+  const rows = [];
+  for(const e of LIBRARY_ENTRIES){
+    const sourceId = String(e.id);
+    for(const field of LIBRARY_TEXT_FIELDS){
+      for(const tok of libraryTokenize(e[field])){
+        const low = tok.toLowerCase();
+        const lemma = wordLemmatize(low);
+        if(!lemma) continue;
+        rows.push({lemma, form:low, source_type:'library_entry', source_id:sourceId, field});
+      }
+    }
+  }
+  return rows;
+}
+
+async function refreshLibraryInventoryCounts(){
+  const{count}=await db.from('word_occurrences').select('id',{count:'exact',head:true}).eq('source_type','library_entry');
+  document.getElementById('lo-lib-count').textContent = count ?? 0;
+  const{data}=await db.from('word_occurrences').select('lemma').eq('source_type','library_entry');
+  const distinct = new Set((data||[]).map(r=>r.lemma)).size;
+  document.getElementById('lo-lemma-count').textContent = data ? distinct : '—';
+}
+
+// Same idempotent pattern as reseedCardVocabulary: delete every existing
+// library-sourced row, then insert a fresh set from whatever LIBRARY_ENTRIES
+// holds right now. Card/memory rows are never touched here.
+async function reseedLibraryVocabulary(evt){
+  const status = document.getElementById('lo-status');
+  const btn = evt?.target;
+  if(btn) btn.disabled = true;
+  status.textContent = 'Building word list from the ' + LIBRARY_ENTRIES.length + ' loaded entries…';
+  try{
+    if(LIBRARY_ENTRIES.length === 0){
+      status.textContent = 'Library entries haven\'t loaded yet — wait a moment and try again.';
+      return;
+    }
+    const rows = buildLibraryWordRows();
+    status.textContent = `Computed ${rows.length} rows. Clearing old library-sourced rows…`;
+    const{error:delErr} = await db.from('word_occurrences').delete().eq('source_type','library_entry');
+    if(delErr) throw delErr;
+    status.textContent = `Inserting ${rows.length} rows…`;
+    const CHUNK = 500;
+    for(let i=0; i<rows.length; i+=CHUNK){
+      const{error:insErr} = await db.from('word_occurrences').insert(rows.slice(i,i+CHUNK));
+      if(insErr) throw insErr;
+    }
+    await refreshLibraryInventoryCounts();
+    WORD_INVENTORY_ROWS = null; // force the inventory tab to refetch next time it's viewed
+    if(activeTab==='inventory') renderWordInventory(document.getElementById('wo-filter-input')?.value||'');
+    status.textContent = `Done — seeded ${rows.length} rows across ${LIBRARY_ENTRIES.length} entries, just now.`;
   }catch(err){
     status.textContent = 'Reseed failed (nothing further was changed beyond what completed): ' + err.message;
   }finally{
@@ -1238,28 +1371,33 @@ function renderWordPool(q){
 }
 
 // ── Word inventory browser ───────────────────────────────────────────────────
-// Reads the same word_occurrences rows the "reseed card vocabulary" button
-// writes, and aggregates them client-side into per-lemma stats (count, which
-// cards it appears on, which fields it was tagged as). Fetched once and
-// cached in WORD_INVENTORY_ROWS; reseeding clears the cache so the next time
-// this tab is opened it picks up the fresh data.
+// Reads every word_occurrences row — card- and library-sourced alike — and
+// aggregates client-side into per-lemma stats (count, which sources it
+// appears on, which fields it was tagged as). Fetched once and cached in
+// WORD_INVENTORY_ROWS; either reseed button clears the cache so the next
+// time this tab is opened it picks up the fresh data.
 let WORD_INVENTORY_ROWS = null;
 let WORD_INVENTORY_SORT = 'count';
 let WORD_INVENTORY_FIELD = 'all';
+let WORD_INVENTORY_SOURCE = 'all';
+let WORD_INVENTORY_SHOW_STRUCTURAL = false;
 
 async function loadWordInventory(){
-  const{data,error} = await db.from('word_occurrences').select('lemma,source_id,field').eq('source_type','card');
+  const{data,error} = await db.from('word_occurrences').select('lemma,source_type,source_id,field');
   WORD_INVENTORY_ROWS = error ? [] : (data||[]);
   return WORD_INVENTORY_ROWS;
 }
 
+// Cards and library entries both use small integer ids, so "card 5" and
+// "library entry 5" would collide in a plain id Set — every source is keyed
+// as "source_type:source_id" here to keep them apart.
 function buildWordInventoryStats(rows){
   const map = new Map();
   for(const r of rows){
-    if(!map.has(r.lemma)) map.set(r.lemma,{lemma:r.lemma,count:0,cardIds:new Set(),fields:new Set()});
+    if(!map.has(r.lemma)) map.set(r.lemma,{lemma:r.lemma,count:0,sources:new Set(),fields:new Set()});
     const entry = map.get(r.lemma);
     entry.count++;
-    entry.cardIds.add(r.source_id);
+    entry.sources.add(r.source_type+':'+r.source_id);
     entry.fields.add(r.field);
   }
   return [...map.values()];
@@ -1272,11 +1410,16 @@ function buildWordInventoryStats(rows){
 // finds the lemma "run" (and anything else containing those letters), it
 // doesn't separately search "past tense" or a part of speech. For that
 // kind of filtering — noun vs. verb vs. subject, etc. — use the "field"
-// dropdown next to it instead; the two combine (both must match).
-async function renderWordInventory(q, sort, field){
+// dropdown next to it instead; the two combine (both must match), along
+// with the source dropdown (cards vs. library) and the structural-words
+// toggle (structural words like "the"/"and" are always in the database —
+// this only hides them from the default view).
+async function renderWordInventory(q, sort, field, source, showStructural){
   const body = document.getElementById('template-body');
   if(sort) WORD_INVENTORY_SORT = sort;
   if(field) WORD_INVENTORY_FIELD = field;
+  if(source) WORD_INVENTORY_SOURCE = source;
+  if(showStructural!==undefined) WORD_INVENTORY_SHOW_STRUCTURAL = showStructural;
   const prevInput = document.getElementById('wo-filter-input');
   const restoreFocus = !!(prevInput && document.activeElement === prevInput);
   const caret = restoreFocus ? prevInput.selectionStart : null;
@@ -1287,32 +1430,43 @@ async function renderWordInventory(q, sort, field){
     if(activeTab!=='inventory') return; // tab changed while the fetch was in flight
   }
 
-  const allFields = [...new Set(WORD_INVENTORY_ROWS.map(r=>r.field))];
-  const fieldOrder = WORD_CORE_FIELDS.filter(f=>allFields.includes(f));
-  let rows = WORD_INVENTORY_FIELD==='all' ? WORD_INVENTORY_ROWS : WORD_INVENTORY_ROWS.filter(r=>r.field===WORD_INVENTORY_FIELD);
+  let rows = WORD_INVENTORY_SOURCE==='all' ? WORD_INVENTORY_ROWS : WORD_INVENTORY_ROWS.filter(r=>r.source_type===WORD_INVENTORY_SOURCE);
+  const allFields = [...new Set(rows.map(r=>r.field))];
+  const fieldOrder = [...WORD_CORE_FIELDS,...LIBRARY_TEXT_FIELDS].filter(f=>allFields.includes(f));
+  if(WORD_INVENTORY_FIELD!=='all') rows = rows.filter(r=>r.field===WORD_INVENTORY_FIELD);
 
   let stats = buildWordInventoryStats(rows);
+  if(!WORD_INVENTORY_SHOW_STRUCTURAL) stats = stats.filter(s=>classifyWord(s.lemma)==='content');
   if(q) stats = stats.filter(s=>s.lemma.toLowerCase().includes(q));
   stats.sort((a,b)=> WORD_INVENTORY_SORT==='alpha'
     ? a.lemma.localeCompare(b.lemma)
     : (b.count-a.count || a.lemma.localeCompare(b.lemma)));
 
   const cardById = new Map(CARDS.map(c=>[String(c.card_id),c]));
+  const libraryById = new Map(LIBRARY_ENTRIES.map(e=>[String(e.id),e]));
   const CHIP_LIMIT = 6;
   const rowsHtml = stats.slice(0,60).map(s=>{
-    const ids = [...s.cardIds];
-    const cardChips = ids.slice(0,CHIP_LIMIT).map(id=>{
-      const c = cardById.get(id);
-      if(!c) return '';
-      return `<div class="card-chip"><span class="chip-dot" style="background:rgb(${c.r},${c.g},${c.b})"></span>${cardName(c)}</div>`;
+    const keys = [...s.sources];
+    const chips = keys.slice(0,CHIP_LIMIT).map(key=>{
+      const [type,id] = key.split(':');
+      if(type==='card'){
+        const c = cardById.get(id);
+        if(!c) return '';
+        return `<div class="card-chip"><span class="chip-dot" style="background:rgb(${c.r},${c.g},${c.b})"></span>${cardName(c)}</div>`;
+      } else {
+        const e = libraryById.get(id);
+        if(!e) return '';
+        const rgb = (e.r!=null&&e.g!=null&&e.b!=null) ? `rgb(${e.r},${e.g},${e.b})` : 'var(--purple2)';
+        return `<div class="card-chip">📖<span class="chip-dot" style="background:${rgb}"></span>${e.title||'untitled'}</div>`;
+      }
     }).join('');
-    const more = ids.length>CHIP_LIMIT ? `<div class="card-chip" style="color:var(--dim)">+${ids.length-CHIP_LIMIT} more</div>` : '';
+    const more = keys.length>CHIP_LIMIT ? `<div class="card-chip" style="color:var(--dim)">+${keys.length-CHIP_LIMIT} more</div>` : '';
     return `<div class="word-card">
       <div class="word-card-name">
         <span style="color:var(--purple2)">${s.lemma}</span>
-        <span style="margin-left:auto;color:var(--dim);font-size:11px;font-weight:normal">${s.count}× · ${ids.length} card${ids.length===1?'':'s'}</span>
+        <span style="margin-left:auto;color:var(--dim);font-size:11px;font-weight:normal">${s.count}× · ${keys.length} source${keys.length===1?'':'s'}</span>
       </div>
-      <div class="card-chips">${cardChips}${more}</div>
+      <div class="card-chips">${chips}${more}</div>
       <div style="font-size:10px;color:var(--dim);margin-top:6px">field: ${[...s.fields].join(', ')}</div>
     </div>`;
   }).join('');
@@ -1320,17 +1474,25 @@ async function renderWordInventory(q, sort, field){
   const fieldOptionsHtml = ['all',...fieldOrder].map(f=>
     `<option value="${f}" ${WORD_INVENTORY_FIELD===f?'selected':''}>${f==='all'?'all fields':f}</option>`
   ).join('');
+  const sourceOptionsHtml = [['all','all sources'],['card','cards'],['library_entry','library']].map(([v,label])=>
+    `<option value="${v}" ${WORD_INVENTORY_SOURCE===v?'selected':''}>${label}</option>`
+  ).join('');
 
   body.innerHTML = `
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <input class="word-search" id="wo-filter-input" style="margin-bottom:0" placeholder="filter by word root… e.g. &quot;run&quot; matches run, running" value="${q||''}" oninput="renderWordInventory(this.value.toLowerCase())">
+      <select class="word-search" id="wo-source-select" style="margin-bottom:0;width:auto;flex-shrink:0" onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,null,this.value)">${sourceOptionsHtml}</select>
       <select class="word-search" id="wo-field-select" style="margin-bottom:0;width:auto;flex-shrink:0" onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,this.value)">${fieldOptionsHtml}</select>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
+    <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
       <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='count'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.getElementById('wo-filter-input').value,'count')">sort: count</button>
       <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='alpha'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.getElementById('wo-filter-input').value,'alpha')">sort: a–z</button>
+      <label style="font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px;margin-left:6px;cursor:pointer">
+        <input type="checkbox" ${WORD_INVENTORY_SHOW_STRUCTURAL?'checked':''} onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,null,null,this.checked)">
+        show structural words (the/and/of/…)
+      </label>
     </div>
-    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${stats.length} distinct lemma${stats.length===1?'':'s'} across ${rows.length} card-sourced word${rows.length===1?'':'s'}${stats.length>60?' — showing top 60':''}</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${stats.length} distinct lemma${stats.length===1?'':'s'} across ${rows.length} word${rows.length===1?'':'s'}${stats.length>60?' — showing top 60':''}</div>
     ${rowsHtml || '<div style="color:var(--dim);font-size:12px;padding:12px">no matches</div>'}
   `;
 
