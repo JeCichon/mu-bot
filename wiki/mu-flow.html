@@ -891,7 +891,7 @@ async function reseedCardVocabulary(evt){
     }
     await refreshWordInventoryCounts();
     WORD_INVENTORY_ROWS = null; // force the inventory tab to refetch next time it's viewed
-    if(activeTab==='inventory') renderWordInventory('');
+    if(activeTab==='inventory') renderWordInventory(document.getElementById('wo-filter-input')?.value||'');
     status.textContent = `Done — seeded ${rows.length} rows across ${CARDS.length} cards, just now.`;
   }catch(err){
     status.textContent = 'Reseed failed (nothing further was changed beyond what completed): ' + err.message;
@@ -1202,6 +1202,10 @@ function renderTemplates(){
 
 function renderWordPool(q){
   const body = document.getElementById('template-body');
+  const prevInput = document.getElementById('wp-filter-input');
+  const restoreFocus = !!(prevInput && document.activeElement === prevInput);
+  const caret = restoreFocus ? prevInput.selectionStart : null;
+
   let cards = CARDS;
   if(q) cards=cards.filter(c=>
     c.name?.toLowerCase().includes(q)||
@@ -1210,7 +1214,7 @@ function renderWordPool(q){
     c.suit?.toLowerCase().includes(q)
   );
   const color=c=>SUIT_COLOR[c.suit]||'#888';
-  body.innerHTML=`<input class="word-search" placeholder="filter cards…" oninput="renderWordPool(this.value.toLowerCase())" value="${q}">
+  body.innerHTML=`<input class="word-search" id="wp-filter-input" placeholder="filter cards…" oninput="renderWordPool(this.value.toLowerCase())" value="${q}">
   ${cards.slice(0,30).map(c=>`<div class="word-card">
     <div class="word-card-name">
       <span class="word-card-dot" style="background:rgb(${c.r},${c.g},${c.b})"></span>
@@ -1226,6 +1230,11 @@ function renderWordPool(q){
       <div class="word-row"><span class="word-key">timeframe </span><span class="word-val">${c.timeframe||'—'}</span></div>
     </div>
   </div>`).join('')}${cards.length>30?`<div style="color:var(--dim);font-size:11px;text-align:center;padding:8px">+${cards.length-30} more — refine search</div>`:''}`;
+
+  if(restoreFocus){
+    const newInput = document.getElementById('wp-filter-input');
+    if(newInput){ newInput.focus(); const pos=caret??newInput.value.length; newInput.setSelectionRange(pos,pos); }
+  }
 }
 
 // ── Word inventory browser ───────────────────────────────────────────────────
@@ -1236,6 +1245,7 @@ function renderWordPool(q){
 // this tab is opened it picks up the fresh data.
 let WORD_INVENTORY_ROWS = null;
 let WORD_INVENTORY_SORT = 'count';
+let WORD_INVENTORY_FIELD = 'all';
 
 async function loadWordInventory(){
   const{data,error} = await db.from('word_occurrences').select('lemma,source_id,field').eq('source_type','card');
@@ -1255,15 +1265,33 @@ function buildWordInventoryStats(rows){
   return [...map.values()];
 }
 
-async function renderWordInventory(q, sort){
+// A "lemma" here is the dictionary root a word is folded down to before
+// counting — run/runs/running were all already collapsed into the single
+// lemma "run" back when the table was seeded. So the text box below is a
+// substring search over that root, not a category filter: typing "run"
+// finds the lemma "run" (and anything else containing those letters), it
+// doesn't separately search "past tense" or a part of speech. For that
+// kind of filtering — noun vs. verb vs. subject, etc. — use the "field"
+// dropdown next to it instead; the two combine (both must match).
+async function renderWordInventory(q, sort, field){
   const body = document.getElementById('template-body');
   if(sort) WORD_INVENTORY_SORT = sort;
+  if(field) WORD_INVENTORY_FIELD = field;
+  const prevInput = document.getElementById('wo-filter-input');
+  const restoreFocus = !!(prevInput && document.activeElement === prevInput);
+  const caret = restoreFocus ? prevInput.selectionStart : null;
+
   if(WORD_INVENTORY_ROWS===null){
     body.innerHTML = `<div style="color:var(--dim);font-size:12px;padding:12px">loading word inventory…</div>`;
     await loadWordInventory();
     if(activeTab!=='inventory') return; // tab changed while the fetch was in flight
   }
-  let stats = buildWordInventoryStats(WORD_INVENTORY_ROWS);
+
+  const allFields = [...new Set(WORD_INVENTORY_ROWS.map(r=>r.field))];
+  const fieldOrder = WORD_CORE_FIELDS.filter(f=>allFields.includes(f));
+  let rows = WORD_INVENTORY_FIELD==='all' ? WORD_INVENTORY_ROWS : WORD_INVENTORY_ROWS.filter(r=>r.field===WORD_INVENTORY_FIELD);
+
+  let stats = buildWordInventoryStats(rows);
   if(q) stats = stats.filter(s=>s.lemma.toLowerCase().includes(q));
   stats.sort((a,b)=> WORD_INVENTORY_SORT==='alpha'
     ? a.lemma.localeCompare(b.lemma)
@@ -1289,15 +1317,27 @@ async function renderWordInventory(q, sort){
     </div>`;
   }).join('');
 
+  const fieldOptionsHtml = ['all',...fieldOrder].map(f=>
+    `<option value="${f}" ${WORD_INVENTORY_FIELD===f?'selected':''}>${f==='all'?'all fields':f}</option>`
+  ).join('');
+
   body.innerHTML = `
-    <input class="word-search" placeholder="filter lemmas…" value="${q||''}" oninput="renderWordInventory(this.value.toLowerCase())">
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='count'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.querySelector('#template-body .word-search').value,'count')">sort: count</button>
-      <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='alpha'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.querySelector('#template-body .word-search').value,'alpha')">sort: a–z</button>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input class="word-search" id="wo-filter-input" style="margin-bottom:0" placeholder="filter by word root… e.g. &quot;run&quot; matches run, running" value="${q||''}" oninput="renderWordInventory(this.value.toLowerCase())">
+      <select class="word-search" id="wo-field-select" style="margin-bottom:0;width:auto;flex-shrink:0" onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,this.value)">${fieldOptionsHtml}</select>
     </div>
-    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${stats.length} distinct lemma${stats.length===1?'':'s'} across ${WORD_INVENTORY_ROWS.length} card-sourced word${WORD_INVENTORY_ROWS.length===1?'':'s'}${stats.length>60?' — showing top 60':''}</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='count'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.getElementById('wo-filter-input').value,'count')">sort: count</button>
+      <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='alpha'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.getElementById('wo-filter-input').value,'alpha')">sort: a–z</button>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${stats.length} distinct lemma${stats.length===1?'':'s'} across ${rows.length} card-sourced word${rows.length===1?'':'s'}${stats.length>60?' — showing top 60':''}</div>
     ${rowsHtml || '<div style="color:var(--dim);font-size:12px;padding:12px">no matches</div>'}
   `;
+
+  if(restoreFocus){
+    const newInput = document.getElementById('wo-filter-input');
+    if(newInput){ newInput.focus(); const pos=caret??newInput.value.length; newInput.setSelectionRange(pos,pos); }
+  }
 }
 
 document.getElementById('sim-input').addEventListener('keydown',e=>{
