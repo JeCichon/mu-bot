@@ -1479,10 +1479,10 @@ async function renderWordInventory(q, sort, field, source, showStructural){
   ).join('');
 
   body.innerHTML = `
+    <input class="word-search" id="wo-filter-input" placeholder="🔍 filter by word root… e.g. &quot;run&quot; matches run, running" value="${q||''}" oninput="renderWordInventory(this.value.toLowerCase())">
     <div style="display:flex;gap:6px;margin-bottom:8px">
-      <input class="word-search" id="wo-filter-input" style="margin-bottom:0" placeholder="filter by word root… e.g. &quot;run&quot; matches run, running" value="${q||''}" oninput="renderWordInventory(this.value.toLowerCase())">
-      <select class="word-search" id="wo-source-select" style="margin-bottom:0;width:auto;flex-shrink:0" onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,null,this.value)">${sourceOptionsHtml}</select>
-      <select class="word-search" id="wo-field-select" style="margin-bottom:0;width:auto;flex-shrink:0" onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,this.value)">${fieldOptionsHtml}</select>
+      <select class="word-search" id="wo-source-select" style="margin-bottom:0;flex:1" onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,null,this.value)">${sourceOptionsHtml}</select>
+      <select class="word-search" id="wo-field-select" style="margin-bottom:0;flex:1" onchange="renderWordInventory(document.getElementById('wo-filter-input').value,null,this.value)">${fieldOptionsHtml}</select>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
       <button class="sim-btn-clear" style="${WORD_INVENTORY_SORT==='count'?'border-color:var(--green3);color:var(--parchment)':''}" onclick="renderWordInventory(document.getElementById('wo-filter-input').value,'count')">sort: count</button>
