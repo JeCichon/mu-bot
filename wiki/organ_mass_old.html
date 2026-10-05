@@ -93,43 +93,6 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .effects-num-input:focus{outline:none;border-color:var(--gold);}
 /* Canvas: fixed size, left-aligned */
 .effects-canvas{width:280px;height:72px;border:1px solid rgba(201,169,110,.12);border-radius:3px;background:rgba(0,0,0,.35);display:block;}
-/* ── Effects Lab: tile rail under the channel header (only exists while ⚗ is open) ── */
-.track-left-col{width:var(--tlw);min-width:var(--tlw);flex-shrink:0;position:sticky;left:0;z-index:10;display:flex;flex-direction:column;align-self:stretch;background:rgba(6,4,14,.98);border-right:1px solid var(--border);}
-.track-left-col>.track-header{position:static;width:100%;min-width:0;border-right:none;}
-.effects-rail{display:flex;flex-direction:column;gap:6px;padding:10px 10px 12px;border-top:1px solid rgba(201,169,110,.1);}
-.track-row.in-group .effects-rail{border-left:3px solid rgba(201,169,110,.5);padding-left:7px;}
-.track-row.is-dimmed .effects-rail{opacity:.52;transition:opacity .22s;}
-.fx-tile{display:flex;align-items:center;gap:6px;min-height:34px;border:1px solid rgba(201,169,110,.15);border-radius:3px;padding:6px 8px;cursor:pointer;transition:background .15s,border-color .15s,opacity .2s;}
-.fx-tile:hover{background:rgba(201,169,110,.07);}
-.fx-tile.sel{border-color:rgba(201,169,110,.7);background:rgba(201,169,110,.08);}
-.fx-tile.nested{margin-left:14px;}
-.fx-tile.dim{opacity:.5;}
-.fx-tile-name{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.07em;color:rgba(201,169,110,.7);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fx-tile.sel .fx-tile-name{color:#e6cd9a;}
-.fx-dot{width:10px;height:10px;border-radius:50%;border:1px solid var(--gold);flex-shrink:0;cursor:pointer;transition:all .15s;}
-.fx-dot:hover{box-shadow:0 0 5px rgba(201,169,110,.6);}
-.fx-dot.on{background:var(--gold);box-shadow:0 0 6px var(--gold);}
-.fx-pill{width:30px;height:16px;flex-shrink:0;border:1px solid rgba(201,169,110,.22);border-radius:2px;font:400 8px/14px 'Cinzel',serif;text-align:center;color:rgba(201,169,110,.45);background:transparent;cursor:pointer;padding:0;transition:all .15s;}
-.fx-pill:hover{border-color:rgba(201,169,110,.7);}
-.fx-pill.on{border-color:rgba(201,169,110,.7);color:var(--gold);background:var(--gf);}
-.effects-note{font-family:'EB Garamond',serif;font-size:12px;font-style:italic;color:rgba(201,169,110,.4);line-height:1.35;margin-top:2px;}
-/* ── Effects Lab graphs (SVG, drawn from noteShape — same math as the sound) ── */
-.fx-graph{position:relative;margin-top:10px;}
-.fx-graph svg{display:block;width:100%;height:140px;border:1px solid rgba(201,169,110,.12);border-radius:3px;background:rgba(0,0,0,.35);transition:opacity .2s;}
-.fx-graph.off svg{opacity:.4;}
-.fx-graph-y{position:absolute;left:7px;top:0;height:140px;pointer-events:none;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.08em;color:rgba(201,169,110,.35);}
-.fx-graph-y span{position:absolute;left:0;}
-.fx-graph-axis{position:relative;height:13px;margin-top:3px;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.08em;color:rgba(201,169,110,.35);}
-.fx-graph-axis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;}
-.fx-graph-axis span.l{transform:none;}
-.fx-graph-axis span.r{transform:translateX(-100%);}
-.fx-graph-cap{font-family:'EB Garamond',serif;font-size:12px;font-style:italic;color:rgba(201,169,110,.4);line-height:1.35;margin-top:5px;}
-.fx-pan{position:relative;height:22px;margin-top:8px;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.08em;color:rgba(201,169,110,.35);}
-.fx-pan .bar{position:absolute;left:18px;right:18px;top:7px;height:1px;background:rgba(201,169,110,.25);}
-.fx-pan .mid{position:absolute;left:50%;top:3px;height:9px;width:1px;background:rgba(201,169,110,.35);}
-.fx-pan .tick{position:absolute;top:3px;width:3px;height:9px;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 0 1px rgba(235,225,205,.35);}
-.fx-pan .lbl{position:absolute;top:0;}
-.fx-pan .note{position:absolute;left:0;right:0;top:14px;text-align:center;font-family:'EB Garamond',serif;font-size:11px;font-style:italic;letter-spacing:0;color:rgba(201,169,110,.35);}
 
 #timeline-panel{background:rgba(6,4,14,.97);border-top:3px solid rgba(201,169,110,.08);border-bottom:3px solid rgba(201,169,110,.08);margin:5px 0;}
 #timeline-panel.tl-hidden{display:none;}
@@ -2221,81 +2184,6 @@ const GRAV_INERTIA_K=1.2;  // scales how much mass stretches the release
 
 function cardMass(col){ return 1-Math.max(col.r,col.g,col.b)/255; }
 
-// ── ONE source of truth for a sound particle's envelope ───────────────────
-// scheduleCardNote plays from noteShape()/noteGainPoints(); the Effects Lab graphs draw from the
-// very same two functions, so what a graph shows is what the sound does.
-// `force` is for the graphs only: {frtvi,rgb,grav} each true/false overrides that effect's switch
-// (left undefined = obey the real switches, which is what the audio always does).
-function noteShape(col,vol,channel,force){
-  force=force||{};
-  const fx=channel?.effects;
-  const ua=fx?.adsr;
-  const physOn=fx?.physicsOn;
-  const rp=fx?.rgbParticle;
-  const grav=fx?.gravity;
-  // FRTVI on → extended envelope (blends CMYK with the user's values; notes can ring past the step).
-  // FRTVI off → the original compact CMYK envelope, contained in its step (keeps existing songs' character).
-  const extended=force.frtvi!==undefined?!!(force.frtvi&&ua):!!(ua&&ua.on);
-  let A,D,sV,R,pk;
-  if(extended){
-    const cmykEnv=getCmykAdsr(col);
-    const userEnv={
-      attack:Math.max(0.001,ua.attack/1000),
-      decay:Math.max(0.001,ua.decay/1000),
-      sustain:Math.max(0,Math.min(1,ua.sustain/100)),
-      release:Math.max(0.001,ua.release/1000)
-    };
-    const env=blendAdsr(cmykEnv,userEnv,ua.blend||'normal');
-    A=Math.max(0.003,env.attack);D=Math.max(0.003,env.decay);
-    sV=Math.max(0,Math.min(1,env.sustain));R=Math.max(0.003,env.release);
-    pk=0.90*vol;
-  } else {
-    const cmyk=toCMYK(col.r,col.g,col.b);
-    A=0.004+cmyk.c*0.04;D=0.02+cmyk.m*0.08;
-    sV=0.25+cmyk.y*0.4;R=0.03+cmyk.k*0.15;
-    pk=0.70*vol;
-  }
-  // ── RGB Particle (opt-in, default OFF — existing songs unchanged) ─────────
-  // WEDGED, not true physics: hand-picked mappings (R→peak, B→sustain, G→pan) with hand-picked strengths.
-  const rgbOn=force.rgb!==undefined?!!force.rgb:!!(physOn&&rp&&rp.on);
-  let panNudge=0;
-  if(rgbOn){
-    const depth=(rp?rp.depth:50)/100;
-    const rn=col.r/255,gn=col.g/255,bn=col.b/255;
-    pk=Math.max(0,pk*(1+(rn-0.5)*depth*0.6));
-    sV=Math.min(1,sV+bn*depth*0.35);
-    panNudge=(gn-0.5)*depth*0.4; // G→Pan at 40% of depth
-  }
-  // ── Gravity (Layer 1) + real mass — see the note above cardMass ───────────
-  const gravOn=force.grav!==undefined?!!force.grav:!!(physOn&&grav&&grav.on);
-  let gravDecay=0;
-  if(gravOn){
-    const gv=grav||{value:9.81,depth:50};
-    const gNorm=gv.value/9.81; // normalized to Earth=1
-    gravDecay=Math.min(0.92,gNorm*(gv.depth/100)*0.22); // same for every card: Galileo
-    const mass=cardMass(col);
-    const liftCost=mass*gNorm*(gv.depth/100)*GRAV_LIFT_K; // "weight" this strike must overcome
-    const strikeForce=Math.max(0.05,vol);                 // the hammer-strike Force
-    const liftRatio=strikeForce/(strikeForce+liftCost);   // 1 = full lift-off, <1 = held down
-    pk*=liftRatio;
-    R*=1+mass*GRAV_INERTIA_K;                             // heavier = slower to stop
-  }
-  const sagEnd=pk*Math.max(0,sV*(1-gravDecay)); // sustain level at the end of the hold
-  return {extended,A,D,sV,R,pk,gravDecay,sagEnd,panNudge};
-}
-
-// The gain breakpoints [time,gain] of one note held for `dur` seconds, starting at t0.
-// Audio passes the real start time; the graphs pass 0.
-function noteGainPoints(s,dur,t0){
-  t0=t0||0;
-  if(s.extended){
-    const relStart=Math.max(t0+s.A+s.D,t0+dur-0.003);
-    return [[t0+s.A,s.pk],[t0+s.A+s.D,s.pk*s.sV],[relStart,s.sagEnd],[relStart+s.R,0]];
-  }
-  const relS=Math.max(t0+s.A+s.D,t0+dur-s.R);
-  return [[t0+s.A,s.pk],[t0+s.A+s.D,s.pk*s.sV],[relS,s.sagEnd],[t0+dur,0]];
-}
-
 function scheduleCardNote(n,t,dur,vol=0.8,octShift=0,effColor=null,pan=0,clipBpm=null,channel=null){
   const col=effColor||cardColor(n);const card=BASE_CARDS.find(c=>c.n===n);if(!card) return;
   const a=getCtx();const baseFreq=activeRgbToFreq(col.r,col.g,col.b);
@@ -2304,21 +2192,104 @@ function scheduleCardNote(n,t,dur,vol=0.8,octShift=0,effColor=null,pan=0,clipBpm
   const osc=a.createOscillator(),g=a.createGain();
   osc.type=WAVES[card.suit]||'sine';osc.frequency.value=freq;
 
-  // NOTE: shape.panNudge (RGB Particle's G→Pan) is computed but deliberately NOT applied. In the code
-  // before this refactor the nudge was assigned after the panner was already built, so it never reached
-  // the sound. Kept identical so no existing song changes. (Flagged to Justin — wiring it is his call.)
-  const s=noteShape(col,vol,channel);
-  const pts=noteGainPoints(s,dur,t);
-  g.gain.setValueAtTime(0,t);
-  pts.forEach(([tt,gg])=>g.gain.linearRampToValueAtTime(gg,tt));
-  const tEnd=pts[3][0];
-  osc.connect(g);g.connect(panner);osc.start(t);osc.stop(tEnd+0.05);
-  if(card.suit==='major'){
-    const o2=a.createOscillator(),g2=a.createGain();o2.type='triangle';o2.frequency.value=freq*2;
-    g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(s.pk*0.14,t+s.A);
-    if(s.extended) g2.gain.setValueAtTime(s.pk*0.14*s.sV/Math.max(0.01,s.pk),pts[2][0]);
-    g2.gain.linearRampToValueAtTime(0,tEnd);
-    o2.connect(g2);g2.connect(panner);o2.start(t);o2.stop(tEnd+0.05);
+  const ua=channel?.effects?.adsr;
+  if(ua&&ua.on){
+    // ── Extended ADSR (effects ON) ────────────────────────────────────────
+    // Blends CMYK-derived envelope with user values; notes can ring past step boundary.
+    const cmykEnv=getCmykAdsr(col);
+    const userEnv={
+      attack:Math.max(0.001,ua.attack/1000),
+      decay:Math.max(0.001,ua.decay/1000),
+      sustain:Math.max(0,Math.min(1,ua.sustain/100)),
+      release:Math.max(0.001,ua.release/1000)
+    };
+    const env=blendAdsr(cmykEnv,userEnv,ua.blend||'normal');
+    const A=Math.max(0.003,env.attack),D=Math.max(0.003,env.decay);
+    let sV=Math.max(0,Math.min(1,env.sustain)),R_e=Math.max(0.003,env.release);
+    let pk=0.90*vol;
+    // ── RGB Particle Mode (opt-in, default OFF — existing songs unchanged) ────
+    const rp=channel?.effects?.rgbParticle;
+    const physOn=channel?.effects?.physicsOn;
+    if(physOn&&rp&&rp.on){
+      const depth=rp.depth/100;
+      const rn=col.r/255,gn=col.g/255,bn=col.b/255;
+      pk=Math.max(0,pk*(1+(rn-0.5)*depth*0.6));
+      sV=Math.min(1,sV+bn*depth*0.35);
+      pan=Math.max(-1,Math.min(1,pan+(gn-0.5)*depth*0.4)); // G→Pan at 40% of depth
+    }
+    // Gravity: pulls amplitude down during sustain (Layer 1 — volume only)
+    const grav=channel?.effects?.gravity;
+    let gravDecay=0;
+    if(physOn&&grav&&grav.on){
+      const gNorm=grav.value/9.81; // normalized to Earth=1
+      gravDecay=Math.min(0.92,gNorm*(grav.depth/100)*0.22);
+
+      // Real mass enters here (see note above scheduleCardNote).
+      const mass=cardMass(col);
+      const liftCost=mass*gNorm*(grav.depth/100)*GRAV_LIFT_K; // "weight" this strike must overcome
+      const strikeForce=Math.max(0.05,vol);                   // the hammer-strike Force
+      const liftRatio=strikeForce/(strikeForce+liftCost);     // 1 = full lift-off, <1 = held down
+      pk*=liftRatio;
+      R_e*=1+mass*GRAV_INERTIA_K;                             // heavier = slower to stop
+    }
+    const relStart=Math.max(t+A+D,t+dur-0.003);
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(pk,t+A);
+    g.gain.linearRampToValueAtTime(pk*sV,t+A+D);
+    // Gravity: sustain ramps down instead of holding flat
+    const sV_end=pk*Math.max(0,sV*(1-gravDecay));
+    g.gain.linearRampToValueAtTime(sV_end,relStart);
+    g.gain.linearRampToValueAtTime(0,relStart+R_e);
+    osc.connect(g);g.connect(panner);osc.start(t);osc.stop(relStart+R_e+0.05);
+    if(card.suit==='major'){
+      const o2=a.createOscillator(),g2=a.createGain();o2.type='triangle';o2.frequency.value=freq*2;
+      g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(pk*0.14,t+A);
+      g2.gain.setValueAtTime(pk*0.14*sV/Math.max(0.01,pk),relStart);g2.gain.linearRampToValueAtTime(0,relStart+R_e);
+      o2.connect(g2);g2.connect(panner);o2.start(t);o2.stop(relStart+R_e+0.05);
+    }
+  } else {
+    // ── Original compact envelope (effects OFF — preserves existing song character) ──
+    // Notes are contained within their step boundary, peak at 22% of vol for headroom.
+    // CMYK still shapes the envelope — just subtly and percussively.
+    const cmyk=toCMYK(col.r,col.g,col.b);
+    const A=0.004+cmyk.c*0.04,D=0.02+cmyk.m*0.08;
+    let sV=0.25+cmyk.y*0.4,R=0.03+cmyk.k*0.15;
+    let pk=0.70*vol;
+    // RGB Particle Mode applies even in compact mode (opt-in, default OFF)
+    const rp2=channel?.effects?.rgbParticle;
+    const physOn2=channel?.effects?.physicsOn;
+    if(physOn2&&rp2&&rp2.on){
+      const depth=rp2.depth/100;
+      const rn=col.r/255,gn=col.g/255,bn=col.b/255;
+      pk=Math.max(0,pk*(1+(rn-0.5)*depth*0.6));
+      sV=Math.min(1,sV+bn*depth*0.35);
+      pan=Math.max(-1,Math.min(1,pan+(gn-0.5)*depth*0.4));
+    }
+    const grav2=channel?.effects?.gravity;
+    let gravDecay2=0;
+    if(physOn2&&grav2&&grav2.on){
+      const gNorm=grav2.value/9.81;
+      gravDecay2=Math.min(0.92,gNorm*(grav2.depth/100)*0.22);
+
+      // Real mass enters here (see note above scheduleCardNote).
+      const mass2=cardMass(col);
+      const liftCost2=mass2*gNorm*(grav2.depth/100)*GRAV_LIFT_K;
+      const strikeForce2=Math.max(0.05,vol);
+      const liftRatio2=strikeForce2/(strikeForce2+liftCost2);
+      pk*=liftRatio2;
+      R*=1+mass2*GRAV_INERTIA_K;
+    }
+    const relS=Math.max(t+A+D,t+dur-R);
+    const sV_end2=pk*Math.max(0,sV*(1-gravDecay2));
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+A);
+    g.gain.linearRampToValueAtTime(pk*sV,t+A+D);g.gain.linearRampToValueAtTime(sV_end2,relS);
+    g.gain.linearRampToValueAtTime(0,t+dur);
+    osc.connect(g);g.connect(panner);osc.start(t);osc.stop(t+dur+0.05);
+    if(card.suit==='major'){
+      const o2=a.createOscillator(),g2=a.createGain();o2.type='triangle';o2.frequency.value=freq*2;
+      g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(pk*0.14,t+A);g2.gain.linearRampToValueAtTime(0,t+dur);
+      o2.connect(g2);g2.connect(panner);o2.start(t);o2.stop(t+dur+0.05);
+    }
   }
 }
 
@@ -3581,171 +3552,13 @@ function openCompactCellCtxMenu(ci,si,e){
   openStepCtxMenu(ci,si,e,'compact');
 }
 
-// ── Effects Lab ──────────────────────────────────────────────────────────
-// Two parts: a TILE RAIL in the left column under the channel header (pick an effect,
-// flip its switch) and ONE DETAIL PANE below the step grid (the selected effect's controls).
-// Which tile is selected is UI-only, like chFlippedToEffects — never saved. Every setting
-// still lives in channel.effects.{adsr,rgbParticle,gravity,physicsOn}, exactly as before.
-const fxTileSel={}; // channel.id -> 'frtvi' | 'phys' | 'rgb' | 'grav'   (default 'frtvi')
-function fxSel(channel){ return fxTileSel[channel.id]||'frtvi'; }
-
-function ensureFx(channel){
+// ── Effects panel ────────────────────────────────────────────────────────
+function buildEffectsPanel(channel,ci){
   if(!channel.effects) channel.effects={};
-  const fx=channel.effects;
-  if(!fx.adsr) fx.adsr={on:false,blend:'normal',attack:10,decay:100,sustain:70,release:300};
-  if(fx.physicsOn===undefined) fx.physicsOn=false;
-  if(!fx.rgbParticle) fx.rgbParticle={on:false,depth:50};
-  if(!fx.gravity) fx.gravity={on:false,value:9.81,depth:50};
-  return fx;
-}
-
-// ── Rail ─────────────────────────────────────────────────────────────────
-function buildEffectsRail(channel,ci){
-  const fx=ensureFx(channel);
-  const sel=fxSel(channel);
-  const rail=document.createElement('div');rail.className='effects-rail';
-  // id, icon, label, tooltip, nested?, getter/setter for its own switch
-  const defs=[
-    {id:'frtvi',icon:'⚗',name:'FRTVI',nested:false,tip:'Envelope: Force · Resistance · Terminal Velocity · Inertia',
-      get:()=>fx.adsr.on,set:v=>{fx.adsr.on=v;}},
-    {id:'phys',icon:'⚛',name:'PHYSICS ENGINE',nested:false,pill:true,tip:'Master switch for RGB Particle and Gravity',
-      get:()=>fx.physicsOn,set:v=>{fx.physicsOn=v;}},
-    {id:'rgb',icon:'◉',name:'RGB PARTICLE',nested:true,tip:'R→Force · B→Terminal Velocity · G→Pan',
-      get:()=>fx.rgbParticle.on,set:v=>{fx.rgbParticle.on=v;}},
-    {id:'grav',icon:'↓',name:'GRAVITY',nested:true,tip:'Sustain falls under the field — same rate for every card',
-      get:()=>fx.gravity.on,set:v=>{fx.gravity.on=v;}}
-  ];
-  defs.forEach(d=>{
-    const t=document.createElement('div');
-    t.className='fx-tile'+(sel===d.id?' sel':'')+(d.nested?' nested':'')+(d.nested&&!fx.physicsOn?' dim':'');
-    t.title=d.tip;
-    const nm=document.createElement('span');nm.className='fx-tile-name';nm.textContent=d.icon+' '+d.name;
-    const on=!!d.get();
-    let sw;
-    if(d.pill){
-      sw=document.createElement('button');sw.className='fx-pill'+(on?' on':'');sw.textContent=on?'ON':'OFF';
-    } else {
-      sw=document.createElement('span');sw.className='fx-dot'+(on?' on':'');
-    }
-    sw.title=(on?'Turn off — ':'Turn on — ')+d.name;
-    sw.addEventListener('click',e=>{e.stopPropagation();pushHistory();d.set(!d.get());render();saveState();});
-    t.addEventListener('click',()=>{fxTileSel[channel.id]=d.id;render();});
-    t.append(nm,sw);rail.appendChild(t);
-  });
-  return rail;
-}
-
-// ── Graphs ───────────────────────────────────────────────────────────────
-// Each pane's graph draws the gain automation the audio engine would play, straight from
-// noteShape()/noteGainPoints() — the same two functions scheduleCardNote uses — for the cards
-// actually on this channel (each curve in its card's own color). Amplitude is real gain (0–1).
-// Each pane isolates its own effect: dashed gold = the sound without it, colored = with it.
-const FX_GRAPH_HOLD=0.3;     // every graph shows one note held for 0.30 s
-const FX_GRAPH_MAXCARDS=12;
-function fxGraphCards(channel,ci){
-  const out=[],seen=new Set();
-  const pat=patterns[activePatternIndex];
-  const pd=pat&&pat.channelData&&pat.channelData[ci];
-  if(pd&&pd.steps){
-    pd.steps.forEach((n,si)=>{
-      if(n===null||n===undefined) return;
-      const col=getEffectiveColor(channel,n,si,pat.stepCount);
-      const vel=(pd.stepVelocities&&pd.stepVelocities[si]!==undefined)?pd.stepVelocities[si]:100;
-      const vol=channel.vol*(vel/127);
-      const key=col.r+','+col.g+','+col.b+','+vol.toFixed(3);
-      if(seen.has(key)) return;
-      seen.add(key);out.push({col,vol});
-    });
-  }
-  return out;
-}
-
-function buildFxGraph(channel,ci,kind){
-  const NS='http://www.w3.org/2000/svg',W=1000,H=140;
-  const wrap=document.createElement('div');wrap.className='fx-graph';
-  const svg=document.createElementNS(NS,'svg');
-  svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.setAttribute('preserveAspectRatio','none');
-  const yl=document.createElement('div');yl.className='fx-graph-y';
-  yl.innerHTML='<span style="top:4px">1.0</span><span style="top:'+(H-17)+'px">0</span>';
-  const axis=document.createElement('div');axis.className='fx-graph-axis';
-  const pan=document.createElement('div');pan.className='fx-pan';
-  const cap=document.createElement('div');cap.className='fx-graph-cap';
-  wrap.appendChild(svg);wrap.appendChild(yl);wrap.appendChild(axis);
-  if(kind==='rgb') wrap.appendChild(pan);
-  wrap.appendChild(cap);
-  const mk=(tag,attrs)=>{const e=document.createElementNS(NS,tag);for(const k in attrs) e.setAttribute(k,attrs[k]);e.setAttribute('vector-effect','non-scaling-stroke');return e;};
-  const line=(pts,stroke,w,dash)=>mk('polyline',Object.assign({points:pts,fill:'none',stroke:stroke,'stroke-width':w,'stroke-linejoin':'round','stroke-linecap':'round'},dash?{'stroke-dasharray':dash}:{}));
-
-  function redraw(){
-    const fx=ensureFx(channel);
-    let cards=fxGraphCards(channel,ci);
-    const refOnly=cards.length===0;
-    if(refOnly) cards=[{col:{r:128,g:128,b:128},vol:channel.vol*(100/127)}];
-    const total=cards.length;
-    cards=cards.slice(0,FX_GRAPH_MAXCARDS);
-    // This pane's effect alone, against the same sound without it.
-    const baseF={rgb:false,grav:false};
-    const mainF=kind==='rgb'?{rgb:true,grav:false}:kind==='grav'?{rgb:false,grav:true}:baseF;
-    const curves=cards.map(c=>{
-      const s=noteShape(c.col,c.vol,channel,mainF);
-      const gs=kind==='frtvi'?null:noteShape(c.col,c.vol,channel,baseF);
-      return {c,s,pts:[[0,0]].concat(noteGainPoints(s,FX_GRAPH_HOLD,0)),
-              ghost:gs?[[0,0]].concat(noteGainPoints(gs,FX_GRAPH_HOLD,0)):null};
-    });
-    let T=0;
-    curves.forEach(k=>{T=Math.max(T,k.pts[k.pts.length-1][0],k.ghost?k.ghost[k.ghost.length-1][0]:0);});
-    T=Math.max(0.6,T*1.03);
-    const X=t=>(t/T*(W-8)+4).toFixed(1);
-    const Y=g=>(H-6-Math.max(0,Math.min(1,g))*(H-12)).toFixed(1);
-    const P=pts=>pts.map(q=>X(q[0])+','+Y(q[1])).join(' ');
-    while(svg.firstChild) svg.removeChild(svg.firstChild);
-    const grid='rgba(201,169,110,.10)';
-    [0,0.5,1].forEach(g=>svg.appendChild(mk('line',{x1:4,x2:W-4,y1:Y(g),y2:Y(g),stroke:grid,'stroke-width':1})));
-    svg.appendChild(mk('line',{x1:X(FX_GRAPH_HOLD),x2:X(FX_GRAPH_HOLD),y1:4,y2:H-4,stroke:'rgba(201,169,110,.28)','stroke-width':1,'stroke-dasharray':'2 4'}));
-    curves.forEach(k=>{if(k.ghost) svg.appendChild(line(P(k.ghost),'rgba(201,169,110,.6)',1.2,'4 3'));});
-    curves.forEach(k=>{
-      svg.appendChild(line(P(k.pts),'rgba(235,225,205,.32)',3.4));
-      svg.appendChild(line(P(k.pts),'rgb('+k.c.col.r+','+k.c.col.g+','+k.c.col.b+')',1.7));
-    });
-    // time axis
-    const pc=t=>(parseFloat(X(t))/W*100).toFixed(2)+'%';
-    axis.innerHTML='<span class="l" style="left:0">0</span><span style="left:'+pc(FX_GRAPH_HOLD)+'">note off · '+FX_GRAPH_HOLD.toFixed(2)+' s</span><span class="r" style="left:100%">'+T.toFixed(2)+' s</span>';
-    // is this effect actually reaching the sound?
-    let off=false,why='';
-    if(kind==='rgb'){
-      if(!fx.physicsOn){off=true;why='the Physics Engine is OFF';}
-      else if(!fx.rgbParticle.on){off=true;why='RGB Particle is OFF';}
-    } else if(kind==='grav'){
-      if(!fx.physicsOn){off=true;why='the Physics Engine is OFF';}
-      else if(!fx.gravity.on){off=true;why='Gravity is OFF';}
-    }
-    wrap.classList.toggle('off',off);
-    let txt;
-    if(kind==='frtvi') txt=fx.adsr.on
-      ? 'FRTVI is ON — your four values blended with each card’s own CMYK envelope (blend: '+(fx.adsr.blend||'normal')+').'
-      : 'FRTVI is OFF — this is each card’s own CMYK envelope, which is what plays now.';
-    else if(kind==='rgb') txt='Dashed gold: no RGB push. Colored: with RGB Particle at this influence.';
-    else txt='Dashed gold: no gravity. Every card sags at the same rate; heavier (darker) cards start lower and ring longer.';
-    if(off) txt+=' Preview only — '+why+', so none of this reaches the sound.';
-    txt+=refOnly?' No cards on this channel yet, so a mid-gray card is shown.'
-      :' One curve per card on this channel ('+cards.length+(total>cards.length?' of '+total:'')+'), each in its own color.';
-    cap.textContent=txt;
-    if(kind==='rgb'){
-      let h='<div class="bar"></div><div class="mid"></div><span class="lbl" style="left:0">L</span><span class="lbl" style="right:0">R</span>';
-      curves.forEach(k=>{h+='<div class="tick" style="left:calc(18px + (100% - 36px) * '+(0.5+k.s.panNudge/2).toFixed(4)+');background:rgb('+k.c.col.r+','+k.c.col.g+','+k.c.col.b+')"></div>';});
-      h+='<div class="note">G→Pan nudge per card — worked out, but not yet applied to the sound</div>';
-      pan.innerHTML=h;
-    }
-  }
-  redraw();
-  return {el:wrap,redraw};
-}
-
-// ── Detail-pane pieces (each returns an array of elements) ───────────────
-function fxBlockFrtvi(channel,ci){
-  const ua=ensureFx(channel).adsr;
-  const graph=buildFxGraph(channel,ci,'frtvi');
-  // Header: [ON/OFF] ⚗ FRTVI [blend select]
+  if(!channel.effects.adsr) channel.effects.adsr={on:false,blend:'normal',attack:10,decay:100,sustain:70,release:300};
+  const ua=channel.effects.adsr;
+  const panel=document.createElement('div');panel.className='effects-panel';
+  // Header: [ON/OFF] ⚗ ADSR ENVELOPE [blend select]
   const hdr=document.createElement('div');hdr.className='effects-panel-hdr';
   const tog=document.createElement('button');tog.className='tb effects-toggle'+(ua.on?' on':'');
   tog.textContent=ua.on?'ON':'OFF';
@@ -3756,98 +3569,118 @@ function fxBlockFrtvi(channel,ci){
     const o=document.createElement('option');o.value=v;o.textContent=l;o.selected=ua.blend===v;
     blendSel.appendChild(o);
   });
-  blendSel.addEventListener('change',e=>{ua.blend=e.target.value;saveState();graph.redraw();});
+  blendSel.addEventListener('change',e=>{ua.blend=e.target.value;saveState();if(canvas) drawEnvelopeCanvas(canvas,channel,ci);});
   hdr.append(tog,title,blendSel);
-  // FRTVI sliders with synced number inputs
+  panel.appendChild(hdr);
+  // ADSR sliders with synced number inputs
   const slidersDiv=document.createElement('div');slidersDiv.className='effects-sliders';
   const defs=[
-    {key:'attack', main:'Force',            sub:'(Attack)',  min:0,max:2000,unit:'ms'},
-    {key:'decay',  main:'Resistance',       sub:'(Decay)',   min:0,max:2000,unit:'ms'},
-    {key:'sustain',main:'Terminal Velocity',sub:'(Sustain)', min:0,max:100, unit:'%'},
-    {key:'release',main:'Inertia',          sub:'(Release)', min:0,max:3000,unit:'ms'},
+    {key:'attack', main:'Force',            sub:'(Attack)',          min:0,max:2000,unit:'ms'},
+    {key:'decay',  main:'Resistance',   sub:'(Decay)',   min:0,max:2000,unit:'ms'},
+    {key:'sustain',main:'Terminal Velocity',sub:'(Sustain)',        min:0,max:100, unit:'%'},
+    {key:'release',main:'Inertia',      sub:'(Release)', min:0,max:3000,unit:'ms'},
   ];
+  let canvas;
   defs.forEach(({key,main,sub,min,max,unit})=>{
     const row=document.createElement('div');row.className='effects-slider-row';
     const lbl=document.createElement('div');lbl.className='effects-slider-label';
     lbl.innerHTML=`<span class="effects-lbl-main">${main}</span><span class="effects-lbl-sub">${sub}</span>`;
+    // Number input (editable, synced to slider)
     const numInp=document.createElement('input');numInp.type='number';
     numInp.min=min;numInp.max=max;numInp.value=ua[key];
     numInp.className='effects-num-input';numInp.title=unit;
     const sliderInp=document.createElement('input');sliderInp.type='range';
     sliderInp.min=min;sliderInp.max=max;sliderInp.value=ua[key];sliderInp.className='effects-slider';
+    // Sync: slider → number
     sliderInp.addEventListener('input',e=>{
       ua[key]=parseFloat(e.target.value);numInp.value=e.target.value;
-      graph.redraw();
+      if(canvas) drawEnvelopeCanvas(canvas,channel,ci);
     });
     sliderInp.addEventListener('change',()=>saveState());
+    // Sync: number → slider
     numInp.addEventListener('input',e=>{
       const v=Math.max(min,Math.min(max,parseFloat(e.target.value)||0));
       ua[key]=v;sliderInp.value=v;
-      graph.redraw();
+      if(canvas) drawEnvelopeCanvas(canvas,channel,ci);
     });
     numInp.addEventListener('change',()=>saveState());
     row.append(lbl,numInp,sliderInp);slidersDiv.appendChild(row);
   });
-  return [hdr,slidersDiv,graph.el];
-}
+  panel.appendChild(slidersDiv);
+  // Envelope canvas
+  canvas=document.createElement('canvas');canvas.className='effects-canvas';
+  canvas.width=280;canvas.height=72;
+  setTimeout(()=>drawEnvelopeCanvas(canvas,channel,ci),10);
+  // ── Physics Engine section ────────────────────────────────────────────
+  if(!channel.effects.physicsOn===undefined) channel.effects.physicsOn=false;
+  if(!channel.effects.rgbParticle) channel.effects.rgbParticle={on:false,depth:50};
+  if(!channel.effects.gravity) channel.effects.gravity={on:false,value:9.81,depth:50};
+  const rp=channel.effects.rgbParticle;
+  const grav=channel.effects.gravity;
 
-// Physics Engine master header (used when the Physics Engine tile is selected)
-function fxBlockPhysMaster(channel){
-  const fx=ensureFx(channel);
-  const hdr=document.createElement('div');hdr.className='effects-panel-hdr';
-  const tog=document.createElement('button');tog.className='tb effects-toggle'+(fx.physicsOn?' on':'');
-  tog.textContent=fx.physicsOn?'ON':'OFF';
-  tog.addEventListener('click',()=>{pushHistory();fx.physicsOn=!fx.physicsOn;render();saveState();});
-  const title=document.createElement('span');title.className='effects-title';title.textContent='⚛ PHYSICS ENGINE';
-  title.title='Master toggle for all physics effects. Individual toggles below control each effect.';
-  hdr.append(tog,title);
-  return [hdr];
-}
+  // ── Master Physics Toggle ──────────────────────────────────────────────
+  const physWrap=document.createElement('div');
+  physWrap.style.cssText='border-top:1px solid rgba(201,169,110,.12);margin-top:4px;padding-top:8px;';
+  const physHdr=document.createElement('div');physHdr.className='effects-panel-hdr';
+  const physTog=document.createElement('button');
+  physTog.className='tb effects-toggle'+(channel.effects.physicsOn?' on':'');
+  physTog.textContent=channel.effects.physicsOn?'ON':'OFF';
+  const physTitle=document.createElement('span');physTitle.className='effects-title';
+  physTitle.textContent='⚛ PHYSICS ENGINE';
+  physTitle.title='Master toggle for all physics effects. Individual toggles below control each effect.';
+  physTog.addEventListener('click',()=>{
+    pushHistory();
+    channel.effects.physicsOn=!channel.effects.physicsOn;
+    physTog.textContent=channel.effects.physicsOn?'ON':'OFF';
+    physTog.classList.toggle('on',channel.effects.physicsOn);
+    physBody.style.opacity=channel.effects.physicsOn?'1':'0.45';
+    saveState();
+  });
+  physHdr.append(physTog,physTitle);physWrap.appendChild(physHdr);
 
-// solo=true: shown on its own (tile selected) so the title names its master
-function fxBlockRgb(channel,ci,solo,top){
-  const rp=ensureFx(channel).rgbParticle;
-  const graph=buildFxGraph(channel,ci,'rgb');
-  const hdr=document.createElement('div');hdr.className='effects-panel-hdr';
-  if(top) hdr.style.marginTop=top;
-  const tog=document.createElement('button');tog.className='tb effects-toggle'+(rp.on?' on':'');
-  tog.textContent=rp.on?'ON':'OFF';
-  tog.addEventListener('click',()=>{pushHistory();rp.on=!rp.on;render();saveState();});
-  const title=document.createElement('span');title.className='effects-title';
-  title.textContent='◉ RGB PARTICLE'+(solo?' · PHYSICS ENGINE':'');
-  title.title='R→Force · B→Terminal Velocity · G→Pan (40% of depth)';
-  hdr.append(tog,title);
-  const row=document.createElement('div');row.className='effects-slider-row';
-  const lbl=document.createElement('div');lbl.className='effects-slider-label';
-  lbl.innerHTML='<span class="effects-lbl-main">Particle Influence</span><span class="effects-lbl-sub">R→Force · B→Term.V · G→Pan</span>';
-  const num=document.createElement('input');num.type='number';num.min=0;num.max=100;
-  num.value=rp.depth;num.className='effects-num-input';
-  const slider=document.createElement('input');slider.type='range';slider.min=0;slider.max=100;
-  slider.value=rp.depth;slider.className='effects-slider';
-  slider.addEventListener('input',e=>{rp.depth=parseFloat(e.target.value);num.value=e.target.value;graph.redraw();});
-  slider.addEventListener('change',()=>saveState());
-  num.addEventListener('input',e=>{const v=Math.max(0,Math.min(100,parseFloat(e.target.value)||0));rp.depth=v;slider.value=v;graph.redraw();});
-  num.addEventListener('change',()=>saveState());
-  row.append(lbl,num,slider);
-  return [hdr,row,graph.el];
-}
+  // Physics body — dims when master is OFF
+  const physBody=document.createElement('div');
+  physBody.style.cssText='transition:opacity .2s;'+(channel.effects.physicsOn?'opacity:1':'opacity:0.45');
 
-function fxBlockGrav(channel,ci,solo,top){
-  const grav=ensureFx(channel).gravity;
-  const graph=buildFxGraph(channel,ci,'grav');
-  const hdr=document.createElement('div');hdr.className='effects-panel-hdr';
-  if(top) hdr.style.marginTop=top;
-  const tog=document.createElement('button');tog.className='tb effects-toggle'+(grav.on?' on':'');
-  tog.textContent=grav.on?'ON':'OFF';
-  tog.addEventListener('click',()=>{pushHistory();grav.on=!grav.on;render();saveState();});
-  const title=document.createElement('span');title.className='effects-title';
-  title.textContent='↓ GRAVITY'+(solo?' · PHYSICS ENGINE':'');
-  title.title='Pulls amplitude downward during sustain (same rate for every card — Galileo\'s rule). The card\'s own mass (from its color) also sets how much Force is needed to lift off, and how long its Inertia resists stopping on release.';
-  hdr.append(tog,title);
-  // Presets dropdown + value input
-  const presetRow=document.createElement('div');presetRow.className='effects-slider-row';
-  presetRow.style.gap='6px';
-  const sel=document.createElement('select');sel.className='effects-blend-sel';sel.style.flex='1';
+  // ── RGB Particle section ───────────────────────────────────────────────
+  const rpHdr=document.createElement('div');rpHdr.className='effects-panel-hdr';
+  rpHdr.style.marginTop='8px';
+  const rpTog=document.createElement('button');rpTog.className='tb effects-toggle'+(rp.on?' on':'');
+  rpTog.textContent=rp.on?'ON':'OFF';
+  rpTog.addEventListener('click',()=>{pushHistory();rp.on=!rp.on;render();saveState();});
+  const rpTitle=document.createElement('span');rpTitle.className='effects-title';
+  rpTitle.textContent='◉ RGB PARTICLE';
+  rpTitle.title='R→Force · B→Terminal Velocity · G→Pan (40% of depth)';
+  rpHdr.append(rpTog,rpTitle);physBody.appendChild(rpHdr);
+
+  const rpRow=document.createElement('div');rpRow.className='effects-slider-row';
+  const rpLbl=document.createElement('div');rpLbl.className='effects-slider-label';
+  rpLbl.innerHTML='<span class="effects-lbl-main">Particle Influence</span><span class="effects-lbl-sub">R→Force · B→Term.V · G→Pan</span>';
+  const rpNum=document.createElement('input');rpNum.type='number';rpNum.min=0;rpNum.max=100;
+  rpNum.value=rp.depth;rpNum.className='effects-num-input';
+  const rpSlider=document.createElement('input');rpSlider.type='range';rpSlider.min=0;rpSlider.max=100;
+  rpSlider.value=rp.depth;rpSlider.className='effects-slider';
+  rpSlider.addEventListener('input',e=>{rp.depth=parseFloat(e.target.value);rpNum.value=e.target.value;});
+  rpSlider.addEventListener('change',()=>saveState());
+  rpNum.addEventListener('input',e=>{const v=Math.max(0,Math.min(100,parseFloat(e.target.value)||0));rp.depth=v;rpSlider.value=v;});
+  rpNum.addEventListener('change',()=>saveState());
+  rpRow.append(rpLbl,rpNum,rpSlider);physBody.appendChild(rpRow);
+
+  // ── Gravity section ────────────────────────────────────────────────────
+  const gravHdr=document.createElement('div');gravHdr.className='effects-panel-hdr';
+  gravHdr.style.marginTop='10px';
+  const gravTog=document.createElement('button');gravTog.className='tb effects-toggle'+(grav.on?' on':'');
+  gravTog.textContent=grav.on?'ON':'OFF';
+  gravTog.addEventListener('click',()=>{pushHistory();grav.on=!grav.on;render();saveState();});
+  const gravTitle=document.createElement('span');gravTitle.className='effects-title';
+  gravTitle.textContent='↓ GRAVITY';
+  gravTitle.title='Pulls amplitude downward during sustain (same rate for every card — Galileo\'s rule). The card\'s own mass (from its color) now also sets how much Force is needed to lift off, and how long its Inertia resists stopping on release.';
+  gravHdr.append(gravTog,gravTitle);physBody.appendChild(gravHdr);
+
+  // Gravity presets dropdown + value input
+  const gravPresetRow=document.createElement('div');gravPresetRow.className='effects-slider-row';
+  gravPresetRow.style.gap='6px';
+  const gravSel=document.createElement('select');gravSel.className='effects-blend-sel';gravSel.style.flex='1';
   const GRAV_PRESETS=[
     {label:'🌙 Moon',v:1.62},{label:'♂ Mars',v:3.72},{label:'🌍 Earth',v:9.81},
     {label:'♃ Jupiter',v:24.8},{label:'☉ Sun',v:274},{label:'✎ Custom',v:null}
@@ -3855,65 +3688,41 @@ function fxBlockGrav(channel,ci,solo,top){
   GRAV_PRESETS.forEach(p=>{
     const o=document.createElement('option');o.value=p.v??'custom';o.textContent=p.label;
     if(p.v&&Math.abs(p.v-grav.value)<0.01) o.selected=true;
-    sel.appendChild(o);
+    gravSel.appendChild(o);
   });
-  const valInp=document.createElement('input');valInp.type='number';
-  valInp.min=0.1;valInp.step=0.01;valInp.value=grav.value.toFixed(2);
-  valInp.className='effects-num-input';valInp.style.width='64px';
-  valInp.title='m/s² (Earth = 9.81)';
-  sel.addEventListener('change',e=>{
+  const gravValInp=document.createElement('input');gravValInp.type='number';
+  gravValInp.min=0.1;gravValInp.step=0.01;gravValInp.value=grav.value.toFixed(2);
+  gravValInp.className='effects-num-input';gravValInp.style.width='64px';
+  gravValInp.title='m/s² (Earth = 9.81)';
+  gravSel.addEventListener('change',e=>{
     const v=parseFloat(e.target.value);
-    if(!isNaN(v)){grav.value=v;valInp.value=v.toFixed(2);saveState();graph.redraw();}
+    if(!isNaN(v)){grav.value=v;gravValInp.value=v.toFixed(2);saveState();}
   });
-  valInp.addEventListener('input',e=>{
+  gravValInp.addEventListener('input',e=>{
     const v=parseFloat(e.target.value)||9.81;
     grav.value=v;
     // Reset preset to Custom if no preset matches
-    [...sel.options].forEach(o=>o.selected=Math.abs(parseFloat(o.value)-v)<0.01);
-    saveState();graph.redraw();
+    [...gravSel.options].forEach(o=>o.selected=Math.abs(parseFloat(o.value)-v)<0.01);
+    saveState();
   });
-  presetRow.append(sel,valInp);
-  // Field Strength slider
-  const row=document.createElement('div');row.className='effects-slider-row';
-  const lbl=document.createElement('div');lbl.className='effects-slider-label';
-  lbl.innerHTML='<span class="effects-lbl-main">Field Strength</span><span class="effects-lbl-sub">How strongly gravity pulls</span>';
-  const num=document.createElement('input');num.type='number';num.min=0;num.max=100;
-  num.value=grav.depth;num.className='effects-num-input';
-  const slider=document.createElement('input');slider.type='range';slider.min=0;slider.max=100;
-  slider.value=grav.depth;slider.className='effects-slider';
-  slider.addEventListener('input',e=>{grav.depth=parseFloat(e.target.value);num.value=e.target.value;graph.redraw();});
-  slider.addEventListener('change',()=>saveState());
-  num.addEventListener('input',e=>{const v=Math.max(0,Math.min(100,parseFloat(e.target.value)||0));grav.depth=v;slider.value=v;graph.redraw();});
-  num.addEventListener('change',()=>saveState());
-  row.append(lbl,num,slider);
-  // Read-only note: mass comes from the card, not from a control
-  const note=document.createElement('div');note.className='effects-note';
-  note.textContent='Every card falls at the same rate. A card\'s mass comes from its color — darker is heavier: it needs more Force to lift off and resists stopping longer.';
-  return [hdr,presetRow,row,graph.el,note];
-}
+  gravPresetRow.append(gravSel,gravValInp);physBody.appendChild(gravPresetRow);
 
-// ── Detail pane: shows only the selected tile ────────────────────────────
-function buildEffectsPanel(channel,ci){
-  const fx=ensureFx(channel);
-  const sel=fxSel(channel);
-  const panel=document.createElement('div');panel.className='effects-panel';
-  if(sel==='frtvi'){
-    fxBlockFrtvi(channel,ci).forEach(el=>panel.appendChild(el));
-    return panel;
-  }
-  // Physics group — dims when the master is OFF
-  const body=document.createElement('div');
-  body.style.cssText='display:flex;flex-direction:column;gap:7px;transition:opacity .2s;'+(fx.physicsOn?'opacity:1':'opacity:0.45');
-  if(sel==='phys'){
-    fxBlockPhysMaster(channel).forEach(el=>panel.appendChild(el));
-    fxBlockRgb(channel,ci,false,'8px').forEach(el=>body.appendChild(el));
-    fxBlockGrav(channel,ci,false,'10px').forEach(el=>body.appendChild(el));
-  } else if(sel==='rgb'){
-    fxBlockRgb(channel,ci,true).forEach(el=>body.appendChild(el));
-  } else {
-    fxBlockGrav(channel,ci,true).forEach(el=>body.appendChild(el));
-  }
-  panel.appendChild(body);
+  // Gravity depth slider
+  const gravRow=document.createElement('div');gravRow.className='effects-slider-row';
+  const gravLbl=document.createElement('div');gravLbl.className='effects-slider-label';
+  gravLbl.innerHTML='<span class="effects-lbl-main">Field Strength</span><span class="effects-lbl-sub">How strongly gravity pulls</span>';
+  const gravNum=document.createElement('input');gravNum.type='number';gravNum.min=0;gravNum.max=100;
+  gravNum.value=grav.depth;gravNum.className='effects-num-input';
+  const gravSlider=document.createElement('input');gravSlider.type='range';gravSlider.min=0;gravSlider.max=100;
+  gravSlider.value=grav.depth;gravSlider.className='effects-slider';
+  gravSlider.addEventListener('input',e=>{grav.depth=parseFloat(e.target.value);gravNum.value=e.target.value;});
+  gravSlider.addEventListener('change',()=>saveState());
+  gravNum.addEventListener('input',e=>{const v=Math.max(0,Math.min(100,parseFloat(e.target.value)||0));grav.depth=v;gravSlider.value=v;});
+  gravNum.addEventListener('change',()=>saveState());
+  gravRow.append(gravLbl,gravNum,gravSlider);physBody.appendChild(gravRow);
+
+  physWrap.appendChild(physBody);
+  panel.appendChild(physWrap);
   return panel;
 }
 
@@ -4814,16 +4623,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
   }
 
   hdr.addEventListener('contextmenu',e=>{e.preventDefault();openChannelCtxMenu(ci,e,inGroup,gi);});
-  const fxOpen=chFlippedToEffects.has(ci)&&!isDrum&&channel.suit;
-  if(fxOpen){
-    // Effects Lab open: header + tile rail share one sticky left column (header itself untouched).
-    const leftCol=document.createElement('div');leftCol.className='track-left-col';
-    leftCol.appendChild(hdr);
-    leftCol.appendChild(buildEffectsRail(channel,ci));
-    row.appendChild(leftCol);
-  } else {
-    row.appendChild(hdr);
-  }
+  row.appendChild(hdr);
 
   // Right side: step grid always visible; effects panel expands below when ⚗ active
   const rightWrap=document.createElement('div');rightWrap.className='channel-right-wrap';
@@ -4834,7 +4634,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     grid.appendChild(isDrum?buildDrumCell(channel,ci,si):buildMelodyCell(channel,ci,si));
   }
   rightWrap.appendChild(grid);
-  if(fxOpen){
+  if(chFlippedToEffects.has(ci)&&!isDrum&&channel.suit){
     rightWrap.appendChild(buildEffectsPanel(channel,ci));
   }
   row.appendChild(rightWrap);
@@ -6068,7 +5868,7 @@ async function init(){
   updateOctaveModeBtn();
   // Restore play-mode UI from loaded state
   const pmBtn=document.getElementById('play-mode-btn');
-  const panel=document.getElementById('timeline-panel');
+  const panel=document.getElementById('order-list-panel');
   if(playMode==='song'){
     pmBtn.textContent='◉ SONG';pmBtn.className='tb play-mode-song';
     panel.classList.remove('tl-hidden');
