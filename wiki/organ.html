@@ -113,6 +113,26 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .fx-pill:hover{border-color:rgba(201,169,110,.7);}
 .fx-pill.on{border-color:rgba(201,169,110,.7);color:var(--gold);background:var(--gf);}
 .effects-note{font-family:'EB Garamond',serif;font-size:12px;font-style:italic;color:rgba(201,169,110,.4);line-height:1.35;margin-top:2px;}
+.effects-title{flex:0 0 auto;padding:0 6px;}
+.fx-labbar{padding:0 10px 10px;background:rgba(6,4,14,.98);}
+.track-row.in-group .fx-labbar{border-left:3px solid rgba(201,169,110,.5);padding-left:7px;}
+.track-row.is-dimmed .fx-labbar{opacity:.52;transition:opacity .22s;}
+.fx-lab-btn{width:100%;display:flex;align-items:center;gap:7px;padding:6px 8px;cursor:pointer;background:rgba(0,0,0,.4);border:1px solid rgba(201,169,110,.3);color:rgba(201,169,110,.6);border-radius:3px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.09em;transition:all .15s;}
+.fx-lab-btn:hover{border-color:rgba(201,169,110,.65);color:var(--gold);}
+.fx-lab-btn.active{border-color:var(--gold);color:var(--gold);background:var(--gf);}
+.fx-lab-btn .fx-lab-name{flex:1;text-align:left;white-space:nowrap;}
+.fx-lab-plus{width:20px;height:20px;line-height:17px;text-align:center;font-size:16px;border:1px solid rgba(201,169,110,.3);border-radius:2px;flex-shrink:0;transition:all .15s;}
+.fx-lab-plus:hover{border-color:var(--gold);background:rgba(201,169,110,.15);color:#f1dba8;}
+.fx-tile-x{width:16px;height:16px;line-height:14px;text-align:center;font-size:12px;flex-shrink:0;color:rgba(201,169,110,.3);border-radius:2px;cursor:pointer;transition:all .15s;}
+.fx-tile-x:hover{color:#e07a6a;background:rgba(224,122,106,.12);}
+.fx-add-menu{position:fixed;z-index:9999;min-width:200px;background:#0d0a1e;border:1px solid rgba(201,169,110,.5);border-radius:3px;padding:4px;box-shadow:0 6px 22px rgba(0,0,0,.7);}
+.fx-add-item{padding:7px 10px;cursor:pointer;border-radius:2px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;color:rgba(201,169,110,.8);}
+.fx-add-item:hover{background:rgba(201,169,110,.14);color:#f1dba8;}
+.fx-add-item small{display:block;font-family:'EB Garamond',serif;font-style:italic;font-size:12px;letter-spacing:0;color:rgba(201,169,110,.4);margin-top:1px;}
+.fx-add-none{padding:7px 10px;font-family:'EB Garamond',serif;font-style:italic;font-size:12px;color:rgba(201,169,110,.4);}
+.fx-opacity{display:flex;align-items:center;gap:7px;margin-left:10px;font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:.1em;color:rgba(201,169,110,.5);}
+.fx-opacity input[type=range]{width:110px;accent-color:var(--gold);}
+.fx-opacity .fx-op-val{min-width:34px;text-align:right;color:var(--gold);font-size:11px;letter-spacing:.04em;}
 /* ── Effects Lab graphs (SVG, drawn from noteShape — same math as the sound) ── */
 .fx-graph{position:relative;margin-top:10px;}
 .fx-graph svg{display:block;width:100%;height:140px;border:1px solid rgba(201,169,110,.12);border-radius:3px;background:rgba(0,0,0,.35);transition:opacity .2s;}
@@ -2245,7 +2265,12 @@ function noteShape(col,vol,channel,force){
       sustain:Math.max(0,Math.min(1,ua.sustain/100)),
       release:Math.max(0.001,ua.release/1000)
     };
-    const env=blendAdsr(cmykEnv,userEnv,ua.blend||'normal');
+    const blended=blendAdsr(cmykEnv,userEnv,ua.blend||'normal');
+    // Opacity: 100% = the full blend (exactly as before); 0% = the card's own CMYK envelope.
+    const op=(ua.opacity===undefined)?1:Math.max(0,Math.min(1,ua.opacity/100));
+    const mixv=(a,b)=>op>=1?b:a+(b-a)*op;
+    const env={attack:mixv(cmykEnv.attack,blended.attack),decay:mixv(cmykEnv.decay,blended.decay),
+               sustain:mixv(cmykEnv.sustain,blended.sustain),release:mixv(cmykEnv.release,blended.release)};
     A=Math.max(0.003,env.attack);D=Math.max(0.003,env.decay);
     sV=Math.max(0,Math.min(1,env.sustain));R=Math.max(0.003,env.release);
     pk=0.90*vol;
@@ -2400,10 +2425,11 @@ function newChannel(suit=null){
     muted:false,solo:false,vol:0.8,pan:0,
     clockDiv:1,
     effects:{
-      adsr:{on:false,blend:'normal',attack:10,decay:100,sustain:70,release:300},
+      adsr:{on:false,blend:'normal',opacity:100,attack:10,decay:100,sustain:70,release:300},
       rgbParticle:{on:false,depth:50},
       gravity:{on:false,value:9.81,depth:50},
-      physicsOn:false
+      physicsOn:false,
+      added:{frtvi:false,phys:false}   // which effects sit on this channel's Effects Lab list
     }
   };
 }
@@ -3587,16 +3613,91 @@ function openCompactCellCtxMenu(ci,si,e){
 // Which tile is selected is UI-only, like chFlippedToEffects — never saved. Every setting
 // still lives in channel.effects.{adsr,rgbParticle,gravity,physicsOn}, exactly as before.
 const fxTileSel={}; // channel.id -> 'frtvi' | 'phys' | 'rgb' | 'grav'   (default 'frtvi')
-function fxSel(channel){ return fxTileSel[channel.id]||'frtvi'; }
+function fxSel(channel){   // null = nothing selected (Lab shows just the list)
+  const sel=fxTileSel[channel.id]||null; if(!sel) return null;
+  const a=ensureFx(channel).added;
+  if(sel==='frtvi') return a.frtvi?sel:null;
+  return a.phys?sel:null;
+}
 
 function ensureFx(channel){
   if(!channel.effects) channel.effects={};
   const fx=channel.effects;
-  if(!fx.adsr) fx.adsr={on:false,blend:'normal',attack:10,decay:100,sustain:70,release:300};
+  if(!fx.adsr) fx.adsr={on:false,blend:'normal',opacity:100,attack:10,decay:100,sustain:70,release:300};
+  if(fx.adsr.opacity===undefined) fx.adsr.opacity=100;
   if(fx.physicsOn===undefined) fx.physicsOn=false;
   if(!fx.rgbParticle) fx.rgbParticle={on:false,depth:50};
   if(!fx.gravity) fx.gravity={on:false,value:9.81,depth:50};
+  // "added" = which effects appear in the Lab list. Songs saved before this existed keep every
+  // effect they were using, and an effect that is ON can never be missing from the list.
+  if(!fx.added) fx.added={frtvi:false,phys:false};
+  if(fx.adsr.on) fx.added.frtvi=true;
+  if(fx.physicsOn||fx.rgbParticle.on||fx.gravity.on) fx.added.phys=true;
   return fx;
+}
+
+// ── Add / remove effects ─────────────────────────────────────────────────
+// A channel starts with an empty Effects Lab. "+" adds an effect; "×" on its tile takes it off.
+// Adding the Physics Engine brings RGB Particle and Gravity with it, both ON at 100%, gravity = Earth.
+function addEffect(channel,ci,kind){
+  pushHistory();
+  const fx=ensureFx(channel);
+  if(kind==='frtvi'){ fx.added.frtvi=true; fx.adsr.on=true; }
+  else {
+    fx.added.phys=true; fx.physicsOn=true;
+    fx.rgbParticle.on=true; fx.rgbParticle.depth=100;
+    fx.gravity.on=true; fx.gravity.value=9.81; fx.gravity.depth=100;
+  }
+  chFlippedToEffects.add(ci);
+  render();saveState();
+}
+function removeEffect(channel,kind){
+  pushHistory();
+  const fx=ensureFx(channel);
+  if(kind==='frtvi'){ fx.added.frtvi=false; fx.adsr.on=false; if(fxTileSel[channel.id]==='frtvi') delete fxTileSel[channel.id]; }
+  else {
+    fx.added.phys=false; fx.physicsOn=false; fx.rgbParticle.on=false; fx.gravity.on=false;
+    if(['phys','rgb','grav'].includes(fxTileSel[channel.id])) delete fxTileSel[channel.id];
+  }
+  render();saveState();
+}
+function closeFxAddMenu(){ document.querySelectorAll('.fx-add-menu').forEach(m=>m.remove()); }
+function openFxAddMenu(channel,ci,anchor){
+  closeFxAddMenu();
+  const a=ensureFx(channel).added;
+  const menu=document.createElement('div');menu.className='fx-add-menu';
+  const items=[];
+  if(!a.frtvi) items.push(['frtvi','⚗ FRTVI','Force · Resistance · Terminal Velocity · Inertia']);
+  if(!a.phys) items.push(['phys','⚛ PHYSICS ENGINE','Comes with RGB Particle + Gravity, ON at 100% (Earth)']);
+  if(!items.length){ const n=document.createElement('div');n.className='fx-add-none';n.textContent='Every effect is already on this channel.';menu.appendChild(n); }
+  items.forEach(([k,t,sub])=>{
+    const it=document.createElement('div');it.className='fx-add-item';it.innerHTML=t+'<small>'+sub+'</small>';
+    it.addEventListener('click',e=>{e.stopPropagation();closeFxAddMenu();addEffect(channel,ci,k);});
+    menu.appendChild(it);
+  });
+  document.body.appendChild(menu);
+  const r=anchor.getBoundingClientRect();
+  menu.style.left=Math.min(r.left,window.innerWidth-menu.offsetWidth-8)+'px';
+  menu.style.top=(r.bottom+4)+'px';
+  setTimeout(()=>document.addEventListener('click',closeFxAddMenu,{once:true}),0);
+}
+
+// ── Lab bar: the "Effects Lab +" button at the bottom of the channel header ──
+function buildLabBar(channel,ci){
+  const bar=document.createElement('div');bar.className='fx-labbar';
+  const open=chFlippedToEffects.has(ci);
+  const btn=document.createElement('button');btn.className='fx-lab-btn'+(open?' active':'');
+  btn.title='Effects Lab — show / hide this channel’s effects';
+  const nm=document.createElement('span');nm.className='fx-lab-name';nm.textContent='⚗ Effects Lab';
+  const plus=document.createElement('span');plus.className='fx-lab-plus';plus.textContent='+';plus.title='Add an effect';
+  btn.append(nm,plus);
+  btn.addEventListener('click',()=>{
+    if(chFlippedToEffects.has(ci)) chFlippedToEffects.delete(ci); else chFlippedToEffects.add(ci);
+    closeFxAddMenu();render();
+  });
+  plus.addEventListener('click',e=>{e.stopPropagation();openFxAddMenu(channel,ci,plus);});
+  bar.appendChild(btn);
+  return bar;
 }
 
 // ── Rail ─────────────────────────────────────────────────────────────────
@@ -3604,17 +3705,21 @@ function buildEffectsRail(channel,ci){
   const fx=ensureFx(channel);
   const sel=fxSel(channel);
   const rail=document.createElement('div');rail.className='effects-rail';
-  // id, icon, label, tooltip, nested?, getter/setter for its own switch
   const defs=[
-    {id:'frtvi',icon:'⚗',name:'FRTVI',nested:false,tip:'Envelope: Force · Resistance · Terminal Velocity · Inertia',
+    {id:'frtvi',own:'frtvi',icon:'⚗',name:'FRTVI',nested:false,tip:'Envelope: Force · Resistance · Terminal Velocity · Inertia',
       get:()=>fx.adsr.on,set:v=>{fx.adsr.on=v;}},
-    {id:'phys',icon:'⚛',name:'PHYSICS ENGINE',nested:false,pill:true,tip:'Master switch for RGB Particle and Gravity',
+    {id:'phys',own:'phys',icon:'⚛',name:'PHYSICS ENGINE',nested:false,pill:true,tip:'Master switch for RGB Particle and Gravity',
       get:()=>fx.physicsOn,set:v=>{fx.physicsOn=v;}},
-    {id:'rgb',icon:'◉',name:'RGB PARTICLE',nested:true,tip:'R→Force · B→Terminal Velocity · G→Pan',
+    {id:'rgb',own:'phys',icon:'◉',name:'RGB PARTICLE',nested:true,tip:'R→Force · B→Terminal Velocity · G→Pan',
       get:()=>fx.rgbParticle.on,set:v=>{fx.rgbParticle.on=v;}},
-    {id:'grav',icon:'↓',name:'GRAVITY',nested:true,tip:'Sustain falls under the field — same rate for every card',
+    {id:'grav',own:'phys',icon:'↓',name:'GRAVITY',nested:true,tip:'Sustain falls under the field — same rate for every card',
       get:()=>fx.gravity.on,set:v=>{fx.gravity.on=v;}}
-  ];
+  ].filter(d=>fx.added[d.own]);
+  if(!defs.length){
+    const n=document.createElement('div');n.className='effects-note';
+    n.textContent='No effects yet — press + on the Effects Lab button to add one.';
+    rail.appendChild(n);
+  }
   defs.forEach(d=>{
     const t=document.createElement('div');
     t.className='fx-tile'+(sel===d.id?' sel':'')+(d.nested?' nested':'')+(d.nested&&!fx.physicsOn?' dim':'');
@@ -3629,8 +3734,16 @@ function buildEffectsRail(channel,ci){
     }
     sw.title=(on?'Turn off — ':'Turn on — ')+d.name;
     sw.addEventListener('click',e=>{e.stopPropagation();pushHistory();d.set(!d.get());render();saveState();});
-    t.addEventListener('click',()=>{fxTileSel[channel.id]=d.id;render();});
-    t.append(nm,sw);rail.appendChild(t);
+    // click a tile to open its controls + graph; click it again to fold them away
+    t.addEventListener('click',()=>{ if(fxSel(channel)===d.id) delete fxTileSel[channel.id]; else fxTileSel[channel.id]=d.id; render(); });
+    t.append(nm,sw);
+    if(!d.nested){
+      const x=document.createElement('span');x.className='fx-tile-x';x.textContent='×';
+      x.title='Remove '+d.name+(d.id==='phys'?' (with RGB Particle and Gravity)':'')+' from this channel';
+      x.addEventListener('click',e=>{e.stopPropagation();removeEffect(channel,d.own);});
+      t.appendChild(x);
+    }
+    rail.appendChild(t);
   });
   return rail;
 }
@@ -3722,7 +3835,7 @@ function buildFxGraph(channel,ci,kind){
     wrap.classList.toggle('off',off);
     let txt;
     if(kind==='frtvi') txt=fx.adsr.on
-      ? 'FRTVI is ON — your four values blended with each card’s own CMYK envelope (blend: '+(fx.adsr.blend||'normal')+').'
+      ? 'FRTVI is ON — your four values blended with each card’s own CMYK envelope (blend: '+(fx.adsr.blend||'normal')+', opacity '+Math.round(fx.adsr.opacity)+'%).'
       : 'FRTVI is OFF — this is each card’s own CMYK envelope, which is what plays now.';
     else if(kind==='rgb') txt='Dashed gold: no RGB push. Colored: with RGB Particle at this influence.';
     else txt='Dashed gold: no gravity. Every card sags at the same rate; heavier (darker) cards start lower and ring longer.';
@@ -3757,7 +3870,17 @@ function fxBlockFrtvi(channel,ci){
     blendSel.appendChild(o);
   });
   blendSel.addEventListener('change',e=>{ua.blend=e.target.value;saveState();graph.redraw();});
-  hdr.append(tog,title,blendSel);
+  // Opacity: 100% = the full blend; 0% = each card's own CMYK envelope. In between, the card's
+  // character shows through — useful in Normal mode, where the blend would otherwise cover it.
+  const opWrap=document.createElement('label');opWrap.className='fx-opacity';
+  opWrap.title='Opacity of the blend. 100% = your four values blended in fully; 0% = only each card\u2019s own envelope.';
+  const opLbl=document.createElement('span');opLbl.textContent='OPACITY';
+  const opSl=document.createElement('input');opSl.type='range';opSl.min=0;opSl.max=100;opSl.value=ua.opacity;
+  const opVal=document.createElement('span');opVal.className='fx-op-val';opVal.textContent=Math.round(ua.opacity)+'%';
+  opSl.addEventListener('input',e=>{ua.opacity=parseFloat(e.target.value);opVal.textContent=Math.round(ua.opacity)+'%';graph.redraw();});
+  opSl.addEventListener('change',()=>saveState());
+  opWrap.append(opLbl,opSl,opVal);
+  hdr.append(tog,title,blendSel,opWrap);
   // FRTVI sliders with synced number inputs
   const slidersDiv=document.createElement('div');slidersDiv.className='effects-sliders';
   const defs=[
@@ -3896,6 +4019,7 @@ function fxBlockGrav(channel,ci,solo,top){
 function buildEffectsPanel(channel,ci){
   const fx=ensureFx(channel);
   const sel=fxSel(channel);
+  if(!sel) return null;   // Lab open, no effect picked: just the list
   const panel=document.createElement('div');panel.className='effects-panel';
   if(sel==='frtvi'){
     fxBlockFrtvi(channel,ci).forEach(el=>panel.appendChild(el));
@@ -4743,19 +4867,6 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
 
     inf.appendChild(octRow);
   }
-  // ⚗ Effects flip button — above the suit name, visible for all melody channels
-  if(!isDrum){
-    const alchFlip=document.createElement('button');
-    alchFlip.className='alch-flip-btn'+(chFlippedToEffects.has(ci)?' active':'');
-    alchFlip.title='Effects Lab';
-    alchFlip.textContent='⚗';
-    alchFlip.addEventListener('click',()=>{
-      if(chFlippedToEffects.has(ci)) chFlippedToEffects.delete(ci);
-      else chFlippedToEffects.add(ci);
-      render();
-    });
-    inf.prepend(alchFlip);
-  }
   const btns=document.createElement('div');btns.className='track-mini-btns';
   const mb=document.createElement('button');mb.className='tmb'+(channel.muted?' muted':'');mb.textContent='M';
   mb.title='Mute';mb.addEventListener('click',()=>{pushHistory();channel.muted=!channel.muted;render();saveState();});
@@ -4814,12 +4925,14 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
   }
 
   hdr.addEventListener('contextmenu',e=>{e.preventDefault();openChannelCtxMenu(ci,e,inGroup,gi);});
-  const fxOpen=chFlippedToEffects.has(ci)&&!isDrum&&channel.suit;
-  if(fxOpen){
-    // Effects Lab open: header + tile rail share one sticky left column (header itself untouched).
+  const labShown=!isDrum&&!!channel.suit;
+  const fxOpen=labShown&&chFlippedToEffects.has(ci);
+  if(labShown){
+    // Header, the Effects Lab button, and (when open) the effect list share one sticky left column.
     const leftCol=document.createElement('div');leftCol.className='track-left-col';
     leftCol.appendChild(hdr);
-    leftCol.appendChild(buildEffectsRail(channel,ci));
+    leftCol.appendChild(buildLabBar(channel,ci));
+    if(fxOpen) leftCol.appendChild(buildEffectsRail(channel,ci));
     row.appendChild(leftCol);
   } else {
     row.appendChild(hdr);
@@ -4835,7 +4948,8 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
   }
   rightWrap.appendChild(grid);
   if(fxOpen){
-    rightWrap.appendChild(buildEffectsPanel(channel,ci));
+    const fxPanel=buildEffectsPanel(channel,ci);
+    if(fxPanel) rightWrap.appendChild(fxPanel);
   }
   row.appendChild(rightWrap);
   return row;
