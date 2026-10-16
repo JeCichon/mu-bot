@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 11, 2026. This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 16, 2026. This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -28,7 +28,7 @@ EFFECTIVE COLOR  (r,g,b — after the channel gradient)
   │      ├─ tilt   ──► how far off the gray diagonal
   │      └─ spin   ──► direction (= hue)
   │
-  ├──► BRIGHTNESS = max(r,g,b)/255 ──► MASS (= K)                          BUILT
+  ├──► HEIGHT ON THE GRAY DIAGONAL = mean(r,g,b)/255 ──► MASS              BUILT
   ├──► MASS ÷ VOLUME ──► DENSITY                                           READING
   ├──► CMYK ──► envelope seeds  (C Attack · M Decay · Y Sustain · K Release)
   └──► HUE + LIGHTNESS ──► PITCH  (pitch class + octave)
@@ -39,7 +39,10 @@ SUIT ──► SHAPE (Platonic solid ──► Cd, k, corners)                  
 STRIKE  (the organ's charge = step velocity × channel volume)
   │
   ▼
-ENERGY INTO PARTICLE ──► HEIGHT  (lift)                                    AGREED
+ENERGY INTO PARTICLE ──► MOMENTUM p = √(KE² + 2·KE·m·c²)/c             READING
+  │      (matter → Newton · mass 0 → light, p = KE/c · speed never passes c)
+  ├──► FORCE = Δp ÷ Δt   (Δt = the attack time; F = m·Δv/Δt for matter)    READING
+  └──► HEIGHT  (lift)                                                      AGREED
   │
   ▼
 PARTICLE RESPONDS
@@ -52,7 +55,7 @@ PARTICLE RESPONDS
 SOUND  (pitch · suit waveform · gain curve · pan)
 ```
 
-K appears twice and agrees with itself: **mass is K**, and **Inertia (release) is K's envelope slot**.
+**Dollars and cents.** Mass = K + cents. **K** = `1 − max(r,g,b)/255` is the whole dollar: the weight a color is guaranteed from how far it sits from white. The **cents** = `max − mean` are the extra weight saturation adds, the texture of the mass. Pure grays have no cents. K stays the CMYK reading (and Inertia's envelope slot); mass is the diagonal height, and mass ≥ K always.
 
 ---
 
@@ -73,7 +76,9 @@ K appears twice and agrees with itself: **mass is K**, and **Inertia (release) i
 **Properties**
 | Term | Meaning | Status |
 |---|---|---|
-| Mass | `1 − max(r,g,b)/255` = K. Black 1, white 0 | BUILT (shapes Gravity) |
+| Mass | `1 − mean(r,g,b)/255`, the height down the gray diagonal. Black 1, white 0 (only white; deck has 1 zero-mass card, 56 distinct masses) | BUILT (shapes Gravity) |
+| K | `1 − max(r,g,b)/255`. The whole-dollar part of mass; the CMYK black. `mass = K + cents` | BUILT |
+| Cents | `max − mean`. The extra mass from saturation | READING |
 | Volume | `k × (R / circ)³`, sphere model. Unit sphere: radius 1 at white. Biggest possible = white Major, 2.785 | READING |
 | Density | `mass ÷ volume`. Infinite at pure black, 0 at white | READING |
 | Shape | The suit's Platonic solid, with its corner count, Cd and how much of its sphere it fills | READING |
@@ -84,7 +89,12 @@ K appears twice and agrees with itself: **mass is K**, and **Inertia (release) i
 | Term | Meaning | Status |
 |---|---|---|
 | Strike | The organ's charge into the particle, like a piano hammer. Size = `vol` (velocity × channel volume) | BUILT |
-| Force | Energy the strike delivers. (FRTVI's "Force" slider is attack time. See Open) | OPEN |
+| Strike energy (KE) | Energy the strike delivers, from `vol`, floor 0.05 | BUILT (feeds Gravity lift) · READING |
+| c | The organ's speed of light. `c² = 1000` organ units, a tuning constant. Nothing moves faster | READING |
+| Momentum (p) | `√(KE² + 2·KE·m·c²) / c`. One equation for matter and light | READING |
+| Δt | The Attack slider. How long the organ takes to push the particle (ms). Replaces the old "Force" label | BUILT (label) |
+| Force (F) | **Derived, not a control.** `F = Δp ÷ Δt`. For matter `F = m·Δv/Δt`; for light `F = E/(c·Δt)`. Shown in the FRTVI pane and the Physics table | READING |
+| Regime | Matter-like (v ≪ c) or light-like (v/c ≥ 0.5). White is light; the rest of the deck is matter | READING |
 | Height | How high the strike lifts the particle. In vacuum `h = E/(mg)` | AGREED |
 | Gravity (g) | Same acceleration for everything. Presets Moon / Mars / Earth / Jupiter / Sun | BUILT |
 | Atmosphere (ρ) | Air density. Moon ≈ none · Mars ≈ 0.02 · Earth 1.225 kg/m³ | AGREED |
@@ -109,7 +119,8 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 |---|---|---|---|
 | Color | `getEffectiveColor(track,n,si,stepCount)` | card + step → color after gradient | BUILT |
 | Color | `toCMYK(r,g,b)` | color → C, M, Y, K | BUILT |
-| Mass | `cardMass(col)` | `1 − max(r,g,b)/255` | BUILT |
+| Mass | `cardMass(col)` | `1 − mean(r,g,b)/255` | BUILT |
+| Strike | `strikeKinematics(col,vol,channel)` | → mass, KE, momentum p, v/c, Δt (the real attack), Force, light/matter | READING |
 | Vector | `colorVector(col)` | → length (0–1), tilt, spin | READING |
 | Volume | `particleVolume(col,suit)` | sphere model → volume of the suit's solid | READING |
 | Particle | `particleProps(col,suit)` | → mass, volume, density, length, tilt, spin, shape | READING |
@@ -121,7 +132,8 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 | Shape | `noteGainPoints(s,dur,t0)` | shape → four `[time, gain]` points | BUILT |
 | Play | `scheduleCardNote(...)` | plays those points | BUILT |
 | Graphs | `buildFxGraph(channel,ci,kind)` | draws from `noteShape`, so the picture is the sound | BUILT |
-| Readout | `fxBlockParticle(channel,ci)` | the Physics Engine pane's per-card table | READING |
+| Readout | `fxBlockParticle(channel,ci)` | the Physics Engine pane's per-card table (particle · strike · color vector) | READING |
+| Readout | `fxBlockFrtvi` force line | the FRTVI pane's Force range across the channel's cards | READING |
 | Safety | `ensureFx(channel)` | fills missing settings so old songs still load | BUILT |
 | Strike | strike → energy → height; atmosphere; drag; terminal velocity | | AGREED |
 
@@ -130,10 +142,10 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 ## Status board
 
 **BUILT**
-Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, length, tilt, spin per card).
+Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, Δt, Force, regime, length, tilt, spin per card) · Attack relabelled Δt.
 
 **AGREED, not built**
-- Strike → energy → height; atmosphere per planet preset; drag and buoyancy; terminal velocity from the equation.
+- Strike → height; atmosphere per planet preset; drag and buoyancy; terminal velocity from the equation.
 - Old RGB Particle stays until its replacement has been heard, then retires.
 - Particle cloud with voices is an **effect**, later, outside the Physics Engine.
 
@@ -141,10 +153,12 @@ Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blen
 - Length, tilt and spin do nothing yet, not even pan. Later they may become controls the **user** assigns to whatever they want each to drive.
 
 **PARKED**
-Material (list to be pulled from the cards) · striker (surface area, hardness) and ADSR labels in front · cutoff / resonance / modulation as offsets from the card's material · photon energy · Gravity layers 2 and 3 · bounce `vy = −vy·e`.
+Material (list to be pulled from the cards) · striker (surface area, hardness) and ADSR labels in front · cutoff / resonance / modulation as offsets from the card's material · photon energy (E = h·f from pitch; white stays on strike energy for now) · Planck-scale constants · Gravity layers 2 and 3 · bounce `vy = −vy·e`.
 
 **OPEN**
-- "Force" is double-booked: strike energy versus the attack-time slider.
+- (Settled Oct 16: the attack slider is Δt, and Force is derived: F = Δp ÷ Δt. Nothing double-booked.)
+- Whether the Force reading should later feed the sound (peak or attack shape), and how.
+- The value of c: only white reads light-like at c² = 1000. Tune by ear.
 - What length, tilt and spin should drive.
 - Spin already sets pitch class, so any pan by spin would pin each pitch class to a place on the stage.
 - Which hues sit left or right would be a convention, not a derivation.
@@ -157,7 +171,8 @@ Material (list to be pulled from the cards) · striker (surface area, hardness) 
 ## Reference numbers
 
 ```
-value = max(r,g,b)/255            mass = 1 − value            (= K)
+mass  = 1 − mean(r,g,b)/255       K = 1 − max(r,g,b)/255      mass = K + cents,  cents = max − mean
+p     = √(KE² + 2·KE·m·c²)/c      F = p/Δt                    c² = 1000 (organ units)
 dist  = distance of (r,g,b) from (0,0,0)
 R     = dist / (255·√3)           length / sphere radius, 0 to 1
 edge  = R / circ                  suit's solid scaled so its corners sit on the sphere
@@ -177,6 +192,6 @@ spin  = atan2(√3·(g−b), 2r−g−b)
 Densest suit (Wands) to lightest (Major) at the same color: 5.43×.
 Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square · Major sine + triangle overtone at 2×.
 
-**Constants:** ρ = 1.225 kg/m³ (sea level) · g = 9.81 m/s² · peak 0.70×vol (FRTVI off), 0.90×vol (FRTVI on) · `GRAV_LIFT_K = 0.6` · `GRAV_INERTIA_K = 1.2` · sag factor 0.22.
+**Constants:** c² = 1000 · light-like at v/c ≥ 0.5 · ρ = 1.225 kg/m³ (sea level) · g = 9.81 m/s² · peak 0.70×vol (FRTVI off), 0.90×vol (FRTVI on) · `GRAV_LIFT_K = 0.6` · `GRAV_INERTIA_K = 1.2` · sag factor 0.22.
 
 **Semantic layer** (Mu's card text → embeddings → 2D plot) stays separate. Its "gravity" has nothing to do with the Organ's gravity.

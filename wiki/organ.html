@@ -134,7 +134,11 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .fx-opacity input[type=range]{width:110px;accent-color:var(--gold);}
 .fx-opacity .fx-op-val{min-width:34px;text-align:right;color:var(--gold);font-size:11px;letter-spacing:.04em;}
 .fx-ro{overflow-x:auto;margin-top:6px;}
-.fx-ro-grid{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(190px,1.7fr) minmax(86px,1fr) minmax(86px,1fr) minmax(86px,1fr) minmax(66px,.7fr) minmax(66px,.7fr) minmax(66px,.7fr);column-gap:10px;row-gap:0;min-width:760px;align-items:center;}
+.fx-force-line{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;color:rgba(201,169,110,.55);margin:2px 0 6px;padding:5px 8px;border-left:2px solid rgba(201,169,110,.25);}
+.fx-force-line b{font-weight:400;font-size:13px;color:var(--gold);}
+.fx-force-k{letter-spacing:.16em;font-size:9.5px;color:rgba(201,169,110,.45);}
+.fx-force-eq{font-family:'EB Garamond',serif;font-style:italic;font-size:12px;letter-spacing:0;color:rgba(201,169,110,.4);}
+.fx-ro-grid{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(190px,1.7fr) minmax(86px,1fr) minmax(86px,1fr) minmax(86px,1fr) minmax(60px,.7fr) minmax(70px,.8fr) minmax(70px,.8fr) minmax(66px,.7fr) minmax(66px,.7fr) minmax(66px,.7fr);column-gap:10px;row-gap:0;min-width:1040px;align-items:center;}
 .fx-ro-grp{font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:.18em;color:rgba(201,169,110,.55);padding:0 0 4px;border-bottom:1px solid rgba(201,169,110,.18);}
 .fx-ro-grp.vec{color:rgba(201,169,110,.38);border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
 .fx-ro-h{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;color:rgba(201,169,110,.4);padding:6px 0 5px;}
@@ -2256,7 +2260,10 @@ const WAVES={major:'sine',wands:'triangle',cups:'sine',swords:'sawtooth',disks:'
 const GRAV_LIFT_K=0.6;     // scales how much mass+gravity can damp peak amplitude
 const GRAV_INERTIA_K=1.2;  // scales how much mass stretches the release
 
-function cardMass(col){ return 1-Math.max(col.r,col.g,col.b)/255; }
+// Mass = how far down the gray diagonal the color sits: 1 − mean(r,g,b)/255.  Black heaviest (1), white weightless (0).
+// Dollars and cents:  mass = K + cents,  K = 1 − max(r,g,b)/255 (the guaranteed whole dollar)  and
+// cents = max − mean (the extra weight a saturated color carries — the texture of the mass). Gray has no cents.
+function cardMass(col){ return 1-(col.r+col.g+col.b)/765; }
 
 // ── Particle properties: the sphere model (see the Physics Key) ──────────────
 // READINGS ONLY for now — nothing below changes the sound except cardMass above.
@@ -2293,6 +2300,21 @@ function particleProps(col,suit){
   const v=colorVector(col), mass=cardMass(col), volume=particleVolume(col,suit);
   const density=(volume===null)?null:(volume<=1e-12?Infinity:mass/volume);
   return {mass,volume,density,length:v.R,dist:v.dist,tilt:v.tilt,spin:v.spin,shape:SUIT_SOLID[suit]||null};
+}
+
+// ── Strike kinematics: one equation for matter and light (READINGS ONLY — no sound change) ──
+// The organ delivers strike energy KE (from the note's volume). Relativistic energy–momentum gives the
+// particle's momentum:  p = √(KE² + 2·KE·m·c²) / c.   Heavy card → ordinary Newton, p ≈ √(2·m·KE).
+// Mass 0 (white) → p = KE/c  (light: E = pc).  Nothing divides by mass, so nothing breaks at white,
+// and no card can be thrown faster than c.  Force = Δp / Δt, where Δt is the card's real attack time.
+const ORGAN_C2=1000;                       // c² in organ units (c ≈ 31.6) — a tuning constant, the organ's speed of light
+const LIGHT_LIKE_V=0.5;                    // v/c at or above this reads as "light-like"
+function strikeKinematics(col,vol,channel){
+  const m=cardMass(col), KE=Math.max(0.05,vol), c=Math.sqrt(ORGAN_C2);
+  const p=Math.sqrt(KE*KE+2*KE*m*ORGAN_C2)/c;
+  const vOverC=p*c/(KE+m*ORGAN_C2);       // v = p·c²/E_total
+  const dt=noteShape(col,vol,channel).A;   // the attack time this card actually plays with
+  return {mass:m,KE,p,vOverC,dt,F:p/dt,light:vOverC>=LIGHT_LIKE_V};
 }
 
 // ── ONE source of truth for a sound particle's envelope ───────────────────
@@ -3936,7 +3958,8 @@ function fxReadoutCards(channel,ci){
       const col=getEffectiveColor(channel,n,si,pat.stepCount);
       const key=n+':'+col.r+','+col.g+','+col.b;
       if(seen.has(key)) return;
-      seen.add(key);out.push({card,col});
+      const vel=(pd.stepVelocities&&pd.stepVelocities[si]!==undefined)?pd.stepVelocities[si]:100;
+      seen.add(key);out.push({card,col,vol:channel.vol*(vel/127)});
     });
   }
   return out;
@@ -3945,39 +3968,48 @@ function fxBlockParticle(channel,ci){
   const fx=ensureFx(channel);
   let rows=fxReadoutCards(channel,ci);
   const refOnly=rows.length===0;
-  if(refOnly) rows=[{card:{name:'Reference · mid-gray',suit:SUIT_SOLID[channel.suit]?channel.suit:'major'},col:{r:128,g:128,b:128}}];
+  if(refOnly) rows=[{card:{name:'Reference · mid-gray',suit:SUIT_SOLID[channel.suit]?channel.suit:'major'},col:{r:128,g:128,b:128},vol:channel.vol*(100/127)}];
   const total=rows.length; rows=rows.slice(0,FX_RO_MAXROWS);
   const wrap=document.createElement('div');wrap.className='fx-ro';
   const g=document.createElement('div');g.className='fx-ro-grid';
   const add=(cls,html,title)=>{const d=document.createElement('div');d.className=cls;d.innerHTML=html;if(title)d.title=title;g.appendChild(d);return d;};
   // group headings
   add('fx-ro-grp','PARTICLE').style.gridColumn='1 / 6';
-  add('fx-ro-grp vec','COLOR VECTOR').style.gridColumn='6 / 9';
+  add('fx-ro-grp vec','STRIKE').style.gridColumn='6 / 9';
+  add('fx-ro-grp vec','COLOR VECTOR').style.gridColumn='9 / 12';
   // column headings
   add('fx-ro-h','CARD');add('fx-ro-h','SHAPE');
-  add('fx-ro-h','MASS',   'Mass = K = 1 − max(r,g,b)/255. Black is heaviest, white weightless.');
+  add('fx-ro-h','MASS',   'Mass = 1 − mean(r,g,b)/255 — how far down the gray diagonal the color sits. Black is heaviest, white weightless. (K is the whole-dollar part of it; the color beyond K adds the cents.)');
   add('fx-ro-h','VOLUME', 'The suit’s solid, scaled so its corners sit on the color’s sphere. White Major Arcana is the biggest possible (2.785).');
   add('fx-ro-h','DENSITY','Mass ÷ volume. Climbs toward infinity only at pure black.');
+  add('fx-ro-h vec','Δt','The card’s real attack time — how long the organ takes to push it. Set by the Attack (Δt) slider when FRTVI is on, otherwise by the card’s own color.');
+  add('fx-ro-h vec','FORCE','F = Δp ÷ Δt. A reading, not a control. Momentum p comes from the strike energy and the card’s mass; heavier cards need more push, a longer Δt softens it.');
+  add('fx-ro-h vec','REGIME','Matter-like: slow next to the organ’s speed of light c. Light-like: near c — only the very lightest cards, white above all.');
   add('fx-ro-h vec','LENGTH','Distance from black ÷ 441.7 — the radius of the color’s sphere (0–1).');
   add('fx-ro-h vec','TILT',  'Angle between the color’s vector and the gray diagonal. 0° = pure gray.');
   add('fx-ro-h vec','SPIN',  'Angle around the gray diagonal — the hue. Pure grays have none.');
   const f3=x=>x.toFixed(3);
   const fd=d=>d===null?'—':!isFinite(d)?'∞':d>=100?d.toFixed(0):d>=10?d.toFixed(1):d.toFixed(2);
   const fa=a=>a===null?'—':a.toFixed(1)+'°';
-  rows.forEach(({card,col})=>{
+  const fF=x=>x>=100?x.toFixed(0):x>=10?x.toFixed(1):x.toFixed(2);
+  rows.forEach(({card,col,vol})=>{
     const p=particleProps(col,card.suit), sh=p.shape;
     const sw=add('fx-ro-c fx-ro-card','<span class="fx-ro-sw" style="background:rgb('+col.r+','+col.g+','+col.b+')"></span><span class="fx-ro-name">'+card.name+'</span>');
     add('fx-ro-c fx-ro-shape',sh?'<b>'+sh.name+'</b><small>'+sh.verts+' corners · Cd '+sh.cd.toFixed(2)+' · fills '+(sh.k*Math.pow(1/sh.circ,3)/SPHERE_UNIT_VOLUME*100).toFixed(1)+'% of its sphere</small>':'<b>—</b>');
     add('fx-ro-c','<span class="fx-ro-num">'+f3(p.mass)+'</span><div class="fx-ro-bar"><i style="width:'+(p.mass*100).toFixed(1)+'%"></i></div>');
     add('fx-ro-c','<span class="fx-ro-num">'+(p.volume===null?'—':f3(p.volume))+'</span><div class="fx-ro-bar"><i style="width:'+(p.volume===null?0:Math.min(100,p.volume/MAX_PARTICLE_VOLUME*100)).toFixed(1)+'%"></i></div>');
     add('fx-ro-c','<span class="fx-ro-num">'+fd(p.density)+'</span>');
+    const k=strikeKinematics(col,vol,channel);
+    add('fx-ro-c vec','<span class="fx-ro-num vec">'+(k.dt*1000).toFixed(0)+' ms</span>');
+    add('fx-ro-c','<span class="fx-ro-num">'+fF(k.F)+'</span>');
+    add('fx-ro-c vec','<span class="fx-ro-num vec">'+(k.light?'light':'matter')+'</span><div class="fx-ro-bar"><i style="width:'+(k.vOverC*100).toFixed(1)+'%"></i></div>');
     add('fx-ro-c vec','<span class="fx-ro-num vec">'+f3(p.length)+'</span>');
     add('fx-ro-c vec','<span class="fx-ro-num vec">'+fa(p.tilt)+'</span>');
     add('fx-ro-c vec','<span class="fx-ro-num vec">'+fa(p.spin)+'</span>');
   });
   wrap.appendChild(g);
   const cap=document.createElement('div');cap.className='fx-graph-cap';
-  let txt='Read from each card’s color. Mass already shapes Gravity (lift-off cost and release). Volume, density, length, tilt and spin are readings only — they do not change the sound yet.';
+  let txt='Read from each card’s color. Mass already shapes Gravity (lift-off cost and release). Volume, density, the strike readings, length, tilt and spin are readings only — they do not change the sound yet. Force F = Δp ÷ Δt; the speed limit is the organ’s c.';
   txt+=refOnly?' No cards on this channel yet, so a mid-gray reference is shown.':' One row per card on this channel ('+(total>FX_RO_MAXROWS?FX_RO_MAXROWS+' of '+total:total)+').';
   if(!fx.physicsOn) txt+=' Dimmed: the Physics Engine is OFF.';
   cap.textContent=txt;
@@ -4014,7 +4046,7 @@ function fxBlockFrtvi(channel,ci){
   // FRTVI sliders with synced number inputs
   const slidersDiv=document.createElement('div');slidersDiv.className='effects-sliders';
   const defs=[
-    {key:'attack', main:'Force',            sub:'(Attack)',  min:0,max:2000,unit:'ms'},
+    {key:'attack', main:'Δt',               sub:'(Attack)',  min:0,max:2000,unit:'ms'},
     {key:'decay',  main:'Resistance',       sub:'(Decay)',   min:0,max:2000,unit:'ms'},
     {key:'sustain',main:'Terminal Velocity',sub:'(Sustain)', min:0,max:100, unit:'%'},
     {key:'release',main:'Inertia',          sub:'(Release)', min:0,max:3000,unit:'ms'},
@@ -4041,7 +4073,21 @@ function fxBlockFrtvi(channel,ci){
     numInp.addEventListener('change',()=>saveState());
     row.append(lbl,numInp,sliderInp);slidersDiv.appendChild(row);
   });
-  return [hdr,slidersDiv,graph.el];
+  // Derived Force: F = Δp ÷ Δt — a reading across this channel's cards, never a control.
+  const fLine=document.createElement('div');fLine.className='fx-force-line';
+  const fGraph=graph.redraw;
+  const fUpd=()=>{
+    let cards=fxGraphCards(channel,ci); if(!cards.length) cards=[{col:{r:128,g:128,b:128},vol:channel.vol*(100/127)}];
+    const ks=cards.slice(0,FX_GRAPH_MAXCARDS).map(c=>strikeKinematics(c.col,c.vol,channel));
+    const fs=ks.map(k=>k.F),lo=Math.min(...fs),hi=Math.max(...fs);
+    const f=x=>x>=100?x.toFixed(0):x>=10?x.toFixed(1):x.toFixed(2);
+    const nl=ks.filter(k=>k.light).length;
+    fLine.innerHTML='<span class="fx-force-k">FORCE</span> <b>'+(hi-lo<0.005*hi?f(lo):f(lo)+' – '+f(hi))+'</b> <span class="fx-force-eq">F = m·Δv ÷ Δt = Δp ÷ Δt</span>'+(nl?' <span class="fx-force-eq">· '+nl+' light-like</span>':'');
+    fLine.title='Derived, read-only. Heavier cards take more force to move; a longer Δt spreads the same push out and lowers it. Light-like cards (near white) carry momentum E ÷ c.';
+  };
+  graph.redraw=function(){fGraph.apply(this,arguments);fUpd();};
+  fUpd();
+  return [hdr,slidersDiv,fLine,graph.el];
 }
 
 // Physics Engine master header (used when the Physics Engine tile is selected)
