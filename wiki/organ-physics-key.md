@@ -1,128 +1,182 @@
 # Trickno · Organ — Physics Key
-*The simple, complete reference. Last settled: Oct 2026. Carry this into every chat touching the Organ's physics.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 11, 2026. This is the only copy.*
+
+Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
 ---
 
-## The picture underneath all of it
-
-Each card is a **hyperdimensional square** — built by a scientist, carrying one element to be understood. In the Organ, striking a card's space sends an **electrical charge**, sized by the velocity slider, into that element — modeled like a **piano hammer strike**. The goal isn't just to make sounds. It's to build a system logical enough that it makes *discoveries* — strange, true things about sound that nobody put there on purpose.
-
-Two readings of the same object, always both true at once:
-- *"This particle obeys Maxwell's equations."*
-- *"This particle belongs to Fire."*
-
----
-
-## 1. Color = identity, read two ways
-
-| Reading | Source | Meaning |
-|---|---|---|
-| **CMYK → FRTVI** | subtractive, matter | intrinsic identity — what the particle **is** |
-| **RGB → dynamic state** | additive, spirit | observed state — what the particle **is doing** |
-
-**FRTVI** = Force · Resistance · Terminal Velocity · Inertia — the envelope:
-
-| FRTVI | Audio role | Meaning |
-|---|---|---|
-| Force | Attack | the push at trigger — the hammer strike |
-| Resistance | Decay | fluid drag opposing motion |
-| Terminal Velocity | Sustain | equilibrium where drive = drag |
-| Inertia | Release | momentum carrying on after the force stops |
-
-CMYK↔ADSR (C=Attack, M=Decay, Y=Sustain, K=Release) is kept for now. Origin: both had four slots — not yet confirmed as deep. Still undecided whether it stays.
+## Principles
+1. **Physics as accurate as possible inside the dream.** When a real law and a convenient shortcut disagree, the law wins. Shortcuts are labelled WEDGED.
+2. **Two readings of one object, both true at once:** "this particle obeys Maxwell's equations" and "this particle belongs to Fire."
+3. **Gravity does gravity; atmosphere does atmosphere.** Gravity accelerates everything equally. Drag and buoyancy come from the atmosphere (air density ρ; 0 = vacuum). Galileo's falling-together is simply the ρ = 0 case, not a separate rule.
+4. **Every audio change is opt-in, default OFF.** Existing songs keep their sound.
+5. **A color is one vector, not three filters.** R, G, B are not separate knobs.
+6. **Emphasize mass, volume, density and shape first.** The color-vector readings (length, tilt, spin) come second, and do nothing yet.
 
 ---
 
-## 2. Suits = Platonic solids = drag coefficients
-
-| Suit | Solid | Cd (drag) |
-|---|---|---|
-| Wands / Fire | Tetrahedron | ≈ 0.55 |
-| Cups / Water | Icosahedron | ≈ 0.45 |
-| Swords / Air | Octahedron | ≈ 0.50 |
-| Disks / Earth | Hexahedron (Cube) | ≈ 1.05 |
-| Major / Aether | Dodecahedron | ≈ 0.48 |
-
-A shape having both a drag coefficient *and* a volume (next section) is not a conflict — same way an object has both a weight and a height.
-
----
-
-## 3. Mass — settled, and it's exact
+## The chain (zoomed out)
 
 ```
-value = max(r, g, b) / 255        (HSV Value / brightness)
-mass  = 1 - value
+CARD  (suit · number · step)
+  │
+  ▼
+EFFECTIVE COLOR  (r,g,b — after the channel gradient)
+  │
+  ├──► COLOR VECTOR  (line from black to the color)                        READING
+  │      ├─ length ──► radius ──► VOLUME
+  │      ├─ tilt   ──► how far off the gray diagonal
+  │      └─ spin   ──► direction (= hue)
+  │
+  ├──► BRIGHTNESS = max(r,g,b)/255 ──► MASS (= K)                          BUILT
+  ├──► MASS ÷ VOLUME ──► DENSITY                                           READING
+  ├──► CMYK ──► envelope seeds  (C Attack · M Decay · Y Sustain · K Release)
+  └──► HUE + LIGHTNESS ──► PITCH  (pitch class + octave)
+
+SUIT ──► SHAPE (Platonic solid ──► Cd, k, corners)                         READING
+     └─► MATERIAL FAMILY  (resonance · damping · excitation · harmonics)   PARKED
+
+STRIKE  (the organ's charge = step velocity × channel volume)
+  │
+  ▼
+ENERGY INTO PARTICLE ──► HEIGHT  (lift)                                    AGREED
+  │
+  ▼
+PARTICLE RESPONDS
+  ├─ envelope     CMYK seeds + FRTVI sliders  (blend · opacity)            BUILT
+  ├─ gravity      pulls sustain down; mass raises lift cost, stretches release   BUILT
+  ├─ atmosphere   drag + buoyancy; terminal velocity from the equation     AGREED
+  └─ vector       length · tilt · spin: assignable to controls, later      OPEN
+  │
+  ▼
+SOUND  (pitch · suit waveform · gain curve · pan)
 ```
 
-This is **identical to K** (Key/Black) in the existing CMYK ontology. Black → mass 1 (ceiling). White → mass 0. Mass itself never exceeds 1 — it does not go to infinity (density does, see below).
+K appears twice and agrees with itself: **mass is K**, and **Inertia (release) is K's envelope slot**.
 
 ---
 
-## 4. Volume — the sphere model (confirmed, not the edge or cube model)
+## Vocabulary
+
+**Particle and color**
+| Term | Meaning | Status |
+|---|---|---|
+| Sound particle | One triggered card note | BUILT |
+| Effective color | The card's color at that step, after the channel gradient | BUILT |
+| Color vector | Line from black (0,0,0) to the effective color | READING |
+| Length | Vector length as a 0–1 sphere radius: distance from black ÷ 441.7. Scales the shape. Any further job undecided | READING |
+| Tilt | Angle between the vector and the gray diagonal, in degrees. 0° = pure gray. Black has none | READING |
+| Spin | Angle around the gray diagonal, 0–360°. Red 0 · yellow 60 · green 120 · cyan 180 · blue 240 · magenta 300. Pure grays have none. Within ~1.1° of ordinary HSV hue everywhere | READING |
+| CMYK reading | Subtractive, matter: what the particle **is** | BUILT |
+| RGB reading | Additive, spirit: what the particle is **doing** | AGREED |
+
+**Properties**
+| Term | Meaning | Status |
+|---|---|---|
+| Mass | `1 − max(r,g,b)/255` = K. Black 1, white 0 | BUILT (shapes Gravity) |
+| Volume | `k × (R / circ)³`, sphere model. Unit sphere: radius 1 at white. Biggest possible = white Major, 2.785 | READING |
+| Density | `mass ÷ volume`. Infinite at pure black, 0 at white | READING |
+| Shape | The suit's Platonic solid, with its corner count, Cd and how much of its sphere it fills | READING |
+| Cd | Drag coefficient of the shape | AGREED |
+| Material | Suit's material family | PARKED |
+
+**Forces and envelope**
+| Term | Meaning | Status |
+|---|---|---|
+| Strike | The organ's charge into the particle, like a piano hammer. Size = `vol` (velocity × channel volume) | BUILT |
+| Force | Energy the strike delivers. (FRTVI's "Force" slider is attack time. See Open) | OPEN |
+| Height | How high the strike lifts the particle. In vacuum `h = E/(mg)` | AGREED |
+| Gravity (g) | Same acceleration for everything. Presets Moon / Mars / Earth / Jupiter / Sun | BUILT |
+| Atmosphere (ρ) | Air density. Moon ≈ none · Mars ≈ 0.02 · Earth 1.225 kg/m³ | AGREED |
+| Drag | `F = ½ρ·Cd·A·v²` | AGREED |
+| Resistance | Decay. Fluid drag opposing motion | BUILT |
+| Terminal Velocity | Sustain. Where drive = drag. `TV = sqrt(2F / ρCdA)` | BUILT as a slider · equation AGREED |
+| Inertia | Release. Momentum after the drive stops | BUILT |
+| Lift cost | What mass and gravity charge the strike: `mass · gNorm · depth · 0.6` | BUILT (tuning constant) |
+| Release stretch | Heavier rings longer: `R × (1 + mass · 1.2)` | BUILT (tuning constant) |
+| Sag | Gravity pulling the sustain down: `gNorm · depth · 0.22` | BUILT, WEDGED |
+| Opacity | FRTVI strength. 100% = full blend · 0% = exactly as if FRTVI were off | BUILT |
+| Blend | How FRTVI mixes with the card's own envelope: normal / multiply / screen / overlay | BUILT |
+| Physics Engine | Master switch for physics. Its pane shows each card's particle readout | BUILT |
+
+**Interface**
+Effects Lab (button + list) · effect tile · pane · graph · particle readout · **+** add · **×** remove.
+
+---
+
+## Functions (the machine's parts)
+| Stage | Function | Does | Status |
+|---|---|---|---|
+| Color | `getEffectiveColor(track,n,si,stepCount)` | card + step → color after gradient | BUILT |
+| Color | `toCMYK(r,g,b)` | color → C, M, Y, K | BUILT |
+| Mass | `cardMass(col)` | `1 − max(r,g,b)/255` | BUILT |
+| Vector | `colorVector(col)` | → length (0–1), tilt, spin | READING |
+| Volume | `particleVolume(col,suit)` | sphere model → volume of the suit's solid | READING |
+| Particle | `particleProps(col,suit)` | → mass, volume, density, length, tilt, spin, shape | READING |
+| Shape | `SUIT_SOLID` | per suit: solid name, corners, Cd, k, circumradius | READING |
+| Pitch | `activeRgbToFreq` → `rgbToFreq` / `rgbToFreqMultiOctave` | hue → pitch class, lightness → octave → Hz | BUILT |
+| Envelope | `getCmykAdsr(col)` | CMYK → the card's own envelope (FRTVI on) | BUILT |
+| Envelope | `blendAdsr(cmyk,user,mode)` | card's envelope × the four sliders | BUILT |
+| **Shape** | `noteShape(col,vol,channel,force)` | **the one envelope calculation**: opacity, blend, gravity, RGB wedge | BUILT |
+| Shape | `noteGainPoints(s,dur,t0)` | shape → four `[time, gain]` points | BUILT |
+| Play | `scheduleCardNote(...)` | plays those points | BUILT |
+| Graphs | `buildFxGraph(channel,ci,kind)` | draws from `noteShape`, so the picture is the sound | BUILT |
+| Readout | `fxBlockParticle(channel,ci)` | the Physics Engine pane's per-card table | READING |
+| Safety | `ensureFx(channel)` | fills missing settings so old songs still load | BUILT |
+| Strike | strike → energy → height; atmosphere; drag; terminal velocity | | AGREED |
+
+---
+
+## Status board
+
+**BUILT**
+Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, length, tilt, spin per card).
+
+**AGREED, not built**
+- Strike → energy → height; atmosphere per planet preset; drag and buoyancy; terminal velocity from the equation.
+- Old RGB Particle stays until its replacement has been heard, then retires.
+- Particle cloud with voices is an **effect**, later, outside the Physics Engine.
+
+**Direction, not decided**
+- Length, tilt and spin do nothing yet, not even pan. Later they may become controls the **user** assigns to whatever they want each to drive.
+
+**PARKED**
+Material (list to be pulled from the cards) · striker (surface area, hardness) and ADSR labels in front · cutoff / resonance / modulation as offsets from the card's material · photon energy · Gravity layers 2 and 3 · bounce `vy = −vy·e`.
+
+**OPEN**
+- "Force" is double-booked: strike energy versus the attack-time slider.
+- What length, tilt and spin should drive.
+- Spin already sets pitch class, so any pan by spin would pin each pitch class to a place on the stage.
+- Which hues sit left or right would be a convention, not a derivation.
+- Element ↔ color beyond the five suit tints (magenta = plasma? cyan?).
+- Meaning of "negative space" and the curved gaps between a solid and its sphere.
+- Whether the CMYK ↔ ADSR pairing stays (origin: both have four slots).
+
+---
+
+## Reference numbers
 
 ```
+value = max(r,g,b)/255            mass = 1 − value            (= K)
 dist  = distance of (r,g,b) from (0,0,0)
-R     = dist / (255·√3)           → the sphere's radius, 0 to 1
-aSuit = R × (unitEdgeLen / unitCircumradius)   → this suit's solid, scaled so its
-                                                  corners sit exactly on that sphere
-volume = k × aSuit³
+R     = dist / (255·√3)           length / sphere radius, 0 to 1
+edge  = R / circ                  suit's solid scaled so its corners sit on the sphere
+volume = k × edge³                density = mass / volume
+tilt  = acos((r+g+b) / (√3·dist))
+spin  = atan2(√3·(g−b), 2r−g−b)
 ```
 
-| Suit | Solid | k (volume coefficient) | Fills its sphere | Negative space |
-|---|---|---|---|---|
-| Wands | Tetrahedron | √2⁄12 | 12.3% | 87.7% |
-| Swords | Octahedron | √2⁄3 | 31.8% | 68.2% |
-| Disks | Cube | 1 | 36.8% | 63.2% |
-| Cups | Icosahedron | 5(3+√5)⁄12 | 60.5% | 39.5% |
-| Major | Dodecahedron | (15+7√5)⁄4 | 66.5% | 33.5% |
+| Suit | Element | Solid | Corners | Cd | k | Fills its sphere |
+|---|---|---|---|---|---|---|
+| Wands | Fire | Tetrahedron | 4 | ≈ 0.55 | √2⁄12 | 12.3% |
+| Cups | Water | Icosahedron | 12 | ≈ 0.45 | 5(3+√5)⁄12 | 60.5% |
+| Swords | Air | Octahedron | 6 | ≈ 0.50 | √2⁄3 | 31.8% |
+| Disks | Earth | Cube | 8 | ≈ 1.05 | 1 | 36.8% |
+| Major | Aether | Dodecahedron | 20 | ≈ 0.48 | (15+7√5)⁄4 | 66.5% |
 
-Why sphere, not edge-length or cube: it's the one true form each solid simplifies. Every suit becomes legible by its vertex count and placement alone. It compresses the density spread between densest (Wands) and least dense (Major) from ~65× (edge model) down to ~5.4× (sphere model) — same order, gentler curve.
+Densest suit (Wands) to lightest (Major) at the same color: 5.43×.
+Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square · Major sine + triangle overtone at 2×.
 
-**Open, not urgent:** the curved gaps between a solid's flat faces and the sphere (noted, not resolved). The "negative space" — sphere volume the suit's solid doesn't use — is felt to deserve its own meaning eventually; not solved yet.
+**Constants:** ρ = 1.225 kg/m³ (sea level) · g = 9.81 m/s² · peak 0.70×vol (FRTVI off), 0.90×vol (FRTVI on) · `GRAV_LIFT_K = 0.6` · `GRAV_INERTIA_K = 1.2` · sag factor 0.22.
 
-## 5. Density
-
-```
-density = mass / volume
-```
-
-The *only* place infinity appears — and only at pure black, where mass climbs to its ceiling (1) at the same moment volume collapses toward 0. Mass alone is never infinite. Near white, density collapses toward 0 (big volume, vanishing mass).
-
----
-
-## 6. Gravity — Galileo's rule stays intact, and it's now built
-
-Gravity pulls everything at the same rate regardless of mass. A heavy (dark) and light (bright) card dropped together hit the floor together — Jupiter's preset doesn't care what's falling. What mass *does* change, wired into `tarot_sequencer.html` as of Oct 2026:
-
-- **Force needed to lift off** — a heavy card needs a harder strike to reach full peak amplitude against a given planet's pull. A weak strike on a heavy card gets visibly held down; a hard strike mostly overcomes it. (`liftRatio = strikeForce/(strikeForce+liftCost)`, `liftCost = mass·gNorm·(depth/100)·GRAV_LIFT_K`)
-- **Inertia (release) — heavier resists stopping longer, independent of which planet it's on** (inertia is the particle's own property, not the field's). (`R *= 1 + mass·GRAV_INERTIA_K`)
-
-Both gated by the existing Physics Engine + per-channel Gravity toggle (both default OFF) — zero effect on any existing song unless a channel explicitly turns both on. Tuning constants: `GRAV_LIFT_K = 0.6`, `GRAV_INERTIA_K = 1.2` — live in `tarot_sequencer.html` just above `scheduleCardNote`, documented in-line there.
-
-Mass does **not** enter the existing TV equation this round — `TV = sqrt(2F/ρCdA)` is untouched; F stays the Force/attack parameter it already is. Real mass folding into a literal terminal-velocity-under-gravity equation is a future step, not this one.
-
-**PE = mgh — what "h" is:** h is tied to the **strike velocity** — how hard the hammer hits sets how high the particle's excited, same way a note struck harder rings louder/brighter. In the code, the note's `vol` parameter (channel volume × step velocity) stands in for strike force directly. Mass (real, from color) and g (the planet preset) then set how much energy that height actually represents. Sound is a separate, simplified mapping layered on top (MIDI-style) — the physics underneath stays literal; how it's heard stays simple by choice.
-
----
-
-## 7. Semantic layer — stays separate
-
-Card text → embeddings → PCA → 2D plot → cosine-similarity "nearest cards." Color there is a visual anchor only, not meaning. **Not merged** with the physical space above, and not meant to be forced together via a shared mechanism like gravity — if both systems are built well, they may simply illuminate each other side by side, the way two instruments in different keys still make sense played together.
-
-Gravity-as-meaning was ruled out *only* in this semantic system — never in the Organ's own sound physics, where it's fully load-bearing (see §6). The already-shipped mixer effect literally named "Gravity" (per-channel sustain-pull, defaults to 9.81) is a different, unrelated thing — keep the names separate so they don't conflate.
-
----
-
-## 8. Current build scope
-
-**Done:** real mass (= K) wired into Gravity Layer 1 — Force (lift-off cost) and Inertia (release resistance), across the planetary presets (Moon/Mars/Earth/Jupiter/Sun).
-
-**Deliberately out of scope for now:** Gravity Layer 2 (pitch/pan), Layer 3 (point-source gravity well), bounce/restitution (`vy = -vy × e`), buoyancy (floating/sinking sounds by density — a good illustrative example, not a build target yet), re-deriving TV to directly include mass.
-
----
-
-## Constants
-- Air density ρ = 1.225 kg/m³ (sea level)
-- Earth gravity = 9.81 m/s²
-- Peak volumes: 0.70×vol (FRTVI off) · 0.90×vol (FRTVI on)
-- Mass/gravity tuning (new): `GRAV_LIFT_K = 0.6`, `GRAV_INERTIA_K = 1.2`
+**Semantic layer** (Mu's card text → embeddings → 2D plot) stays separate. Its "gravity" has nothing to do with the Organ's gravity.

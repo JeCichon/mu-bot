@@ -133,6 +133,23 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .fx-opacity{display:flex;align-items:center;gap:7px;margin-left:10px;font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:.1em;color:rgba(201,169,110,.5);}
 .fx-opacity input[type=range]{width:110px;accent-color:var(--gold);}
 .fx-opacity .fx-op-val{min-width:34px;text-align:right;color:var(--gold);font-size:11px;letter-spacing:.04em;}
+.fx-ro{overflow-x:auto;margin-top:6px;}
+.fx-ro-grid{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(190px,1.7fr) minmax(86px,1fr) minmax(86px,1fr) minmax(86px,1fr) minmax(66px,.7fr) minmax(66px,.7fr) minmax(66px,.7fr);column-gap:10px;row-gap:0;min-width:760px;align-items:center;}
+.fx-ro-grp{font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:.18em;color:rgba(201,169,110,.55);padding:0 0 4px;border-bottom:1px solid rgba(201,169,110,.18);}
+.fx-ro-grp.vec{color:rgba(201,169,110,.38);border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
+.fx-ro-h{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;color:rgba(201,169,110,.4);padding:6px 0 5px;}
+.fx-ro-h.vec{border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
+.fx-ro-c{padding:7px 0;border-top:1px solid rgba(201,169,110,.07);min-height:34px;display:flex;flex-direction:column;justify-content:center;}
+.fx-ro-c.vec{border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
+.fx-ro-card{flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;}
+.fx-ro-sw{width:14px;height:14px;border-radius:2px;flex-shrink:0;box-shadow:0 0 0 1px rgba(235,225,205,.35);}
+.fx-ro-name{font-family:'EB Garamond',serif;font-size:13px;color:rgba(235,225,205,.8);line-height:1.15;}
+.fx-ro-shape b{font-family:'Cinzel',serif;font-weight:400;font-size:11.5px;letter-spacing:.06em;color:rgba(201,169,110,.9);}
+.fx-ro-shape small{font-family:'EB Garamond',serif;font-size:11.5px;font-style:italic;color:rgba(201,169,110,.4);line-height:1.2;margin-top:1px;}
+.fx-ro-num{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.03em;color:var(--gold);}
+.fx-ro-num.vec{font-size:11px;color:rgba(201,169,110,.6);}
+.fx-ro-bar{height:3px;margin-top:4px;background:rgba(201,169,110,.12);border-radius:2px;overflow:hidden;}
+.fx-ro-bar i{display:block;height:100%;background:rgba(201,169,110,.7);}
 /* ── Effects Lab graphs (SVG, drawn from noteShape — same math as the sound) ── */
 .fx-graph{position:relative;margin-top:10px;}
 .fx-graph svg{display:block;width:100%;height:140px;border:1px solid rgba(201,169,110,.12);border-radius:3px;background:rgba(0,0,0,.35);transition:opacity .2s;}
@@ -2241,6 +2258,43 @@ const GRAV_INERTIA_K=1.2;  // scales how much mass stretches the release
 
 function cardMass(col){ return 1-Math.max(col.r,col.g,col.b)/255; }
 
+// ── Particle properties: the sphere model (see the Physics Key) ──────────────
+// READINGS ONLY for now — nothing below changes the sound except cardMass above.
+// A color is a vector from black (0,0,0). Its LENGTH is the radius of a sphere; the suit's Platonic
+// solid is scaled so its corners sit on that sphere; VOLUME is that solid's volume; DENSITY = mass ÷ volume.
+// TILT = angle off the gray diagonal (0° = pure gray). SPIN = angle around that diagonal (= hue).
+const SUIT_SOLID=(()=>{const r5=Math.sqrt(5);return{
+  wands: {name:'Tetrahedron', verts:4, cd:0.55, k:Math.sqrt(2)/12,     circ:Math.sqrt(6)/4},
+  cups:  {name:'Icosahedron', verts:12,cd:0.45, k:5*(3+r5)/12,         circ:Math.sqrt(10+2*r5)/4},
+  swords:{name:'Octahedron',  verts:6, cd:0.50, k:Math.sqrt(2)/3,      circ:Math.sqrt(2)/2},
+  disks: {name:'Cube',        verts:8, cd:1.05, k:1,                   circ:Math.sqrt(3)/2},
+  major: {name:'Dodecahedron',verts:20,cd:0.48, k:(15+7*r5)/4,         circ:Math.sqrt(3)*(1+r5)/4}
+};})();
+// k = volume of the solid at unit edge; circ = its circumradius at unit edge.
+// Fraction of its own sphere a solid fills (white card): wands 12.3% · swords 31.8% · disks 36.8% · cups 60.5% · major 66.5%
+const SPHERE_UNIT_VOLUME=4/3*Math.PI;
+const MAX_PARTICLE_VOLUME=SUIT_SOLID.major.k*Math.pow(1/SUIT_SOLID.major.circ,3); // white Major: the biggest possible
+
+function colorVector(col){
+  const r=col.r,g=col.g,b=col.b;
+  const dist=Math.sqrt(r*r+g*g+b*b);
+  const R=dist/(255*Math.sqrt(3));                                   // length as a 0–1 sphere radius
+  let tilt=null,spin=null;
+  if(dist>0){ tilt=Math.acos(Math.max(-1,Math.min(1,(r+g+b)/(Math.sqrt(3)*dist))))*180/Math.PI; }
+  if(!(r===g&&g===b)){ spin=(Math.atan2(Math.sqrt(3)*(g-b),2*r-g-b)*180/Math.PI+360)%360; }
+  return {dist,R,tilt,spin};
+}
+function particleVolume(col,suit){
+  const sol=SUIT_SOLID[suit]; if(!sol) return null;
+  const R=colorVector(col).R;
+  return sol.k*Math.pow(R/sol.circ,3);                                // sphere radius R → edge R/circ → k·edge³
+}
+function particleProps(col,suit){
+  const v=colorVector(col), mass=cardMass(col), volume=particleVolume(col,suit);
+  const density=(volume===null)?null:(volume<=1e-12?Infinity:mass/volume);
+  return {mass,volume,density,length:v.R,dist:v.dist,tilt:v.tilt,spin:v.spin,shape:SUIT_SOLID[suit]||null};
+}
+
 // ── ONE source of truth for a sound particle's envelope ───────────────────
 // scheduleCardNote plays from noteShape()/noteGainPoints(); the Effects Lab graphs draw from the
 // very same two functions, so what a graph shows is what the sound does.
@@ -3868,6 +3922,68 @@ function buildFxGraph(channel,ci,kind){
   return {el:wrap,redraw};
 }
 
+// ── Particle readout (Physics Engine pane) ───────────────────────────────
+// One row per distinct card on the channel (card + effective color). Readings only — see particleProps().
+const FX_RO_MAXROWS=12;
+function fxReadoutCards(channel,ci){
+  const out=[],seen=new Set();
+  const pat=patterns[activePatternIndex];
+  const pd=pat&&pat.channelData&&pat.channelData[ci];
+  if(pd&&pd.steps){
+    pd.steps.forEach((n,si)=>{
+      if(n===null||n===undefined) return;
+      const card=BASE_CARDS.find(c=>c.n===n); if(!card) return;
+      const col=getEffectiveColor(channel,n,si,pat.stepCount);
+      const key=n+':'+col.r+','+col.g+','+col.b;
+      if(seen.has(key)) return;
+      seen.add(key);out.push({card,col});
+    });
+  }
+  return out;
+}
+function fxBlockParticle(channel,ci){
+  const fx=ensureFx(channel);
+  let rows=fxReadoutCards(channel,ci);
+  const refOnly=rows.length===0;
+  if(refOnly) rows=[{card:{name:'Reference · mid-gray',suit:SUIT_SOLID[channel.suit]?channel.suit:'major'},col:{r:128,g:128,b:128}}];
+  const total=rows.length; rows=rows.slice(0,FX_RO_MAXROWS);
+  const wrap=document.createElement('div');wrap.className='fx-ro';
+  const g=document.createElement('div');g.className='fx-ro-grid';
+  const add=(cls,html,title)=>{const d=document.createElement('div');d.className=cls;d.innerHTML=html;if(title)d.title=title;g.appendChild(d);return d;};
+  // group headings
+  add('fx-ro-grp','PARTICLE').style.gridColumn='1 / 6';
+  add('fx-ro-grp vec','COLOR VECTOR').style.gridColumn='6 / 9';
+  // column headings
+  add('fx-ro-h','CARD');add('fx-ro-h','SHAPE');
+  add('fx-ro-h','MASS',   'Mass = K = 1 − max(r,g,b)/255. Black is heaviest, white weightless.');
+  add('fx-ro-h','VOLUME', 'The suit’s solid, scaled so its corners sit on the color’s sphere. White Major Arcana is the biggest possible (2.785).');
+  add('fx-ro-h','DENSITY','Mass ÷ volume. Climbs toward infinity only at pure black.');
+  add('fx-ro-h vec','LENGTH','Distance from black ÷ 441.7 — the radius of the color’s sphere (0–1).');
+  add('fx-ro-h vec','TILT',  'Angle between the color’s vector and the gray diagonal. 0° = pure gray.');
+  add('fx-ro-h vec','SPIN',  'Angle around the gray diagonal — the hue. Pure grays have none.');
+  const f3=x=>x.toFixed(3);
+  const fd=d=>d===null?'—':!isFinite(d)?'∞':d>=100?d.toFixed(0):d>=10?d.toFixed(1):d.toFixed(2);
+  const fa=a=>a===null?'—':a.toFixed(1)+'°';
+  rows.forEach(({card,col})=>{
+    const p=particleProps(col,card.suit), sh=p.shape;
+    const sw=add('fx-ro-c fx-ro-card','<span class="fx-ro-sw" style="background:rgb('+col.r+','+col.g+','+col.b+')"></span><span class="fx-ro-name">'+card.name+'</span>');
+    add('fx-ro-c fx-ro-shape',sh?'<b>'+sh.name+'</b><small>'+sh.verts+' corners · Cd '+sh.cd.toFixed(2)+' · fills '+(sh.k*Math.pow(1/sh.circ,3)/SPHERE_UNIT_VOLUME*100).toFixed(1)+'% of its sphere</small>':'<b>—</b>');
+    add('fx-ro-c','<span class="fx-ro-num">'+f3(p.mass)+'</span><div class="fx-ro-bar"><i style="width:'+(p.mass*100).toFixed(1)+'%"></i></div>');
+    add('fx-ro-c','<span class="fx-ro-num">'+(p.volume===null?'—':f3(p.volume))+'</span><div class="fx-ro-bar"><i style="width:'+(p.volume===null?0:Math.min(100,p.volume/MAX_PARTICLE_VOLUME*100)).toFixed(1)+'%"></i></div>');
+    add('fx-ro-c','<span class="fx-ro-num">'+fd(p.density)+'</span>');
+    add('fx-ro-c vec','<span class="fx-ro-num vec">'+f3(p.length)+'</span>');
+    add('fx-ro-c vec','<span class="fx-ro-num vec">'+fa(p.tilt)+'</span>');
+    add('fx-ro-c vec','<span class="fx-ro-num vec">'+fa(p.spin)+'</span>');
+  });
+  wrap.appendChild(g);
+  const cap=document.createElement('div');cap.className='fx-graph-cap';
+  let txt='Read from each card’s color. Mass already shapes Gravity (lift-off cost and release). Volume, density, length, tilt and spin are readings only — they do not change the sound yet.';
+  txt+=refOnly?' No cards on this channel yet, so a mid-gray reference is shown.':' One row per card on this channel ('+(total>FX_RO_MAXROWS?FX_RO_MAXROWS+' of '+total:total)+').';
+  if(!fx.physicsOn) txt+=' Dimmed: the Physics Engine is OFF.';
+  cap.textContent=txt;
+  return [wrap,cap];
+}
+
 // ── Detail-pane pieces (each returns an array of elements) ───────────────
 function fxBlockFrtvi(channel,ci){
   const ua=ensureFx(channel).adsr;
@@ -4044,8 +4160,7 @@ function buildEffectsPanel(channel,ci){
   body.style.cssText='display:flex;flex-direction:column;gap:7px;transition:opacity .2s;'+(fx.physicsOn?'opacity:1':'opacity:0.45');
   if(sel==='phys'){
     fxBlockPhysMaster(channel).forEach(el=>panel.appendChild(el));
-    fxBlockRgb(channel,ci,false,'8px').forEach(el=>body.appendChild(el));
-    fxBlockGrav(channel,ci,false,'10px').forEach(el=>body.appendChild(el));
+    fxBlockParticle(channel,ci).forEach(el=>body.appendChild(el));
   } else if(sel==='rgb'){
     fxBlockRgb(channel,ci,true).forEach(el=>body.appendChild(el));
   } else {
