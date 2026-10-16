@@ -140,6 +140,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .fx-force-eq{font-family:'EB Garamond',serif;font-style:italic;font-size:12px;letter-spacing:0;color:rgba(201,169,110,.4);}
 .fx-ro-grid{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(190px,1.7fr) minmax(86px,1fr) minmax(86px,1fr) minmax(86px,1fr) minmax(60px,.7fr) minmax(70px,.8fr) minmax(70px,.8fr) minmax(66px,.7fr) minmax(66px,.7fr) minmax(66px,.7fr);column-gap:10px;row-gap:0;min-width:1040px;align-items:center;}
 .fx-ro-grp{font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:.18em;color:rgba(201,169,110,.55);padding:0 0 4px;border-bottom:1px solid rgba(201,169,110,.18);}
+.fx-ro-atm{grid-template-columns:minmax(150px,1.5fr) repeat(7,minmax(80px,1fr));min-width:820px;}
 .fx-ro-grp.vec{color:rgba(201,169,110,.38);border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
 .fx-ro-h{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;color:rgba(201,169,110,.4);padding:6px 0 5px;}
 .fx-ro-h.vec{border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
@@ -2317,6 +2318,31 @@ function strikeKinematics(col,vol,channel){
   return {mass:m,KE,p,vOverC,dt,F:p/dt,light:vOverC>=LIGHT_LIKE_V};
 }
 
+// ── Flight: what the strike does inside a gravity + an atmosphere (READINGS ONLY — no sound change) ──
+// Gravity does gravity: weight = m·g.  The atmosphere does atmosphere: it buoys the particle up (ρ·V·g) and drags on it
+// (½·ρ·Cd·A·v²).  g from the Gravity tile, ρ from the Atmosphere tile; ρ = 0 is a vacuum, where every card flies the same
+// arc (Galileo).  A = π·R² is the silhouette of the particle's sphere; Cd comes from the suit's solid.
+//   net weight    W  = (m − ρ·V)·g            (W < 0: lighter than the air it displaces — the card floats up)
+//   terminal v    TV = √(2|W| / (ρ·Cd·A))     where drive = drag
+//   peak height   h  = (TV² / 2g′)·ln(1 + v₀²/TV²),  g′ = |W|/m      (vacuum: v₀²/2g)
+//   coast time    τ  = 2m / (ρ·Cd·A·v₀)       time to halve speed once the push stops (quadratic drag: v = v₀/(1 + t/τ))
+// Mass 0 (white) is light: no weight, no drag drive — every flight number reads "—".
+function flightProps(col,suit,vol,channel,g,rho){
+  const pp=particleProps(col,suit), k=strikeKinematics(col,vol,channel);
+  const c=Math.sqrt(ORGAN_C2), v0=k.vOverC*c;
+  const out={light:k.light&&pp.mass<=0,mass:pp.mass,v0,vac:null,peak:null,tv:null,tau:null,W:null,floats:false};
+  if(pp.mass<=0||!pp.shape||pp.volume===null){ return out; }
+  const m=pp.mass, A=Math.PI*pp.length*pp.length, cd=pp.shape.cd;
+  out.vac=v0*v0/(2*g);
+  const W=(m-rho*pp.volume)*g; out.W=W; out.floats=W<0;
+  const drag=rho*cd*A;                        // ρ·Cd·A
+  if(drag<=1e-12){ out.tv=Infinity; out.tau=Infinity; out.peak=out.floats?null:out.vac; return out; }   // vacuum (or no cross-section)
+  const tv=Math.sqrt(2*Math.abs(W)/drag); out.tv=tv;
+  out.tau=2*m/(drag*Math.max(v0,1e-9));
+  if(!out.floats&&Math.abs(W)>1e-12){ const ge=Math.abs(W)/m; out.peak=(tv*tv/(2*ge))*Math.log(1+v0*v0/(tv*tv)); }
+  return out;
+}
+
 // ── ONE source of truth for a sound particle's envelope ───────────────────
 // scheduleCardNote plays from noteShape()/noteGainPoints(); the Effects Lab graphs draw from the
 // very same two functions, so what a graph shows is what the sound does.
@@ -2518,6 +2544,7 @@ function newChannel(suit=null){
       adsr:{on:false,blend:'normal',opacity:100,attack:10,decay:100,sustain:70,release:300},
       rgbParticle:{on:false,depth:50},
       gravity:{on:false,value:9.81,depth:50},
+      atmosphere:{on:false,rho:1.225},
       physicsOn:false,
       added:{frtvi:false,phys:false}   // which effects sit on this channel's Effects Lab list
     }
@@ -3718,11 +3745,12 @@ function ensureFx(channel){
   if(fx.physicsOn===undefined) fx.physicsOn=false;
   if(!fx.rgbParticle) fx.rgbParticle={on:false,depth:50};
   if(!fx.gravity) fx.gravity={on:false,value:9.81,depth:50};
+  if(!fx.atmosphere) fx.atmosphere={on:false,rho:1.225};
   // "added" = which effects appear in the Lab list. Songs saved before this existed keep every
   // effect they were using, and an effect that is ON can never be missing from the list.
   if(!fx.added) fx.added={frtvi:false,phys:false};
   if(fx.adsr.on) fx.added.frtvi=true;
-  if(fx.physicsOn||fx.rgbParticle.on||fx.gravity.on) fx.added.phys=true;
+  if(fx.physicsOn||fx.rgbParticle.on||fx.gravity.on||fx.atmosphere.on) fx.added.phys=true;
   return fx;
 }
 
@@ -3737,6 +3765,7 @@ function addEffect(channel,ci,kind){
     fx.added.phys=true; fx.physicsOn=true;
     fx.rgbParticle.on=true; fx.rgbParticle.depth=100;
     fx.gravity.on=true; fx.gravity.value=9.81; fx.gravity.depth=100;
+    fx.atmosphere.on=true; fx.atmosphere.rho=1.225;
   }
   chFlippedToEffects.add(ci);
   render();saveState();
@@ -3746,8 +3775,8 @@ function removeEffect(channel,kind){
   const fx=ensureFx(channel);
   if(kind==='frtvi'){ fx.added.frtvi=false; fx.adsr.on=false; if(fxTileSel[channel.id]==='frtvi') delete fxTileSel[channel.id]; }
   else {
-    fx.added.phys=false; fx.physicsOn=false; fx.rgbParticle.on=false; fx.gravity.on=false;
-    if(['phys','rgb','grav'].includes(fxTileSel[channel.id])) delete fxTileSel[channel.id];
+    fx.added.phys=false; fx.physicsOn=false; fx.rgbParticle.on=false; fx.gravity.on=false; fx.atmosphere.on=false;
+    if(['phys','rgb','grav','atm'].includes(fxTileSel[channel.id])) delete fxTileSel[channel.id];
   }
   render();saveState();
 }
@@ -3798,13 +3827,15 @@ function buildEffectsRail(channel,ci){
   const defs=[
     {id:'frtvi',own:'frtvi',icon:'⚗',name:'FRTVI',nested:false,tip:'Envelope: Force · Resistance · Terminal Velocity · Inertia',
       get:()=>fx.adsr.on,set:v=>{fx.adsr.on=v;}},
-    {id:'phys',own:'phys',icon:'⚛',name:'PHYSICS ENGINE',nested:false,pill:true,tip:'Master switch for RGB Particle and Gravity',
+    {id:'phys',own:'phys',icon:'⚛',name:'PHYSICS ENGINE',nested:false,pill:true,tip:'Master switch for RGB Particle, Gravity and Atmosphere',
       get:()=>fx.physicsOn,set:v=>{fx.physicsOn=v;}},
     {id:'rgb',own:'phys',icon:'◉',name:'RGB PARTICLE',nested:true,tip:'R→Force · B→Terminal Velocity · G→Pan',
       get:()=>fx.rgbParticle.on,set:v=>{fx.rgbParticle.on=v;}},
     {id:'grav',own:'phys',icon:'↓',name:'GRAVITY',nested:true,tip:'Sustain falls under the field — same rate for every card',
-      get:()=>fx.gravity.on,set:v=>{fx.gravity.on=v;}}
-  ].filter(d=>fx.added[d.own]&&(!d.nested||['phys','rgb','grav'].includes(sel)));
+      get:()=>fx.gravity.on,set:v=>{fx.gravity.on=v;}},
+    {id:'atm',own:'phys',icon:'☁',name:'ATMOSPHERE',nested:true,tip:'Air density: drag, buoyancy, terminal velocity (readings for now)',
+      get:()=>fx.atmosphere.on,set:v=>{fx.atmosphere.on=v;}}
+  ].filter(d=>fx.added[d.own]&&(!d.nested||['phys','rgb','grav','atm'].includes(sel)));
   if(!defs.length){
     const n=document.createElement('div');n.className='effects-note';
     n.textContent='No effects yet — press + on the Effects Lab button to add one.';
@@ -3829,7 +3860,7 @@ function buildEffectsRail(channel,ci){
     t.append(nm,sw);
     if(!d.nested){
       const x=document.createElement('span');x.className='fx-tile-x';x.textContent='×';
-      x.title='Remove '+d.name+(d.id==='phys'?' (with RGB Particle and Gravity)':'')+' from this channel';
+      x.title='Remove '+d.name+(d.id==='phys'?' (with RGB Particle, Gravity and Atmosphere)':'')+' from this channel';
       x.addEventListener('click',e=>{e.stopPropagation();removeEffect(channel,d.own);});
       t.appendChild(x);
     }
@@ -4013,6 +4044,78 @@ function fxBlockParticle(channel,ci){
   txt+=refOnly?' No cards on this channel yet, so a mid-gray reference is shown.':' One row per card on this channel ('+(total>FX_RO_MAXROWS?FX_RO_MAXROWS+' of '+total:total)+').';
   if(!fx.physicsOn) txt+=' Dimmed: the Physics Engine is OFF.';
   cap.textContent=txt;
+  return [wrap,cap];
+}
+
+// ── Atmosphere pane: air density + a per-card flight table (readings only) ─────────────
+const ATM_PRESETS=[
+  {label:'◌ Vacuum (Moon)',v:0},{label:'♂ Mars · 0.020',v:0.020},{label:'🌍 Earth · 1.225',v:1.225},
+  {label:'♃ Jupiter · 0.16 (1 bar)',v:0.16},{label:'◍ Titan · 5.3',v:5.3},{label:'♀ Venus · 65',v:65},{label:'✎ Custom',v:null}
+];
+function fxBlockAtmosphere(channel,ci){
+  const fx=ensureFx(channel), at=fx.atmosphere;
+  const hdr=document.createElement('div');hdr.className='effects-panel-hdr';
+  const tog=document.createElement('button');tog.className='tb effects-toggle'+(at.on?' on':'');
+  tog.textContent=at.on?'ON':'OFF';
+  tog.addEventListener('click',()=>{pushHistory();at.on=!at.on;render();saveState();});
+  const title=document.createElement('span');title.className='effects-title';title.textContent='☁ ATMOSPHERE · PHYSICS ENGINE';
+  title.title='Air density ρ (kg/m³). Drag, buoyancy and terminal velocity come from it. Gravity does gravity; atmosphere does atmosphere — a vacuum is just ρ = 0.';
+  hdr.append(tog,title);
+  const presetRow=document.createElement('div');presetRow.className='effects-slider-row';presetRow.style.gap='6px';
+  const sel=document.createElement('select');sel.className='effects-blend-sel';sel.style.flex='1';
+  ATM_PRESETS.forEach(pr=>{
+    const o=document.createElement('option');o.value=pr.v===null?'custom':pr.v;o.textContent=pr.label;
+    if(pr.v!==null&&Math.abs(pr.v-at.rho)<1e-6) o.selected=true;
+    sel.appendChild(o);
+  });
+  if(!ATM_PRESETS.some(pr=>pr.v!==null&&Math.abs(pr.v-at.rho)<1e-6)) sel.value='custom';
+  const valInp=document.createElement('input');valInp.type='number';valInp.min=0;valInp.step=0.001;valInp.value=at.rho;
+  valInp.className='effects-num-input';valInp.style.width='72px';valInp.title='ρ in kg/m³ (Earth sea level = 1.225)';
+  const table=document.createElement('div');
+  const draw=()=>{table.innerHTML='';fxAtmosphereTable(channel,ci).forEach(e=>table.appendChild(e));};
+  sel.addEventListener('change',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){at.rho=v;valInp.value=v;saveState();draw();}});
+  valInp.addEventListener('input',e=>{const v=Math.max(0,parseFloat(e.target.value)||0);at.rho=v;
+    [...sel.options].forEach(o=>{o.selected=o.value!=='custom'&&Math.abs(parseFloat(o.value)-v)<1e-6;});
+    if(!ATM_PRESETS.some(pr=>pr.v!==null&&Math.abs(pr.v-v)<1e-6)) sel.value='custom';
+    saveState();draw();});
+  presetRow.append(sel,valInp);
+  draw();
+  return [hdr,presetRow,table];
+}
+function fxAtmosphereTable(channel,ci){
+  const fx=ensureFx(channel);
+  let rows=fxReadoutCards(channel,ci);
+  const refOnly=rows.length===0;
+  if(refOnly) rows=[{card:{name:'Reference · mid-gray',suit:SUIT_SOLID[channel.suit]?channel.suit:'major'},col:{r:128,g:128,b:128},vol:channel.vol*(100/127)}];
+  const total=rows.length; rows=rows.slice(0,FX_RO_MAXROWS);
+  const g=fx.gravity.value, rho=fx.atmosphere.rho;
+  const wrap=document.createElement('div');wrap.className='fx-ro';
+  const gr=document.createElement('div');gr.className='fx-ro-grid fx-ro-atm';
+  const add=(cls,html,title)=>{const d=document.createElement('div');d.className=cls;d.innerHTML=html;if(title)d.title=title;gr.appendChild(d);return d;};
+  add('fx-ro-grp','FLIGHT · g = '+g.toFixed(2)+' m/s² · ρ = '+(rho<0.1?rho.toPrecision(2):rho.toFixed(2))+' kg/m³').style.gridColumn='1 / 9';
+  add('fx-ro-h','CARD');
+  add('fx-ro-h','WEIGHT','Net weight (m − ρ·V)·g. Negative = lighter than the air it displaces, so the card floats up.');
+  add('fx-ro-h','LAUNCH','Speed the strike gives it (organ m/s). Light cards approach c.');
+  add('fx-ro-h','PEAK · VACUUM','How high that launch carries it with no air: v₀² ÷ 2g.');
+  add('fx-ro-h','PEAK · AIR','How high it gets with drag and buoyancy in this atmosphere.');
+  add('fx-ro-h','TERMINAL V','Where drive = drag: √(2·|W| ÷ ρ·Cd·A). Infinite in a vacuum.');
+  add('fx-ro-h','COAST τ','Time to halve its speed once the push stops (quadratic drag). Infinite in a vacuum — nothing slows it.');
+  add('fx-ro-h','FATE','Sinks, floats, or light.');
+  const fn=x=>x===null?'—':!isFinite(x)?'∞':Math.abs(x)>=100?x.toFixed(0):Math.abs(x)>=10?x.toFixed(1):Math.abs(x)>=0.1?x.toFixed(2):x.toFixed(3);
+  rows.forEach(({card,col,vol})=>{
+    const f=flightProps(col,card.suit,vol,channel,g,rho);
+    add('fx-ro-c fx-ro-card','<span class="fx-ro-sw" style="background:rgb('+col.r+','+col.g+','+col.b+')"></span><span class="fx-ro-name">'+card.name+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num">'+fn(f.W)+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num">'+fn(f.v0)+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num vec">'+fn(f.vac)+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num">'+(f.floats?'rises':fn(f.peak))+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num vec">'+fn(f.tv)+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num vec">'+fn(f.tau)+(f.tau!==null&&isFinite(f.tau)?' s':'')+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num vec">'+(f.light?'light':f.floats?'floats':'sinks')+'</span>');
+  });
+  wrap.appendChild(gr);
+  const cap=document.createElement('div');cap.className='fx-graph-cap';
+  cap.textContent='Readings only — nothing here changes the sound yet. Gravity (from the Gravity tile) pulls; the atmosphere buoys and drags. In a vacuum every card flies the same arc. Light cards (white) have no weight, so none of the flight numbers apply to them.'+(refOnly?' No cards on this channel yet, so a mid-gray reference is shown.':' One row per card ('+(total>FX_RO_MAXROWS?FX_RO_MAXROWS+' of '+total:total)+').');
   return [wrap,cap];
 }
 
@@ -4207,6 +4310,8 @@ function buildEffectsPanel(channel,ci){
   if(sel==='phys'){
     fxBlockPhysMaster(channel).forEach(el=>panel.appendChild(el));
     fxBlockParticle(channel,ci).forEach(el=>body.appendChild(el));
+  } else if(sel==='atm'){
+    fxBlockAtmosphere(channel,ci).forEach(el=>body.appendChild(el));
   } else if(sel==='rgb'){
     fxBlockRgb(channel,ci,true).forEach(el=>body.appendChild(el));
   } else {
