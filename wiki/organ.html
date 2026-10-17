@@ -2336,9 +2336,9 @@ function flightProps(col,suit,vol,channel,g,rho,massUnit){
   const mu=(massUnit===undefined||!(massUnit>0))?1:massUnit;      // mass unit: how many "organ mass" one unit of color-mass counts for
   const mEff=pp.mass*mu, KE=Math.max(0.05,vol);
   const c=Math.sqrt(ORGAN_C2), v0=strikeMomentum(mEff,KE).vOverC*c;
-  const out={light:pp.mass<=0,mass:mEff,v0,vac:null,peak:null,tv:null,tau:null,W:null,floats:false};
+  const out={light:pp.mass<=0,mass:mEff,v0,vac:null,peak:null,tv:null,tau:null,W:null,floats:false,m:mEff,V:pp.volume,A:null,cd:pp.shape?pp.shape.cd:null};
   if(pp.mass<=0||!pp.shape||pp.volume===null){ return out; }
-  const m=mEff, A=Math.PI*pp.length*pp.length, cd=pp.shape.cd;
+  const m=mEff, A=Math.PI*pp.length*pp.length, cd=pp.shape.cd; out.A=A;
   out.vac=v0*v0/(2*g);
   const W=(m-rho*pp.volume)*g; out.W=W; out.floats=W<0;
   const drag=rho*cd*A;                        // ρ·Cd·A
@@ -2427,26 +2427,33 @@ function noteShapeBase(col,vol,channel,force){
   return {extended,A,D,sV,R,pk,gravDecay,sagEnd,panNudge};
 }
 
-// ── Atmosphere → the sound (Phase 3b) ────────────────────────────────────────────────────────────
-// The flight numbers above become the envelope's Resistance · Terminal Velocity · Inertia:
-//   Terminal Velocity  sustain level   = TV ÷ launch speed   (capped at 1: drag can only slow it)
-//   Resistance         decay time      = time to slow from v₀ to TV  = τ·(v₀/TV − 1)   [quadratic drag, v = v₀/(1+t/τ)]
-//   Inertia            release time    = time to fall to 10% of its speed = 9τ
-//   vacuum (ρ = 0)     nothing slows it: sustain 1, rings for the maximum.
+// ── Atmosphere → the sound (Phase 3b, scaled around your ADSR) ───────────────────────────────────
+// The atmosphere does not replace the envelope — it leans on it. Every card's flight is compared with a REFERENCE
+// particle (a mid-gray cube struck at 0.7 in Earth air, mass unit 1). The reference keeps your ADSR exactly;
+// every other card's Resistance, Terminal Velocity and Inertia are your values times how it differs from the reference:
+//   decay time   × τ ÷ τ_ref        (a drag time scale: τ = 2m / (ρ·Cd·A·v₀) — heavier carries on, draggier stops sooner)
+//   release time × τ ÷ τ_ref        (same ratio, limited to ×⅓ … ×3)
+//   sustain      × s ÷ s_ref        (s = min(1, terminal velocity ÷ launch speed): only air that out-drags the reference sags it)
+//   vacuum (ρ = 0): nothing slows anything — the largest stretch, no sag.
 //   floater (lighter than the air it displaces) with "Floaters rise" ON: it starts at v₀ and accelerates up to TV,
 //                      so the sustain swells from v₀/TV up to the full peak.
-// Attack (Δt) and peak keep their values. White (no mass) keeps its envelope. The organ-seconds → seconds scale
-// and the ring limits are WEDGED (tuning constants); the ratios and the shape of each curve are the physics.
-const PHYS_TIME_K=0.15, PHYS_RING_MAX=4, PHYS_RING_MIN=0.02, PHYS_DECAY_MAX=2;
-function flightEnvelope(f,rise){
-  const tv=f.tv, v0=Math.max(f.v0,1e-9), rising=!!(rise&&f.floats&&isFinite(tv)&&tv>v0);
-  let sV=1,D=0.003,R=PHYS_RING_MAX,lv=1;
-  if(isFinite(tv)){
-    const tauEff=rising?f.tau*v0/tv:f.tau;
-    sV=Math.min(1,tv/v0);
-    if(rising){ lv=v0/tv; sV=1; D=0.003; }
-    else if(sV<1){ D=tv<=1e-9?PHYS_DECAY_MAX:Math.max(0.003,Math.min(PHYS_DECAY_MAX,PHYS_TIME_K*f.tau*(v0/tv-1))); }
-    R=Math.max(PHYS_RING_MIN,Math.min(PHYS_RING_MAX,PHYS_TIME_K*9*tauEff));
+// Attack (Δt) and peak keep their values. White (no mass) keeps its envelope. Physics Depth then mixes this with the
+// plain envelope. The ratio limits are WEDGED; the ratios themselves are the physics.
+const PHYS_RATIO_MIN=1/3, PHYS_RATIO_MAX=3;
+let _physRef=null;
+function physRef(){ if(!_physRef){ const f=flightProps({r:128,g:128,b:128},'disks',0.7,null,9.81,1.225,1);
+  _physRef={tau:f.tau,s:Math.min(1,f.tv/Math.max(f.v0,1e-9))}; } return _physRef; }
+function flightEnvelope(f,rise,base){
+  const tv=f.tv, v0=Math.max(f.v0,1e-9), ref=physRef(), rising=!!(rise&&f.floats&&isFinite(tv)&&tv>v0);
+  const bD=base?base.D:0.1, bR=base?base.R:0.3, bS=base?base.sV:0.7;
+  const clampR=x=>Math.max(PHYS_RATIO_MIN,Math.min(PHYS_RATIO_MAX,x));
+  let sV=bS,D=bD,R=bR,lv=1;
+  if(!isFinite(tv)){ D=bD*PHYS_RATIO_MAX; R=bR*PHYS_RATIO_MAX; }          // vacuum: nothing slows it
+  else{
+    const tauEff=rising?f.tau*v0/tv:f.tau, rt=clampR(tauEff/ref.tau);
+    D=bD*rt; R=bR*rt;
+    if(rising){ lv=v0/tv; sV=1; }
+    else sV=Math.min(1,bS*Math.min(1,tv/v0)/Math.max(ref.s,1e-9));
   }
   return {sV,D,R,lv,rising};
 }
@@ -2462,7 +2469,7 @@ function noteShape(col,vol,channel,force){
   const gv=fx.gravity?fx.gravity.value:9.81;
   const f=flightProps(col,force.suit||channel.suit||'major',vol,channel,gv,at.rho,at.massUnit);
   if(f.light||f.tv===null) return base;                 // white: weightless, keeps its envelope
-  const e=flightEnvelope(f,at.rise);
+  const e=flightEnvelope(f,at.rise,base);
   const phys={extended:true,A:base.A,D:e.D,sV:e.sV,R:e.R,pk:base.pk*e.lv,gravDecay:0,
               sagEnd:e.rising?base.pk:base.pk*e.sV,panNudge:base.panNudge};
   if(op>=1) return phys;
@@ -4015,7 +4022,7 @@ function buildFxGraph(channel,ci,kind){
       ? 'FRTVI is ON — your four values blended with each card’s own CMYK envelope (blend: '+(fx.adsr.blend||'normal')+', opacity '+Math.round(fx.adsr.opacity)+'%; at 0% it sounds exactly like FRTVI off).'
       : 'FRTVI is OFF — this is each card’s own CMYK envelope, which is what plays now.';
     else if(kind==='rgb') txt='Dashed gold: no RGB push. Colored: with RGB Particle at this influence.';
-    else if(kind==='atm') txt='Dashed gold: the envelope without the atmosphere. Colored: Resistance, Terminal Velocity and Inertia worked out from each card’s weight, shape and the air (at '+Math.round(fx.atmosphere.depth)+'% depth). White keeps its own envelope.';
+    else if(kind==='atm') txt='Dashed gold: your envelope without the atmosphere. Colored: its Resistance, Terminal Velocity and Inertia scaled by each card’s weight, shape and the air, against a mid-gray reference card that stays exactly as you set it (at '+Math.round(fx.atmosphere.depth)+'% depth). White keeps its own envelope.';
     else txt='Dashed gold: no gravity. Every card sags at the same rate; heavier (darker) cards start lower and ring longer.';
     if(off) txt+=' Preview only — '+why+', so none of this reaches the sound.';
     txt+=refOnly?' No cards on this channel yet, so a mid-gray card is shown.'
@@ -4104,7 +4111,74 @@ function fxBlockParticle(channel,ci){
   return [wrap,cap];
 }
 
-// ── Atmosphere pane: air density + a per-card flight table (readings only) ─────────────
+// ── Flight plot: the actual motion of each card (analysis only — nothing here reaches the sound) ─────
+// m·dv/dt = −m·g + ρ·V·g − ½·ρ·Cd·A·v·|v|   (z up; the strike gives v₀ at t = 0; a sinker stops when it lands at z = 0)
+function flightTrajectory(f,g,rho,T){
+  const dt=1/400, n=Math.ceil(T/dt), t=[0], z=[0], v=[f.v0];
+  const acc=(vv)=>(-f.m*g+rho*f.V*g-0.5*rho*f.cd*f.A*vv*Math.abs(vv))/f.m;
+  let zz=0,vv=f.v0;
+  for(let i=1;i<=n;i++){
+    const a1=acc(vv), a2=acc(vv+a1*dt/2), a3=acc(vv+a2*dt/2), a4=acc(vv+a3*dt);
+    const vn=vv+(a1+2*a2+2*a3+a4)*dt/6;
+    const zn=zz+(vv+vn)/2*dt;
+    if(zn<0){ const fr=zz/(zz-zn); t.push(i*dt-dt+fr*dt); z.push(0); v.push(0); break; }   // landed
+    zz=zn; vv=vn; t.push(i*dt); z.push(zz); v.push(vv);
+  }
+  return {t,z,v};
+}
+function buildFlightPlot(channel,ci){
+  const NS='http://www.w3.org/2000/svg',W=1000,H=150;
+  let mode='height';
+  const wrap=document.createElement('div');wrap.className='fx-graph';
+  const svg=document.createElementNS(NS,'svg');svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.setAttribute('preserveAspectRatio','none');
+  const axis=document.createElement('div');axis.className='fx-graph-axis';
+  const yl=document.createElement('div');yl.className='fx-graph-y';
+  const cap=document.createElement('div');cap.className='fx-graph-cap';
+  const tgl=document.createElement('button');tgl.className='tb effects-toggle';tgl.style.cssText='position:absolute;top:4px;right:6px;z-index:2;';
+  wrap.style.position='relative';
+  wrap.append(svg,yl,axis,tgl,cap);
+  const mk=(tag,at)=>{const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);e.setAttribute('vector-effect','non-scaling-stroke');return e;};
+  tgl.addEventListener('click',()=>{mode=mode==='height'?'speed':'height';redraw();});
+  function redraw(){
+    const fx=ensureFx(channel), g=fx.gravity.value, rho=fx.atmosphere.rho, mu=fx.atmosphere.massUnit;
+    tgl.textContent=mode==='height'?'HEIGHT · tap for SPEED':'SPEED · tap for HEIGHT';
+    let rows=fxReadoutCards(channel,ci);
+    const refOnly=rows.length===0;
+    if(refOnly) rows=[{card:{name:'Reference · mid-gray',suit:SUIT_SOLID[channel.suit]?channel.suit:'major'},col:{r:128,g:128,b:128},vol:channel.vol*(100/127)}];
+    rows=rows.slice(0,FX_GRAPH_MAXCARDS);
+    const items=[]; let light=0;
+    rows.forEach(r=>{ const f=flightProps(r.col,r.card.suit,r.vol,channel,g,rho,mu); if(f.light||f.tv===null){light++;return;} items.push({r,f}); });
+    // horizon: the longest landing, else 2.5 s (floaters never land); capped at 3 s
+    let T=0.5; const trajs=items.map(it=>{ const tr=flightTrajectory(it.f,g,rho,3); return tr; });
+    // horizon: the landers set the pace (so floaters, which never land, don't flatten them); with no landers, 3 s
+    const landT=trajs.filter(tr=>tr.z[tr.z.length-1]===0&&tr.t[tr.t.length-1]<2.99).map(tr=>tr.t[tr.t.length-1]);
+    T=landT.length?Math.max(0.3,Math.max(...landT)*1.25):3; T=Math.min(3,T);
+    let lo=0,hi=0; trajs.forEach(tr=>{const a=mode==='height'?tr.z:tr.v; a.forEach((x,k)=>{if(tr.t[k]<=T){lo=Math.min(lo,x);hi=Math.max(hi,x);}});});
+    if(hi-lo<1e-6){hi=1;}
+    const pad=(hi-lo)*0.06; const y0=lo-(lo<0?pad:0), y1=hi+pad;
+    const X=t=>(t/T*(W-8)+4).toFixed(1), Y=y=>(H-6-(y-y0)/(y1-y0)*(H-12)).toFixed(1);
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    svg.appendChild(mk('line',{x1:4,x2:W-4,y1:Y(0),y2:Y(0),stroke:'rgba(201,169,110,.28)','stroke-width':1}));
+    trajs.forEach((tr,i)=>{
+      const a=mode==='height'?tr.z:tr.v, step=Math.max(1,Math.floor(a.length/300)), pts=[];
+      let last=0; for(let k=0;k<a.length&&tr.t[k]<=T;k+=step){ pts.push(X(tr.t[k])+','+Y(a[k])); last=k; }
+      if(tr.t[tr.t.length-1]<=T) pts.push(X(tr.t[tr.t.length-1])+','+Y(a[a.length-1]));
+      const col=items[i].r.col, P=pts.join(' ');
+      svg.appendChild(mk('polyline',{points:P,fill:'none',stroke:'rgba(235,225,205,.32)','stroke-width':3.4,'stroke-linejoin':'round'}));
+      svg.appendChild(mk('polyline',{points:P,fill:'none',stroke:'rgb('+col.r+','+col.g+','+col.b+')','stroke-width':1.7,'stroke-linejoin':'round'}));
+    });
+    const fmt=x=>Math.abs(x)>=10?x.toFixed(1):x.toFixed(2);
+    yl.innerHTML='<span style="top:4px">'+fmt(y1)+'</span><span style="top:'+(H-17)+'px">'+fmt(y0)+'</span>';
+    axis.innerHTML='<span class="l" style="left:0">0</span><span class="r" style="left:100%">'+T.toFixed(2)+' s</span>';
+    cap.textContent=(mode==='height'?'Height of each card after its strike':'Speed of each card (up is positive; below the line it is falling)')
+      +' — in organ units, g = '+g.toFixed(2)+', ρ = '+(rho<0.1?rho.toPrecision(2):rho.toFixed(2))+'. A sinker rises, slows and lands; a floater keeps rising toward its terminal velocity (the view runs only as long as the sinkers need, so floaters can run off the top). Heavy cards launch slowly but keep their speed. Analysis only: this is the motion the envelope summarizes, not what plays.'
+      +(light?' White is weightless, so it has no flight.':'')+(items.length?'':' Nothing to plot.')+(refOnly?' No cards yet, so a mid-gray card is shown.':'');
+  }
+  redraw();
+  return {el:wrap,redraw};
+}
+
+// ── Atmosphere pane: air density + a per-card flight table ─────────────
 const ATM_PRESETS=[
   {label:'◌ Vacuum (Moon)',v:0},{label:'♂ Mars · 0.020',v:0.020},{label:'🌍 Earth · 1.225',v:1.225},
   {label:'♃ Jupiter · 0.16 (1 bar)',v:0.16},{label:'◍ Titan · 5.3',v:5.3},{label:'♀ Venus · 65',v:65},{label:'✎ Custom',v:null}
@@ -4130,7 +4204,8 @@ function fxBlockAtmosphere(channel,ci){
   valInp.className='effects-num-input';valInp.style.width='72px';valInp.title='ρ in kg/m³ (Earth sea level = 1.225)';
   const table=document.createElement('div');
   const graph=buildFxGraph(channel,ci,'atm');
-  const draw=()=>{table.innerHTML='';fxAtmosphereTable(channel,ci).forEach(e=>table.appendChild(e));graph.redraw();};
+  const fplot=buildFlightPlot(channel,ci);
+  const draw=()=>{table.innerHTML='';fxAtmosphereTable(channel,ci).forEach(e=>table.appendChild(e));graph.redraw();fplot.redraw();};
   sel.addEventListener('change',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){at.rho=v;valInp.value=v;saveState();draw();}});
   valInp.addEventListener('input',e=>{const v=Math.max(0,parseFloat(e.target.value)||0);at.rho=v;
     [...sel.options].forEach(o=>{o.selected=o.value!=='custom'&&Math.abs(parseFloat(o.value)-v)<1e-6;});
@@ -4166,7 +4241,7 @@ function fxBlockAtmosphere(channel,ci){
   rBtn.style.alignSelf='flex-start';
   rBtn.addEventListener('click',()=>{at.rise=!at.rise;rBtn.classList.toggle('on',at.rise);rBtn.textContent='FLOATERS RISE · '+(at.rise?'ON':'OFF');saveState();draw();});
   draw();
-  return [hdr,presetRow,dRow,mRow,rBtn,graph.el,table];
+  return [hdr,presetRow,dRow,mRow,rBtn,graph.el,fplot.el,table];
 }
 function fxAtmosphereTable(channel,ci){
   const fx=ensureFx(channel);
@@ -4187,11 +4262,11 @@ function fxAtmosphereTable(channel,ci){
   add('fx-ro-h','TERMINAL V','Where drive = drag: √(2·|W| ÷ ρ·Cd·A). Infinite in a vacuum.');
   add('fx-ro-h','COAST τ','Time to halve its speed once the push stops (quadratic drag). Infinite in a vacuum — nothing slows it.');
   add('fx-ro-h','FATE','Sinks, floats, or light.');
-  add('fx-ro-h','→ SUSTAIN','What reaches the sound: Terminal Velocity ÷ launch speed (swells = a floater accelerating up).');
-  add('fx-ro-h','→ RING','What reaches the sound: how long it takes to fall to 10% of its speed once the push stops (9τ, scaled and limited).');
+  add('fx-ro-h','→ SUSTAIN','What reaches the sound: your Sustain × how much more this card’s air drag slows it than the reference card’s (swells = a floater accelerating up).');
+  add('fx-ro-h','→ RING','What reaches the sound: your Inertia (release) × how this card’s coast time compares with the reference card’s (limited to ×⅓ … ×3).');
   const fn=x=>x===null?'—':!isFinite(x)?'∞':Math.abs(x)>=100?x.toFixed(0):Math.abs(x)>=10?x.toFixed(1):Math.abs(x)>=0.1?x.toFixed(2):x.toFixed(3);
   rows.forEach(({card,col,vol})=>{
-    const f=flightProps(col,card.suit,vol,channel,g,rho,fx.atmosphere.massUnit), en=(f.light||f.tv===null)?null:flightEnvelope(f,fx.atmosphere.rise);
+    const f=flightProps(col,card.suit,vol,channel,g,rho,fx.atmosphere.massUnit), en=(f.light||f.tv===null)?null:flightEnvelope(f,fx.atmosphere.rise,noteShape(col,vol,channel,{suit:card.suit,flight:false}));
     add('fx-ro-c fx-ro-card','<span class="fx-ro-sw" style="background:rgb('+col.r+','+col.g+','+col.b+')"></span><span class="fx-ro-name">'+card.name+'</span>');
     add('fx-ro-c','<span class="fx-ro-num">'+fn(f.W)+'</span>');
     add('fx-ro-c','<span class="fx-ro-num">'+fn(f.v0)+'</span>');
