@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 16, 2026. This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 16, 2026 (Phase 3a). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -42,7 +42,8 @@ STRIKE  (the organ's charge = step velocity × channel volume)
 ENERGY INTO PARTICLE ──► MOMENTUM p = √(KE² + 2·KE·m·c²)/c             READING
   │      (matter → Newton · mass 0 → light, p = KE/c · speed never passes c)
   ├──► FORCE = Δp ÷ Δt   (Δt = the attack time; F = m·Δv/Δt for matter)    READING
-  └──► HEIGHT  (lift)                                                      AGREED
+  └──► LAUNCH v₀ ──► FLIGHT in gravity g + atmosphere ρ                    READING
+         weight (m − ρV)g · terminal v √(2|W|/ρCdA) · peak height · coast τ
   │
   ▼
 PARTICLE RESPONDS
@@ -97,8 +98,12 @@ SOUND  (pitch · suit waveform · gain curve · pan)
 | Regime | Matter-like (v ≪ c) or light-like (v/c ≥ 0.5). White is light; the rest of the deck is matter | READING |
 | Height | How high the strike lifts the particle. In vacuum `h = E/(mg)` | AGREED |
 | Gravity (g) | Same acceleration for everything. Presets Moon / Mars / Earth / Jupiter / Sun | BUILT |
-| Atmosphere (ρ) | Air density. Moon ≈ none · Mars ≈ 0.02 · Earth 1.225 kg/m³ | AGREED |
-| Drag | `F = ½ρ·Cd·A·v²` | AGREED |
+| Atmosphere (ρ) | Air density, its own tile under Physics Engine. Vacuum 0 · Mars 0.02 · Jupiter 0.16 · Earth 1.225 · Titan 5.3 · Venus 65 kg/m³ | READING |
+| Buoyancy | `ρ·V·g` upward. A card less dense than the air floats (30 of 78 on Earth) | READING |
+| Net weight | `W = (m − ρV)·g` | READING |
+| Peak height | vacuum `v₀²/2g`; with air `(TV²/2g′)·ln(1+v₀²/TV²)`, `g′ = |W|/m` | READING |
+| Coast time τ | `2m/(ρ·Cd·A·v₀)`. Quadratic drag: `v = v₀/(1+t/τ)`. (The exponential in older notes is the slow-speed, linear-drag case) | READING |
+| Drag | `F = ½ρ·Cd·A·v²`, with A = π·R² (the particle's sphere silhouette) | READING |
 | Resistance | Decay. Fluid drag opposing motion | BUILT |
 | Terminal Velocity | Sustain. Where drive = drag. `TV = sqrt(2F / ρCdA)` | BUILT as a slider · equation AGREED |
 | Inertia | Release. Momentum after the drive stops | BUILT |
@@ -120,6 +125,7 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 | Color | `getEffectiveColor(track,n,si,stepCount)` | card + step → color after gradient | BUILT |
 | Color | `toCMYK(r,g,b)` | color → C, M, Y, K | BUILT |
 | Mass | `cardMass(col)` | `1 − mean(r,g,b)/255` | BUILT |
+| Flight | `flightProps(col,suit,vol,channel,g,rho)` | → net weight, launch speed, peaks, terminal v, coast τ, floats/sinks/light | READING |
 | Strike | `strikeKinematics(col,vol,channel)` | → mass, KE, momentum p, v/c, Δt (the real attack), Force, light/matter | READING |
 | Vector | `colorVector(col)` | → length (0–1), tilt, spin | READING |
 | Volume | `particleVolume(col,suit)` | sphere model → volume of the suit's solid | READING |
@@ -145,7 +151,7 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, Δt, Force, regime, length, tilt, spin per card) · Attack relabelled Δt.
 
 **AGREED, not built**
-- Strike → height; atmosphere per planet preset; drag and buoyancy; terminal velocity from the equation.
+- Phase 3b: wire flight to the sound behind a physics-depth slider (0% = today's sound, default OFF). Any organ-unit → seconds scale is WEDGED.
 - Old RGB Particle stays until its replacement has been heard, then retires.
 - Particle cloud with voices is an **effect**, later, outside the Physics Engine.
 
@@ -157,6 +163,7 @@ Material (list to be pulled from the cards) · striker (surface area, hardness) 
 
 **OPEN**
 - (Settled Oct 16: the attack slider is Δt, and Force is derived: F = Δp ÷ Δt. Nothing double-booked.)
+- Mass scale: organ mass 0–1 against real air makes 30 of 78 cards balloons on Earth. Keep, or add a mass-unit constant?
 - Whether the Force reading should later feed the sound (peak or attack shape), and how.
 - The value of c: only white reads light-like at c² = 1000. Tune by ear.
 - What length, tilt and spin should drive.

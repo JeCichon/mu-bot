@@ -140,7 +140,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .fx-force-eq{font-family:'EB Garamond',serif;font-style:italic;font-size:12px;letter-spacing:0;color:rgba(201,169,110,.4);}
 .fx-ro-grid{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(190px,1.7fr) minmax(86px,1fr) minmax(86px,1fr) minmax(86px,1fr) minmax(60px,.7fr) minmax(70px,.8fr) minmax(70px,.8fr) minmax(66px,.7fr) minmax(66px,.7fr) minmax(66px,.7fr);column-gap:10px;row-gap:0;min-width:1040px;align-items:center;}
 .fx-ro-grp{font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:.18em;color:rgba(201,169,110,.55);padding:0 0 4px;border-bottom:1px solid rgba(201,169,110,.18);}
-.fx-ro-atm{grid-template-columns:minmax(150px,1.5fr) repeat(7,minmax(80px,1fr));min-width:820px;}
+.fx-ro-atm{grid-template-columns:minmax(150px,1.5fr) repeat(9,minmax(76px,1fr));min-width:980px;}
 .fx-ro-grp.vec{color:rgba(201,169,110,.38);border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
 .fx-ro-h{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;color:rgba(201,169,110,.4);padding:6px 0 5px;}
 .fx-ro-h.vec{border-left:1px solid rgba(201,169,110,.14);padding-left:10px;}
@@ -2310,11 +2310,15 @@ function particleProps(col,suit){
 // and no card can be thrown faster than c.  Force = Δp / Δt, where Δt is the card's real attack time.
 const ORGAN_C2=1000;                       // c² in organ units (c ≈ 31.6) — a tuning constant, the organ's speed of light
 const LIGHT_LIKE_V=0.5;                    // v/c at or above this reads as "light-like"
-function strikeKinematics(col,vol,channel){
-  const m=cardMass(col), KE=Math.max(0.05,vol), c=Math.sqrt(ORGAN_C2);
+function strikeMomentum(m,KE){
+  const c=Math.sqrt(ORGAN_C2);
   const p=Math.sqrt(KE*KE+2*KE*m*ORGAN_C2)/c;
-  const vOverC=p*c/(KE+m*ORGAN_C2);       // v = p·c²/E_total
-  const dt=noteShape(col,vol,channel).A;   // the attack time this card actually plays with
+  return {p,vOverC:p*c/(KE+m*ORGAN_C2)};     // v = p·c²/E_total
+}
+function strikeKinematics(col,vol,channel){
+  const m=cardMass(col), KE=Math.max(0.05,vol);
+  const {p,vOverC}=strikeMomentum(m,KE);
+  const dt=noteShape(col,vol,channel,{flight:false}).A;   // the attack time this card actually plays with
   return {mass:m,KE,p,vOverC,dt,F:p/dt,light:vOverC>=LIGHT_LIKE_V};
 }
 
@@ -2327,12 +2331,14 @@ function strikeKinematics(col,vol,channel){
 //   peak height   h  = (TV² / 2g′)·ln(1 + v₀²/TV²),  g′ = |W|/m      (vacuum: v₀²/2g)
 //   coast time    τ  = 2m / (ρ·Cd·A·v₀)       time to halve speed once the push stops (quadratic drag: v = v₀/(1 + t/τ))
 // Mass 0 (white) is light: no weight, no drag drive — every flight number reads "—".
-function flightProps(col,suit,vol,channel,g,rho){
-  const pp=particleProps(col,suit), k=strikeKinematics(col,vol,channel);
-  const c=Math.sqrt(ORGAN_C2), v0=k.vOverC*c;
-  const out={light:k.light&&pp.mass<=0,mass:pp.mass,v0,vac:null,peak:null,tv:null,tau:null,W:null,floats:false};
+function flightProps(col,suit,vol,channel,g,rho,massUnit){
+  const pp=particleProps(col,suit);
+  const mu=(massUnit===undefined||!(massUnit>0))?1:massUnit;      // mass unit: how many "organ mass" one unit of color-mass counts for
+  const mEff=pp.mass*mu, KE=Math.max(0.05,vol);
+  const c=Math.sqrt(ORGAN_C2), v0=strikeMomentum(mEff,KE).vOverC*c;
+  const out={light:pp.mass<=0,mass:mEff,v0,vac:null,peak:null,tv:null,tau:null,W:null,floats:false};
   if(pp.mass<=0||!pp.shape||pp.volume===null){ return out; }
-  const m=pp.mass, A=Math.PI*pp.length*pp.length, cd=pp.shape.cd;
+  const m=mEff, A=Math.PI*pp.length*pp.length, cd=pp.shape.cd;
   out.vac=v0*v0/(2*g);
   const W=(m-rho*pp.volume)*g; out.W=W; out.floats=W<0;
   const drag=rho*cd*A;                        // ρ·Cd·A
@@ -2348,7 +2354,7 @@ function flightProps(col,suit,vol,channel,g,rho){
 // very same two functions, so what a graph shows is what the sound does.
 // `force` is for the graphs only: {frtvi,rgb,grav} each true/false overrides that effect's switch
 // (left undefined = obey the real switches, which is what the audio always does).
-function noteShape(col,vol,channel,force){
+function noteShapeBase(col,vol,channel,force){
   force=force||{};
   const fx=channel?.effects;
   const ua=fx?.adsr;
@@ -2365,9 +2371,9 @@ function noteShape(col,vol,channel,force){
   if(extended&&force.opacity===undefined){
     const op=(ua.opacity===undefined)?1:Math.max(0,Math.min(1,ua.opacity/100));
     if(op<1){
-      const c=noteShape(col,vol,channel,Object.assign({},force,{frtvi:false}));
+      const c=noteShapeBase(col,vol,channel,Object.assign({},force,{frtvi:false}));
       if(op<=0) return c;
-      const e=noteShape(col,vol,channel,Object.assign({},force,{frtvi:true,opacity:1}));
+      const e=noteShapeBase(col,vol,channel,Object.assign({},force,{frtvi:true,opacity:1}));
       const m=k=>c[k]+(e[k]-c[k])*op;
       return {extended:true,mix:{c,e,op},A:m('A'),D:m('D'),sV:m('sV'),R:m('R'),pk:m('pk'),
               gravDecay:e.gravDecay,sagEnd:m('sagEnd'),panNudge:e.panNudge};
@@ -2421,6 +2427,50 @@ function noteShape(col,vol,channel,force){
   return {extended,A,D,sV,R,pk,gravDecay,sagEnd,panNudge};
 }
 
+// ── Atmosphere → the sound (Phase 3b) ────────────────────────────────────────────────────────────
+// The flight numbers above become the envelope's Resistance · Terminal Velocity · Inertia:
+//   Terminal Velocity  sustain level   = TV ÷ launch speed   (capped at 1: drag can only slow it)
+//   Resistance         decay time      = time to slow from v₀ to TV  = τ·(v₀/TV − 1)   [quadratic drag, v = v₀/(1+t/τ)]
+//   Inertia            release time    = time to fall to 10% of its speed = 9τ
+//   vacuum (ρ = 0)     nothing slows it: sustain 1, rings for the maximum.
+//   floater (lighter than the air it displaces) with "Floaters rise" ON: it starts at v₀ and accelerates up to TV,
+//                      so the sustain swells from v₀/TV up to the full peak.
+// Attack (Δt) and peak keep their values. White (no mass) keeps its envelope. The organ-seconds → seconds scale
+// and the ring limits are WEDGED (tuning constants); the ratios and the shape of each curve are the physics.
+const PHYS_TIME_K=0.15, PHYS_RING_MAX=4, PHYS_RING_MIN=0.02, PHYS_DECAY_MAX=2;
+function flightEnvelope(f,rise){
+  const tv=f.tv, v0=Math.max(f.v0,1e-9), rising=!!(rise&&f.floats&&isFinite(tv)&&tv>v0);
+  let sV=1,D=0.003,R=PHYS_RING_MAX,lv=1;
+  if(isFinite(tv)){
+    const tauEff=rising?f.tau*v0/tv:f.tau;
+    sV=Math.min(1,tv/v0);
+    if(rising){ lv=v0/tv; sV=1; D=0.003; }
+    else if(sV<1){ D=tv<=1e-9?PHYS_DECAY_MAX:Math.max(0.003,Math.min(PHYS_DECAY_MAX,PHYS_TIME_K*f.tau*(v0/tv-1))); }
+    R=Math.max(PHYS_RING_MIN,Math.min(PHYS_RING_MAX,PHYS_TIME_K*9*tauEff));
+  }
+  return {sV,D,R,lv,rising};
+}
+function noteShape(col,vol,channel,force){
+  const base=noteShapeBase(col,vol,channel,force);
+  force=force||{};
+  const fx=channel&&channel.effects, at=fx&&fx.atmosphere;
+  if(!at) return base;
+  const on=force.flight!==undefined?!!force.flight:!!(fx.physicsOn&&at.on);
+  if(!on) return base;
+  const op=Math.max(0,Math.min(1,(at.depth===undefined?100:at.depth)/100));
+  if(op<=0) return base;
+  const gv=fx.gravity?fx.gravity.value:9.81;
+  const f=flightProps(col,force.suit||channel.suit||'major',vol,channel,gv,at.rho,at.massUnit);
+  if(f.light||f.tv===null) return base;                 // white: weightless, keeps its envelope
+  const e=flightEnvelope(f,at.rise);
+  const phys={extended:true,A:base.A,D:e.D,sV:e.sV,R:e.R,pk:base.pk*e.lv,gravDecay:0,
+              sagEnd:e.rising?base.pk:base.pk*e.sV,panNudge:base.panNudge};
+  if(op>=1) return phys;
+  const m=k=>base[k]+(phys[k]-base[k])*op;
+  return {extended:true,mix:{c:base,e:phys,op},A:m('A'),D:m('D'),sV:m('sV'),R:m('R'),pk:m('pk'),
+          gravDecay:phys.gravDecay,sagEnd:m('sagEnd'),panNudge:base.panNudge};
+}
+
 // The gain breakpoints [time,gain] of one note held for `dur` seconds, starting at t0.
 // Audio passes the real start time; the graphs pass 0.
 function noteGainPoints(s,dur,t0){
@@ -2448,7 +2498,7 @@ function scheduleCardNote(n,t,dur,vol=0.8,octShift=0,effColor=null,pan=0,clipBpm
   // NOTE: shape.panNudge (RGB Particle's G→Pan) is computed but deliberately NOT applied. In the code
   // before this refactor the nudge was assigned after the panner was already built, so it never reached
   // the sound. Kept identical so no existing song changes. (Flagged to Justin — wiring it is his call.)
-  const s=noteShape(col,vol,channel);
+  const s=noteShape(col,vol,channel,{suit:card.suit});
   const pts=noteGainPoints(s,dur,t);
   g.gain.setValueAtTime(0,t);
   pts.forEach(([tt,gg])=>g.gain.linearRampToValueAtTime(gg,tt));
@@ -2544,7 +2594,7 @@ function newChannel(suit=null){
       adsr:{on:false,blend:'normal',opacity:100,attack:10,decay:100,sustain:70,release:300},
       rgbParticle:{on:false,depth:50},
       gravity:{on:false,value:9.81,depth:50},
-      atmosphere:{on:false,rho:1.225},
+      atmosphere:{on:false,rho:1.225,depth:100,massUnit:1,rise:false},
       physicsOn:false,
       added:{frtvi:false,phys:false}   // which effects sit on this channel's Effects Lab list
     }
@@ -3745,7 +3795,8 @@ function ensureFx(channel){
   if(fx.physicsOn===undefined) fx.physicsOn=false;
   if(!fx.rgbParticle) fx.rgbParticle={on:false,depth:50};
   if(!fx.gravity) fx.gravity={on:false,value:9.81,depth:50};
-  if(!fx.atmosphere) fx.atmosphere={on:false,rho:1.225};
+  if(!fx.atmosphere) fx.atmosphere={on:false,rho:1.225,depth:100,massUnit:1,rise:false};
+  const at0=fx.atmosphere; if(at0.depth===undefined) at0.depth=100; if(at0.massUnit===undefined) at0.massUnit=1; if(at0.rise===undefined) at0.rise=false;
   // "added" = which effects appear in the Lab list. Songs saved before this existed keep every
   // effect they were using, and an effect that is ON can never be missing from the list.
   if(!fx.added) fx.added={frtvi:false,phys:false};
@@ -3765,7 +3816,7 @@ function addEffect(channel,ci,kind){
     fx.added.phys=true; fx.physicsOn=true;
     fx.rgbParticle.on=true; fx.rgbParticle.depth=100;
     fx.gravity.on=true; fx.gravity.value=9.81; fx.gravity.depth=100;
-    fx.atmosphere.on=true; fx.atmosphere.rho=1.225;
+    fx.atmosphere.on=true; fx.atmosphere.rho=1.225; fx.atmosphere.depth=100;
   }
   chFlippedToEffects.add(ci);
   render();saveState();
@@ -3886,9 +3937,10 @@ function fxGraphCards(channel,ci){
       const col=getEffectiveColor(channel,n,si,pat.stepCount);
       const vel=(pd.stepVelocities&&pd.stepVelocities[si]!==undefined)?pd.stepVelocities[si]:100;
       const vol=channel.vol*(vel/127);
-      const key=col.r+','+col.g+','+col.b+','+vol.toFixed(3);
+      const cd=BASE_CARDS.find(c=>c.n===n), suit=cd?cd.suit:channel.suit;
+      const key=col.r+','+col.g+','+col.b+','+vol.toFixed(3)+','+suit;
       if(seen.has(key)) return;
-      seen.add(key);out.push({col,vol});
+      seen.add(key);out.push({col,vol,suit});
     });
   }
   return out;
@@ -3914,15 +3966,15 @@ function buildFxGraph(channel,ci,kind){
     const fx=ensureFx(channel);
     let cards=fxGraphCards(channel,ci);
     const refOnly=cards.length===0;
-    if(refOnly) cards=[{col:{r:128,g:128,b:128},vol:channel.vol*(100/127)}];
+    if(refOnly) cards=[{col:{r:128,g:128,b:128},vol:channel.vol*(100/127),suit:SUIT_SOLID[channel.suit]?channel.suit:'major'}];
     const total=cards.length;
     cards=cards.slice(0,FX_GRAPH_MAXCARDS);
     // This pane's effect alone, against the same sound without it.
-    const baseF={rgb:false,grav:false};
-    const mainF=kind==='rgb'?{rgb:true,grav:false}:kind==='grav'?{rgb:false,grav:true}:baseF;
+    const baseF={rgb:false,grav:false,flight:false};
+    const mainF=kind==='rgb'?{rgb:true,grav:false,flight:false}:kind==='grav'?{rgb:false,grav:true,flight:false}:kind==='atm'?{rgb:false,grav:false,flight:true}:baseF;
     const curves=cards.map(c=>{
-      const s=noteShape(c.col,c.vol,channel,mainF);
-      const gs=kind==='frtvi'?null:noteShape(c.col,c.vol,channel,baseF);
+      const s=noteShape(c.col,c.vol,channel,Object.assign({suit:c.suit},mainF));
+      const gs=kind==='frtvi'?null:noteShape(c.col,c.vol,channel,Object.assign({suit:c.suit},baseF));
       return {c,s,pts:[[0,0]].concat(noteGainPoints(s,FX_GRAPH_HOLD,0)),
               ghost:gs?[[0,0]].concat(noteGainPoints(gs,FX_GRAPH_HOLD,0)):null};
     });
@@ -3952,6 +4004,10 @@ function buildFxGraph(channel,ci,kind){
     } else if(kind==='grav'){
       if(!fx.physicsOn){off=true;why='the Physics Engine is OFF';}
       else if(!fx.gravity.on){off=true;why='Gravity is OFF';}
+    } else if(kind==='atm'){
+      if(!fx.physicsOn){off=true;why='the Physics Engine is OFF';}
+      else if(!fx.atmosphere.on){off=true;why='Atmosphere is OFF';}
+      else if(fx.atmosphere.depth<=0){off=true;why='Physics depth is 0%';}
     }
     wrap.classList.toggle('off',off);
     let txt;
@@ -3959,6 +4015,7 @@ function buildFxGraph(channel,ci,kind){
       ? 'FRTVI is ON — your four values blended with each card’s own CMYK envelope (blend: '+(fx.adsr.blend||'normal')+', opacity '+Math.round(fx.adsr.opacity)+'%; at 0% it sounds exactly like FRTVI off).'
       : 'FRTVI is OFF — this is each card’s own CMYK envelope, which is what plays now.';
     else if(kind==='rgb') txt='Dashed gold: no RGB push. Colored: with RGB Particle at this influence.';
+    else if(kind==='atm') txt='Dashed gold: the envelope without the atmosphere. Colored: Resistance, Terminal Velocity and Inertia worked out from each card’s weight, shape and the air (at '+Math.round(fx.atmosphere.depth)+'% depth). White keeps its own envelope.';
     else txt='Dashed gold: no gravity. Every card sags at the same rate; heavier (darker) cards start lower and ring longer.';
     if(off) txt+=' Preview only — '+why+', so none of this reaches the sound.';
     txt+=refOnly?' No cards on this channel yet, so a mid-gray card is shown.'
@@ -4072,15 +4129,44 @@ function fxBlockAtmosphere(channel,ci){
   const valInp=document.createElement('input');valInp.type='number';valInp.min=0;valInp.step=0.001;valInp.value=at.rho;
   valInp.className='effects-num-input';valInp.style.width='72px';valInp.title='ρ in kg/m³ (Earth sea level = 1.225)';
   const table=document.createElement('div');
-  const draw=()=>{table.innerHTML='';fxAtmosphereTable(channel,ci).forEach(e=>table.appendChild(e));};
+  const graph=buildFxGraph(channel,ci,'atm');
+  const draw=()=>{table.innerHTML='';fxAtmosphereTable(channel,ci).forEach(e=>table.appendChild(e));graph.redraw();};
   sel.addEventListener('change',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){at.rho=v;valInp.value=v;saveState();draw();}});
   valInp.addEventListener('input',e=>{const v=Math.max(0,parseFloat(e.target.value)||0);at.rho=v;
     [...sel.options].forEach(o=>{o.selected=o.value!=='custom'&&Math.abs(parseFloat(o.value)-v)<1e-6;});
     if(!ATM_PRESETS.some(pr=>pr.v!==null&&Math.abs(pr.v-v)<1e-6)) sel.value='custom';
     saveState();draw();});
   presetRow.append(sel,valInp);
+  // Physics depth (like FRTVI opacity): 0% = exactly today's sound, 100% = the envelope worked out from the physics
+  const mkRow=(main,sub)=>{const row=document.createElement('div');row.className='effects-slider-row';
+    const l=document.createElement('div');l.className='effects-slider-label';
+    l.innerHTML='<span class="effects-lbl-main">'+main+'</span><span class="effects-lbl-sub">'+sub+'</span>';row.appendChild(l);return row;};
+  const dRow=mkRow('Physics Depth','0% = unchanged sound');
+  const dNum=document.createElement('input');dNum.type='number';dNum.min=0;dNum.max=100;dNum.value=at.depth;dNum.className='effects-num-input';
+  const dSl=document.createElement('input');dSl.type='range';dSl.min=0;dSl.max=100;dSl.value=at.depth;dSl.className='effects-slider';
+  dSl.addEventListener('input',e=>{at.depth=parseFloat(e.target.value);dNum.value=at.depth;draw();});
+  dSl.addEventListener('change',()=>saveState());
+  dNum.addEventListener('input',e=>{const v=Math.max(0,Math.min(100,parseFloat(e.target.value)||0));at.depth=v;dSl.value=v;draw();});
+  dNum.addEventListener('change',()=>saveState());
+  dRow.append(dNum,dSl);
+  // Mass unit: scales every card's mass against the air (log slider, 1 = as the colors say)
+  const mRow=mkRow('Mass Unit','1 = mass as the colors say');
+  const mNum=document.createElement('input');mNum.type='number';mNum.min=0.01;mNum.max=100;mNum.step=0.01;mNum.value=at.massUnit;mNum.className='effects-num-input';
+  const mSl=document.createElement('input');mSl.type='range';mSl.min=-200;mSl.max=200;mSl.value=Math.round(Math.log10(at.massUnit)*100);mSl.className='effects-slider';
+  mSl.title='log scale: 0.01 … 100';
+  mSl.addEventListener('input',e=>{at.massUnit=Math.pow(10,parseFloat(e.target.value)/100);mNum.value=at.massUnit.toFixed(2);draw();});
+  mSl.addEventListener('change',()=>saveState());
+  mNum.addEventListener('input',e=>{const v=Math.max(0.01,Math.min(100,parseFloat(e.target.value)||1));at.massUnit=v;mSl.value=Math.round(Math.log10(v)*100);draw();});
+  mNum.addEventListener('change',()=>saveState());
+  mRow.append(mNum,mSl);
+  // Floaters rise: a card lighter than the air starts at its launch speed and accelerates up to terminal velocity
+  const rBtn=document.createElement('button');rBtn.className='tb effects-toggle'+(at.rise?' on':'');
+  rBtn.textContent='FLOATERS RISE · '+(at.rise?'ON':'OFF');
+  rBtn.title='A card lighter than the air it displaces is pushed up by buoyancy. ON: its sustain swells as it accelerates toward terminal velocity. OFF: it simply sustains at that speed.';
+  rBtn.style.alignSelf='flex-start';
+  rBtn.addEventListener('click',()=>{at.rise=!at.rise;rBtn.classList.toggle('on',at.rise);rBtn.textContent='FLOATERS RISE · '+(at.rise?'ON':'OFF');saveState();draw();});
   draw();
-  return [hdr,presetRow,table];
+  return [hdr,presetRow,dRow,mRow,rBtn,graph.el,table];
 }
 function fxAtmosphereTable(channel,ci){
   const fx=ensureFx(channel);
@@ -4092,7 +4178,7 @@ function fxAtmosphereTable(channel,ci){
   const wrap=document.createElement('div');wrap.className='fx-ro';
   const gr=document.createElement('div');gr.className='fx-ro-grid fx-ro-atm';
   const add=(cls,html,title)=>{const d=document.createElement('div');d.className=cls;d.innerHTML=html;if(title)d.title=title;gr.appendChild(d);return d;};
-  add('fx-ro-grp','FLIGHT · g = '+g.toFixed(2)+' m/s² · ρ = '+(rho<0.1?rho.toPrecision(2):rho.toFixed(2))+' kg/m³').style.gridColumn='1 / 9';
+  add('fx-ro-grp','FLIGHT · g = '+g.toFixed(2)+' m/s² · ρ = '+(rho<0.1?rho.toPrecision(2):rho.toFixed(2))+' kg/m³ · mass unit '+(+fx.atmosphere.massUnit.toFixed(2))).style.gridColumn='1 / 11';
   add('fx-ro-h','CARD');
   add('fx-ro-h','WEIGHT','Net weight (m − ρ·V)·g. Negative = lighter than the air it displaces, so the card floats up.');
   add('fx-ro-h','LAUNCH','Speed the strike gives it (organ m/s). Light cards approach c.');
@@ -4101,9 +4187,11 @@ function fxAtmosphereTable(channel,ci){
   add('fx-ro-h','TERMINAL V','Where drive = drag: √(2·|W| ÷ ρ·Cd·A). Infinite in a vacuum.');
   add('fx-ro-h','COAST τ','Time to halve its speed once the push stops (quadratic drag). Infinite in a vacuum — nothing slows it.');
   add('fx-ro-h','FATE','Sinks, floats, or light.');
+  add('fx-ro-h','→ SUSTAIN','What reaches the sound: Terminal Velocity ÷ launch speed (swells = a floater accelerating up).');
+  add('fx-ro-h','→ RING','What reaches the sound: how long it takes to fall to 10% of its speed once the push stops (9τ, scaled and limited).');
   const fn=x=>x===null?'—':!isFinite(x)?'∞':Math.abs(x)>=100?x.toFixed(0):Math.abs(x)>=10?x.toFixed(1):Math.abs(x)>=0.1?x.toFixed(2):x.toFixed(3);
   rows.forEach(({card,col,vol})=>{
-    const f=flightProps(col,card.suit,vol,channel,g,rho);
+    const f=flightProps(col,card.suit,vol,channel,g,rho,fx.atmosphere.massUnit), en=(f.light||f.tv===null)?null:flightEnvelope(f,fx.atmosphere.rise);
     add('fx-ro-c fx-ro-card','<span class="fx-ro-sw" style="background:rgb('+col.r+','+col.g+','+col.b+')"></span><span class="fx-ro-name">'+card.name+'</span>');
     add('fx-ro-c','<span class="fx-ro-num">'+fn(f.W)+'</span>');
     add('fx-ro-c','<span class="fx-ro-num">'+fn(f.v0)+'</span>');
@@ -4112,10 +4200,12 @@ function fxAtmosphereTable(channel,ci){
     add('fx-ro-c','<span class="fx-ro-num vec">'+fn(f.tv)+'</span>');
     add('fx-ro-c','<span class="fx-ro-num vec">'+fn(f.tau)+(f.tau!==null&&isFinite(f.tau)?' s':'')+'</span>');
     add('fx-ro-c','<span class="fx-ro-num vec">'+(f.light?'light':f.floats?'floats':'sinks')+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num">'+(en?(en.rising?'swells':Math.round(en.sV*100)+'%'):'—')+'</span>');
+    add('fx-ro-c','<span class="fx-ro-num">'+(en?en.R.toFixed(2)+' s':'—')+'</span>');
   });
   wrap.appendChild(gr);
   const cap=document.createElement('div');cap.className='fx-graph-cap';
-  cap.textContent='Readings only — nothing here changes the sound yet. Gravity (from the Gravity tile) pulls; the atmosphere buoys and drags. In a vacuum every card flies the same arc. Light cards (white) have no weight, so none of the flight numbers apply to them.'+(refOnly?' No cards on this channel yet, so a mid-gray reference is shown.':' One row per card ('+(total>FX_RO_MAXROWS?FX_RO_MAXROWS+' of '+total:total)+').');
+  cap.textContent='The last two columns are what reaches the sound (at the Physics Depth shown above; 0% = unchanged). Gravity (from the Gravity tile) pulls; the atmosphere buoys and drags. In a vacuum every card flies the same arc. Light cards (white) have no weight, so none of the flight numbers apply to them.'+(refOnly?' No cards on this channel yet, so a mid-gray reference is shown.':' One row per card ('+(total>FX_RO_MAXROWS?FX_RO_MAXROWS+' of '+total:total)+').');
   return [wrap,cap];
 }
 
