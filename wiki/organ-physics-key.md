@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 17, 2026 (Phase 3b, scaled around the ADSR; flight plot). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 18, 2026 (Phase 3 complete; clean-up pass). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -105,6 +105,7 @@ SOUND  (pitch · suit waveform · gain curve · pan)
 | Height | How high the strike lifts the particle. In vacuum `h = E/(mg)` | AGREED |
 | Gravity (g) | Same acceleration for everything. Presets Moon / Mars / Earth / Jupiter / Sun | BUILT |
 | Atmosphere (ρ) | Air density, its own tile under Physics Engine. Vacuum 0 · Mars 0.02 · Jupiter 0.16 · Earth 1.225 · Titan 5.3 · Venus 65 kg/m³. Its controls: ρ · Physics Depth · Mass Unit · Floaters Rise | BUILT (default OFF) |
+| World | Preset that sets gravity and air together: Earth · Moon · Mars · Jupiter (1 bar) · Titan (g 1.352, ρ 5.3) · Venus. Either can still be edited alone (shows as Mixed) | BUILT |
 | Physics Depth | Atmosphere's strength, like FRTVI opacity. 0% = exactly the sound without it; 100% = your ADSR fully scaled by the flight ratios; between = breakpoints mixed | BUILT |
 | Reference particle | Mid-gray cube at strike 0.7 in Earth air, mass unit 1. It keeps your ADSR exactly; every other card is scaled by how its flight differs from it | BUILT |
 | Flight plot | Height (or speed) over time for each card, integrated from `m·dv/dt = −mg + ρVg − ½ρCdA·v|v|`. Analysis only; it matches the closed-form vacuum peak to 0.01% | BUILT (reading) |
@@ -123,6 +124,7 @@ SOUND  (pitch · suit waveform · gain curve · pan)
 | Sag | Gravity pulling the sustain down: `gNorm · depth · 0.22` | BUILT, WEDGED |
 | Opacity | FRTVI strength. 100% = full blend · 0% = exactly as if FRTVI were off | BUILT |
 | Blend | How FRTVI mixes with the card's own envelope: normal / multiply / screen / overlay | BUILT |
+| Effects Lab | Only one channel's Lab is open at a time. Lab background `#0f0f13` | BUILT |
 | Physics Engine | Master switch for physics. Its pane shows each card's particle readout | BUILT |
 
 **Interface**
@@ -214,7 +216,7 @@ Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square �
 
 **WEDGED in 3b:** the ratio limits `PHYS_RATIO_MIN = ⅓`, `PHYS_RATIO_MAX = 3` · the choice of reference particle (mid-gray cube, Earth air, strike 0.7). The ratios themselves τ/τ_ref and s/s_ref are the physics. On Earth the release ratio across the deck: median ×1.6, a quarter of cards at ×1 or below, a quarter at the ×3 limit.
 
-**Latent, older than 3b:** some notes already had breakpoints out of time order (very short notes with long decay) or peaks a hair over 1.0 (RGB Particle boost at full volume). Web Audio tolerates both. About 3% of random test notes.
+**Fixed Oct 18 (older than 3b):** short notes with a long decay put the release breakpoint before the decay one, and RGB Particle could push a peak a hair over 1.0. Breakpoints are now always returned in time order (Web Audio had been re-sorting them silently, but the note's stop time followed the wrong point, so tails could be cut). Peak is capped at 1. In 6,000 random notes: 5,822 identical, 176 re-ordered, 2 capped.
 
 **Constants:** c² = 1000 · light-like at v/c ≥ 0.5 · ρ = 1.225 kg/m³ (sea level) · g = 9.81 m/s² · peak 0.70×vol (FRTVI off), 0.90×vol (FRTVI on) · `GRAV_LIFT_K = 0.6` · `GRAV_INERTIA_K = 1.2` · sag factor 0.22.
 
