@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap');
-:root{--bg:#06040e;--bg2:#0d0a1e;--bg3:#150f28;--gold:#c9a96e;--gf:rgba(201,169,110,.12);--border:rgba(201,169,110,.15);--text:#ccc8b8;--dim:#3a3028;--sw:42px;--sh:58px;--dsh:74px;--tlw:210px;}
+:root{--lab-bg:#0f0f13;--bg:#06040e;--bg2:#0d0a1e;--bg3:#150f28;--gold:#c9a96e;--gf:rgba(201,169,110,.12);--border:rgba(201,169,110,.15);--text:#ccc8b8;--dim:#3a3028;--sw:42px;--sh:58px;--dsh:74px;--tlw:210px;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-height:100vh;}
 
@@ -68,7 +68,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .compact-cell{width:var(--sw);min-width:var(--sw);height:20px;border-radius:2px;border:1px solid rgba(201,169,110,.1);background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;cursor:context-menu;font-size:5px;color:rgba(255,255,255,.5);}
 .compact-cell.filled{opacity:1;}
 .compact-cell:hover{filter:brightness(1.2);}
-.effects-panel{display:flex;flex-direction:column;gap:7px;padding:10px 14px;background:rgba(4,2,12,.85);border-bottom:1px solid rgba(201,169,110,.08);}
+.effects-panel{display:flex;flex-direction:column;gap:7px;padding:10px 14px;background:var(--lab-bg);border-bottom:1px solid rgba(201,169,110,.08);width:0;min-width:100%;box-sizing:border-box;}
 .effects-panel-hdr{display:flex;align-items:center;gap:8px;}
 .effects-sliders{display:flex;flex-direction:column;gap:6px;}
 .effects-slider-row{display:flex;align-items:center;gap:8px;}
@@ -96,7 +96,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 /* ── Effects Lab: tile rail under the channel header (only exists while ⚗ is open) ── */
 .track-left-col{width:var(--tlw);min-width:var(--tlw);flex-shrink:0;position:sticky;left:0;z-index:10;display:flex;flex-direction:column;align-self:stretch;background:rgba(6,4,14,.98);border-right:1px solid var(--border);}
 .track-left-col>.track-header{position:static;width:100%;min-width:0;border-right:none;}
-.effects-rail{display:flex;flex-direction:column;gap:6px;padding:10px 10px 12px;border-top:1px solid rgba(201,169,110,.1);}
+.effects-rail{display:flex;flex-direction:column;gap:6px;padding:10px 10px 12px;border-top:1px solid rgba(201,169,110,.1);background:var(--lab-bg);}
 .track-row.in-group .effects-rail{border-left:3px solid rgba(201,169,110,.5);padding-left:7px;}
 .track-row.is-dimmed .effects-rail{opacity:.52;transition:opacity .22s;}
 .fx-tile{display:flex;align-items:center;gap:6px;min-height:34px;border:1px solid rgba(201,169,110,.15);border-radius:3px;padding:6px 8px;cursor:pointer;transition:background .15s,border-color .15s,opacity .2s;}
@@ -114,7 +114,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .fx-pill.on{border-color:rgba(201,169,110,.7);color:var(--gold);background:var(--gf);}
 .effects-note{font-family:'EB Garamond',serif;font-size:12px;font-style:italic;color:rgba(201,169,110,.4);line-height:1.35;margin-top:2px;}
 .effects-title{flex:0 0 auto;padding:0 6px;}
-.fx-labbar{padding:0 10px 10px;background:rgba(6,4,14,.98);}
+.fx-labbar{padding:0 10px 10px;background:var(--lab-bg);}
 .track-row.in-group .fx-labbar{border-left:3px solid rgba(201,169,110,.5);padding-left:7px;}
 .track-row.is-dimmed .fx-labbar{opacity:.52;transition:opacity .22s;}
 .fx-lab-btn{width:100%;display:flex;align-items:center;gap:7px;padding:6px 8px;cursor:pointer;background:rgba(0,0,0,.4);border:1px solid rgba(201,169,110,.3);color:rgba(201,169,110,.6);border-radius:3px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.09em;transition:all .15s;}
@@ -2423,6 +2423,7 @@ function noteShapeBase(col,vol,channel,force){
     pk*=liftRatio;
     R*=1+mass*GRAV_INERTIA_K;                             // heavier = slower to stop
   }
+  pk=Math.min(1,pk);                            // never louder than full scale (RGB boost could push it a hair over 1)
   const sagEnd=pk*Math.max(0,sV*(1-gravDecay)); // sustain level at the end of the hold
   return {extended,A,D,sV,R,pk,gravDecay,sagEnd,panNudge};
 }
@@ -2480,10 +2481,16 @@ function noteShape(col,vol,channel,force){
 
 // The gain breakpoints [time,gain] of one note held for `dur` seconds, starting at t0.
 // Audio passes the real start time; the graphs pass 0.
+// Breakpoints are always returned in time order (a short note with a long decay used to put the release point
+// before the decay point — Web Audio silently re-sorted them, but the note's stop time followed the wrong one).
 function noteGainPoints(s,dur,t0){
+  const pts=noteGainPointsRaw(s,dur,t0);
+  return pts.map((q,i)=>[q,i]).sort((a,b)=>a[0][0]-b[0][0]||a[1]-b[1]).map(x=>x[0]);
+}
+function noteGainPointsRaw(s,dur,t0){
   t0=t0||0;
   if(s.mix){   // opacity between 0% and 100%: each breakpoint slides from the FRTVI-off one to the FRTVI-on one
-    const pc=noteGainPoints(s.mix.c,dur,t0),pe=noteGainPoints(s.mix.e,dur,t0),op=s.mix.op;
+    const pc=noteGainPointsRaw(s.mix.c,dur,t0),pe=noteGainPointsRaw(s.mix.e,dur,t0),op=s.mix.op;
     return pc.map((q,i)=>[q[0]+(pe[i][0]-q[0])*op,q[1]+(pe[i][1]-q[1])*op]);
   }
   if(s.extended){
@@ -3739,7 +3746,7 @@ function drawEnvelopeCanvas(canvas,channel,ci){
   // Stage labels
   ctx2.fillStyle='rgba(201,169,110,.4)';ctx2.font='9px Cinzel,serif';
   const labelY=h-2;
-  ctx2.fillText('Force',xO+1,labelY);
+  ctx2.fillText('Δt',xO+1,labelY);
   ctx2.fillText('Resist',xA+2,labelY);
   ctx2.fillText('Term.V',xD+2,labelY);
   ctx2.fillText('Inertia',xS+2,labelY);
@@ -3825,7 +3832,7 @@ function addEffect(channel,ci,kind){
     fx.gravity.on=true; fx.gravity.value=9.81; fx.gravity.depth=100;
     fx.atmosphere.on=true; fx.atmosphere.rho=1.225; fx.atmosphere.depth=100;
   }
-  chFlippedToEffects.add(ci);
+  chFlippedToEffects.clear(); chFlippedToEffects.add(ci);   // adding an effect opens this channel's Lab (and closes any other)
   render();saveState();
 }
 function removeEffect(channel,kind){
@@ -3844,7 +3851,7 @@ function openFxAddMenu(channel,ci,anchor){
   const a=ensureFx(channel).added;
   const menu=document.createElement('div');menu.className='fx-add-menu';
   const items=[];
-  if(!a.frtvi) items.push(['frtvi','⚗ FRTVI','Force · Resistance · Terminal Velocity · Inertia']);
+  if(!a.frtvi) items.push(['frtvi','⚗ FRTVI','Δt · Resistance · Terminal Velocity · Inertia']);
   if(!a.phys) items.push(['phys','⚛ PHYSICS ENGINE','Comes with RGB Particle + Gravity, ON at 100% (Earth)']);
   if(!items.length){ const n=document.createElement('div');n.className='fx-add-none';n.textContent='Every effect is already on this channel.';menu.appendChild(n); }
   items.forEach(([k,t,sub])=>{
@@ -3869,7 +3876,8 @@ function buildLabBar(channel,ci){
   const plus=document.createElement('span');plus.className='fx-lab-plus';plus.textContent='+';plus.title='Add an effect';
   btn.append(nm,plus);
   btn.addEventListener('click',()=>{
-    if(chFlippedToEffects.has(ci)) chFlippedToEffects.delete(ci); else chFlippedToEffects.add(ci);
+    if(chFlippedToEffects.has(ci)) chFlippedToEffects.delete(ci);
+    else { chFlippedToEffects.clear(); chFlippedToEffects.add(ci); }   // one Effects Lab open at a time
     closeFxAddMenu();render();
   });
   plus.addEventListener('click',e=>{e.stopPropagation();openFxAddMenu(channel,ci,plus);});
@@ -3883,11 +3891,11 @@ function buildEffectsRail(channel,ci){
   const sel=fxSel(channel);
   const rail=document.createElement('div');rail.className='effects-rail';
   const defs=[
-    {id:'frtvi',own:'frtvi',icon:'⚗',name:'FRTVI',nested:false,tip:'Envelope: Force · Resistance · Terminal Velocity · Inertia',
+    {id:'frtvi',own:'frtvi',icon:'⚗',name:'FRTVI',nested:false,tip:'Envelope: Δt (attack) · Resistance · Terminal Velocity · Inertia',
       get:()=>fx.adsr.on,set:v=>{fx.adsr.on=v;}},
     {id:'phys',own:'phys',icon:'⚛',name:'PHYSICS ENGINE',nested:false,pill:true,tip:'Master switch for RGB Particle, Gravity and Atmosphere',
       get:()=>fx.physicsOn,set:v=>{fx.physicsOn=v;}},
-    {id:'rgb',own:'phys',icon:'◉',name:'RGB PARTICLE',nested:true,tip:'R→Force · B→Terminal Velocity · G→Pan',
+    {id:'rgb',own:'phys',icon:'◉',name:'RGB PARTICLE',nested:true,tip:'R→Peak · B→Sustain · G→Pan (worked out, not yet applied)',
       get:()=>fx.rgbParticle.on,set:v=>{fx.rgbParticle.on=v;}},
     {id:'grav',own:'phys',icon:'↓',name:'GRAVITY',nested:true,tip:'Sustain falls under the field — same rate for every card',
       get:()=>fx.gravity.on,set:v=>{fx.gravity.on=v;}},
@@ -4178,6 +4186,11 @@ function buildFlightPlot(channel,ci){
   return {el:wrap,redraw};
 }
 
+// World presets set gravity AND air together. Each stays editable on its own afterwards (mix them freely: Earth's pull with Titan's air).
+const WORLD_PRESETS=[
+  {label:'🌍 Earth',g:9.81,rho:1.225},{label:'🌙 Moon',g:1.62,rho:0},{label:'♂ Mars',g:3.72,rho:0.020},
+  {label:'♃ Jupiter (1 bar)',g:24.8,rho:0.16},{label:'◍ Titan',g:1.352,rho:5.3},{label:'♀ Venus',g:8.87,rho:65}
+];
 // ── Atmosphere pane: air density + a per-card flight table ─────────────
 const ATM_PRESETS=[
   {label:'◌ Vacuum (Moon)',v:0},{label:'♂ Mars · 0.020',v:0.020},{label:'🌍 Earth · 1.225',v:1.225},
@@ -4192,6 +4205,16 @@ function fxBlockAtmosphere(channel,ci){
   const title=document.createElement('span');title.className='effects-title';title.textContent='☁ ATMOSPHERE · PHYSICS ENGINE';
   title.title='Air density ρ (kg/m³). Drag, buoyancy and terminal velocity come from it. Gravity does gravity; atmosphere does atmosphere — a vacuum is just ρ = 0.';
   hdr.append(tog,title);
+  const worldRow=document.createElement('div');worldRow.className='effects-slider-row';worldRow.style.gap='6px';
+  const wl=document.createElement('div');wl.className='effects-slider-label';
+  wl.innerHTML='<span class="effects-lbl-main">World</span><span class="effects-lbl-sub">sets g and ρ together</span>';
+  const wsel=document.createElement('select');wsel.className='effects-blend-sel';wsel.style.flex='1';
+  const wHit=WORLD_PRESETS.find(w=>Math.abs(w.g-fx.gravity.value)<0.01&&Math.abs(w.rho-at.rho)<1e-6);
+  WORLD_PRESETS.forEach((w,i)=>{const o=document.createElement('option');o.value=i;o.textContent=w.label+'  ·  g '+w.g+'  ·  ρ '+w.rho;o.selected=w===wHit;wsel.appendChild(o);});
+  const wMix=document.createElement('option');wMix.value='mixed';wMix.textContent='✎ Mixed  ·  g '+(+fx.gravity.value.toFixed(2))+'  ·  ρ '+(+at.rho.toFixed(3));wMix.selected=!wHit;
+  if(!wHit) wsel.appendChild(wMix);
+  wsel.addEventListener('change',e=>{const w=WORLD_PRESETS[+e.target.value];if(!w)return;pushHistory();fx.gravity.value=w.g;at.rho=w.rho;render();saveState();});
+  worldRow.append(wl,wsel);
   const presetRow=document.createElement('div');presetRow.className='effects-slider-row';presetRow.style.gap='6px';
   const sel=document.createElement('select');sel.className='effects-blend-sel';sel.style.flex='1';
   ATM_PRESETS.forEach(pr=>{
@@ -4241,7 +4264,7 @@ function fxBlockAtmosphere(channel,ci){
   rBtn.style.alignSelf='flex-start';
   rBtn.addEventListener('click',()=>{at.rise=!at.rise;rBtn.classList.toggle('on',at.rise);rBtn.textContent='FLOATERS RISE · '+(at.rise?'ON':'OFF');saveState();draw();});
   draw();
-  return [hdr,presetRow,dRow,mRow,rBtn,graph.el,fplot.el,table];
+  return [hdr,worldRow,presetRow,dRow,mRow,rBtn,graph.el,fplot.el,table];
 }
 function fxAtmosphereTable(channel,ci){
   const fx=ensureFx(channel);
@@ -4382,11 +4405,11 @@ function fxBlockRgb(channel,ci,solo,top){
   tog.addEventListener('click',()=>{pushHistory();rp.on=!rp.on;render();saveState();});
   const title=document.createElement('span');title.className='effects-title';
   title.textContent='◉ RGB PARTICLE'+(solo?' · PHYSICS ENGINE':'');
-  title.title='R→Force · B→Terminal Velocity · G→Pan (40% of depth)';
+  title.title='R→Peak · B→Terminal Velocity (sustain) · G→Pan (worked out, not yet applied)';
   hdr.append(tog,title);
   const row=document.createElement('div');row.className='effects-slider-row';
   const lbl=document.createElement('div');lbl.className='effects-slider-label';
-  lbl.innerHTML='<span class="effects-lbl-main">Particle Influence</span><span class="effects-lbl-sub">R→Force · B→Term.V · G→Pan</span>';
+  lbl.innerHTML='<span class="effects-lbl-main">Particle Influence</span><span class="effects-lbl-sub">R→Peak · B→Term.V · G→Pan</span>';
   const num=document.createElement('input');num.type='number';num.min=0;num.max=100;
   num.value=rp.depth;num.className='effects-num-input';
   const slider=document.createElement('input');slider.type='range';slider.min=0;slider.max=100;
@@ -4409,7 +4432,7 @@ function fxBlockGrav(channel,ci,solo,top){
   tog.addEventListener('click',()=>{pushHistory();grav.on=!grav.on;render();saveState();});
   const title=document.createElement('span');title.className='effects-title';
   title.textContent='↓ GRAVITY'+(solo?' · PHYSICS ENGINE':'');
-  title.title='Pulls amplitude downward during sustain (same rate for every card — Galileo\'s rule). The card\'s own mass (from its color) also sets how much Force is needed to lift off, and how long its Inertia resists stopping on release.';
+  title.title='Pulls amplitude downward during sustain (same rate for every card — Galileo\'s rule). The card\'s own mass (from its color) also sets how much strike energy is needed to lift off, and how long its Inertia resists stopping on release.';
   hdr.append(tog,title);
   // Presets dropdown + value input
   const presetRow=document.createElement('div');presetRow.className='effects-slider-row';
@@ -4455,7 +4478,7 @@ function fxBlockGrav(channel,ci,solo,top){
   row.append(lbl,num,slider);
   // Read-only note: mass comes from the card, not from a control
   const note=document.createElement('div');note.className='effects-note';
-  note.textContent='Every card falls at the same rate. A card\'s mass comes from its color — darker is heavier: it needs more Force to lift off and resists stopping longer.';
+  note.textContent='Every card falls at the same rate. A card\'s mass comes from its color — darker is heavier: it needs more strike energy to lift off and resists stopping longer.';
   return [hdr,presetRow,row,graph.el,note];
 }
 

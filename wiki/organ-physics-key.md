@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 17, 2026 (Phase 3b). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 17, 2026 (Phase 3b, scaled around the ADSR; flight plot). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -45,9 +45,10 @@ ENERGY INTO PARTICLE ──► MOMENTUM p = √(KE² + 2·KE·m·c²)/c         
   └──► LAUNCH v₀ ──► FLIGHT in gravity g + atmosphere ρ                    BUILT (opt-in)
          weight (m − ρV)g · terminal v √(2|W|/ρCdA) · peak height · coast τ
          │
-         ├─ Terminal Velocity ──► sustain level  = TV ÷ v₀  (capped at 1)
-         ├─ Resistance        ──► decay time     = τ·(v₀/TV − 1)
-         ├─ Inertia           ──► release time   = 9τ  (to 10% of speed)
+         │   compared with a REFERENCE particle (mid-gray cube, Earth air, struck at 0.7) that keeps your ADSR exactly:
+         ├─ Resistance (decay)  = your Decay   × τ/τ_ref   (limited ×⅓ … ×3)
+         ├─ Inertia (release)   = your Release × τ/τ_ref   (same limits)
+         ├─ Terminal Velocity   = your Sustain × s/s_ref,  s = min(1, TV/v₀)
          └─ floater + "Floaters rise" ──► sustain swells from v₀/TV up to the peak
   │
   ▼
@@ -104,7 +105,9 @@ SOUND  (pitch · suit waveform · gain curve · pan)
 | Height | How high the strike lifts the particle. In vacuum `h = E/(mg)` | AGREED |
 | Gravity (g) | Same acceleration for everything. Presets Moon / Mars / Earth / Jupiter / Sun | BUILT |
 | Atmosphere (ρ) | Air density, its own tile under Physics Engine. Vacuum 0 · Mars 0.02 · Jupiter 0.16 · Earth 1.225 · Titan 5.3 · Venus 65 kg/m³. Its controls: ρ · Physics Depth · Mass Unit · Floaters Rise | BUILT (default OFF) |
-| Physics Depth | Atmosphere's strength, like FRTVI opacity. 0% = exactly the sound without it; 100% = Resistance / TV / Inertia fully from the flight numbers; between = breakpoints mixed | BUILT |
+| Physics Depth | Atmosphere's strength, like FRTVI opacity. 0% = exactly the sound without it; 100% = your ADSR fully scaled by the flight ratios; between = breakpoints mixed | BUILT |
+| Reference particle | Mid-gray cube at strike 0.7 in Earth air, mass unit 1. It keeps your ADSR exactly; every other card is scaled by how its flight differs from it | BUILT |
+| Flight plot | Height (or speed) over time for each card, integrated from `m·dv/dt = −mg + ρVg − ½ρCdA·v|v|`. Analysis only; it matches the closed-form vacuum peak to 0.01% | BUILT (reading) |
 | Mass Unit | Multiplies every card's mass against the air (log slider, default 1). Moves the sink / float line without changing the atmosphere. Does not touch Gravity layer 1 | BUILT |
 | Floaters Rise | ON: a card lighter than the air starts at launch speed and accelerates up to terminal velocity, so its sustain swells. OFF: it sustains at that speed | BUILT (default OFF) |
 | Buoyancy | `ρ·V·g` upward. A card less dense than the air floats (30 of 78 on Earth at mass unit 1) | BUILT (via flight) |
@@ -134,7 +137,8 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 | Color | `toCMYK(r,g,b)` | color → C, M, Y, K | BUILT |
 | Mass | `cardMass(col)` | `1 − mean(r,g,b)/255` | BUILT |
 | Flight | `flightProps(col,suit,vol,channel,g,rho,massUnit)` | → net weight, launch speed, peaks, terminal v, coast τ, floats/sinks/light | BUILT |
-| Flight | `flightEnvelope(f,rise)` | flight numbers → sustain level, decay time, release time (and whether it swells) | BUILT |
+| Flight | `flightEnvelope(f,rise,base)` | flight ratios vs the reference → your sustain, decay, release scaled (and whether it swells) | BUILT |
+| Flight | `flightTrajectory(f,g,rho,T)` · `buildFlightPlot` | RK4 motion of one card; the Atmosphere pane's height/speed plot | READING |
 | **Shape** | `noteShape(...)` wraps `noteShapeBase(...)` | applies the atmosphere on top of the usual envelope; `force.suit` carries the card's suit, `force.flight` isolates it for graphs | BUILT |
 | Strike | `strikeKinematics(col,vol,channel)` | → mass, KE, momentum p, v/c, Δt (the real attack), Force, light/matter | READING |
 | Vector | `colorVector(col)` | → length (0–1), tilt, spin | READING |
@@ -158,7 +162,7 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 ## Status board
 
 **BUILT**
-Atmosphere → sound (Phase 3b): sustain = TV/v₀, decay = τ(v₀/TV − 1), release = 9τ, vacuum rings the maximum, floaters swell (opt-in), white keeps its envelope · Atmosphere replaces the Gravity sag for sustain, but Gravity still lowers the peak (lift cost) · Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, Δt, Force, regime, length, tilt, spin per card) · Attack relabelled Δt.
+Atmosphere → sound (Phase 3b): your ADSR scaled by flight ratios against a reference card (decay and release × τ/τ_ref, sustain × s/s_ref), vacuum stretches the most, floaters swell (opt-in), white keeps its envelope · Flight plot (height / speed per card) · Atmosphere replaces the Gravity sag for sustain, but Gravity still lowers the peak (lift cost) · Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, Δt, Force, regime, length, tilt, spin per card) · Attack relabelled Δt.
 
 **AGREED, not built**
 - Old RGB Particle stays until its replacement has been heard, then retires.
@@ -208,7 +212,7 @@ spin  = atan2(√3·(g−b), 2r−g−b)
 Densest suit (Wands) to lightest (Major) at the same color: 5.43×.
 Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square · Major sine + triangle overtone at 2×.
 
-**WEDGED in 3b:** `PHYS_TIME_K = 0.15` (organ seconds → seconds) · ring limits 0.02–4 s · decay limit 2 s · release = time to 10% (9τ).
+**WEDGED in 3b:** the ratio limits `PHYS_RATIO_MIN = ⅓`, `PHYS_RATIO_MAX = 3` · the choice of reference particle (mid-gray cube, Earth air, strike 0.7). The ratios themselves τ/τ_ref and s/s_ref are the physics. On Earth the release ratio across the deck: median ×1.6, a quarter of cards at ×1 or below, a quarter at the ×3 limit.
 
 **Latent, older than 3b:** some notes already had breakpoints out of time order (very short notes with long decay) or peaks a hair over 1.0 (RGB Particle boost at full volume). Web Audio tolerates both. About 3% of random test notes.
 
