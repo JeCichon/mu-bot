@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 18, 2026 (Phase 3 complete; clean-up pass). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 19, 2026 (RGB Particle Controls; ΔtRTVI). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -11,7 +11,7 @@ Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as 
 3. **Gravity does gravity; atmosphere does atmosphere.** Gravity accelerates everything equally. Drag and buoyancy come from the atmosphere (air density ρ; 0 = vacuum). Galileo's falling-together is simply the ρ = 0 case, not a separate rule.
 4. **Every audio change is opt-in, default OFF.** Existing songs keep their sound.
 5. **A color is one vector, not three filters.** R, G, B are not separate knobs.
-6. **Emphasize mass, volume, density and shape first.** The color-vector readings (length, tilt, spin) come second, and do nothing yet.
+6. **Emphasize mass, volume, density and shape first.** The color-vector readings (length, tilt, spin) come second, and can be assigned to a feature in RGB Particle Controls (unassigned by default).
 
 ---
 
@@ -53,10 +53,10 @@ ENERGY INTO PARTICLE ──► MOMENTUM p = √(KE² + 2·KE·m·c²)/c         
   │
   ▼
 PARTICLE RESPONDS
-  ├─ envelope     CMYK seeds + FRTVI sliders  (blend · opacity)            BUILT
+  ├─ envelope     CMYK seeds + ΔtRTVI sliders  (blend · opacity)            BUILT
   ├─ gravity      pulls sustain down; mass raises lift cost, stretches release   BUILT
   ├─ atmosphere   drag + buoyancy; terminal velocity from the equation     AGREED
-  └─ vector       length · tilt · spin: assignable to controls, later      OPEN
+  └─ controls     R · G · B · length · tilt · spin → any feature (drop-downs)   BUILT
   │
   ▼
 SOUND  (pitch · suit waveform · gain curve · pan)
@@ -78,7 +78,7 @@ SOUND  (pitch · suit waveform · gain curve · pan)
 | Tilt | Angle between the vector and the gray diagonal, in degrees. 0° = pure gray. Black has none | READING |
 | Spin | Angle around the gray diagonal, 0–360°. Red 0 · yellow 60 · green 120 · cyan 180 · blue 240 · magenta 300. Pure grays have none. Within ~1.1° of ordinary HSV hue everywhere | READING |
 | CMYK reading | Subtractive, matter: what the particle **is** | BUILT |
-| RGB reading | Additive, spirit: what the particle is **doing** | AGREED |
+| RGB reading | Additive, spirit: what the particle is **doing** | BUILT (as RGB Particle Controls) |
 
 **Properties**
 | Term | Meaning | Status |
@@ -100,13 +100,13 @@ SOUND  (pitch · suit waveform · gain curve · pan)
 | c | The organ's speed of light. `c² = 1000` organ units, a tuning constant. Nothing moves faster | READING |
 | Momentum (p) | `√(KE² + 2·KE·m·c²) / c`. One equation for matter and light | READING |
 | Δt | The Attack slider. How long the organ takes to push the particle (ms). Replaces the old "Force" label | BUILT (label) |
-| Force (F) | **Derived, not a control.** `F = Δp ÷ Δt`. For matter `F = m·Δv/Δt`; for light `F = E/(c·Δt)`. Shown in the FRTVI pane and the Physics table | READING |
+| Force (F) | **Derived, not a control.** `F = Δp ÷ Δt`. For matter `F = m·Δv/Δt`; for light `F = E/(c·Δt)`. Shown in the ΔtRTVI pane and the Physics table | READING |
 | Regime | Matter-like (v ≪ c) or light-like (v/c ≥ 0.5). White is light; the rest of the deck is matter | READING |
 | Height | How high the strike lifts the particle. In vacuum `h = E/(mg)` | AGREED |
 | Gravity (g) | Same acceleration for everything. Presets Moon / Mars / Earth / Jupiter / Sun | BUILT |
 | Atmosphere (ρ) | Air density, its own tile under Physics Engine. Vacuum 0 · Mars 0.02 · Jupiter 0.16 · Earth 1.225 · Titan 5.3 · Venus 65 kg/m³. Its controls: ρ · Physics Depth · Mass Unit · Floaters Rise | BUILT (default OFF) |
 | World | Preset that sets gravity and air together: Earth · Moon · Mars · Jupiter (1 bar) · Titan (g 1.352, ρ 5.3) · Venus. Either can still be edited alone (shows as Mixed) | BUILT |
-| Physics Depth | Atmosphere's strength, like FRTVI opacity. 0% = exactly the sound without it; 100% = your ADSR fully scaled by the flight ratios; between = breakpoints mixed | BUILT |
+| Physics Depth | Atmosphere's strength, like ΔtRTVI opacity. 0% = exactly the sound without it; 100% = your ADSR fully scaled by the flight ratios; between = breakpoints mixed | BUILT |
 | Reference particle | Mid-gray cube at strike 0.7 in Earth air, mass unit 1. It keeps your ADSR exactly; every other card is scaled by how its flight differs from it | BUILT |
 | Flight plot | Height (or speed) over time for each card, integrated from `m·dv/dt = −mg + ρVg − ½ρCdA·v|v|`. Analysis only; it matches the closed-form vacuum peak to 0.01% | BUILT (reading) |
 | Mass Unit | Multiplies every card's mass against the air (log slider, default 1). Moves the sink / float line without changing the atmosphere. Does not touch Gravity layer 1 | BUILT |
@@ -122,8 +122,9 @@ SOUND  (pitch · suit waveform · gain curve · pan)
 | Lift cost | What mass and gravity charge the strike: `mass · gNorm · depth · 0.6` | BUILT (tuning constant) |
 | Release stretch | Heavier rings longer: `R × (1 + mass · 1.2)` | BUILT (tuning constant) |
 | Sag | Gravity pulling the sustain down: `gNorm · depth · 0.22` | BUILT, WEDGED |
-| Opacity | FRTVI strength. 100% = full blend · 0% = exactly as if FRTVI were off | BUILT |
-| Blend | How FRTVI mixes with the card's own envelope: normal / multiply / screen / overlay | BUILT |
+| Opacity | ΔtRTVI strength. 100% = full blend · 0% = exactly as if ΔtRTVI were off | BUILT |
+| Blend | How ΔtRTVI mixes with the card's own envelope: normal / multiply / screen / overlay | BUILT |
+| RGB Particle Controls | The old RGB Particle, opened up. Six numbers read from each card's color (R, G, B, length, tilt, spin), each with a drop-down for the feature it drives and its own amount; Influence scales all. Defaults: R→Peak, G→Pan, B→Sustain, the rest unassigned. Features: Peak · Sustain · Pan · Attack (Δt) · Decay · Release · Pitch (detune). Above the middle of a range pushes one way, below the other. No graph: you hear it | BUILT, WEDGED strengths (±30% peak, +35% sustain, ±0.2 pan, ×½…×2 times, ±50¢) |
 | Effects Lab | Only one channel's Lab is open at a time. Lab background `#0f0f13` | BUILT |
 | Physics Engine | Master switch for physics. Its pane shows each card's particle readout | BUILT |
 
@@ -148,14 +149,14 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 | Particle | `particleProps(col,suit)` | → mass, volume, density, length, tilt, spin, shape | READING |
 | Shape | `SUIT_SOLID` | per suit: solid name, corners, Cd, k, circumradius | READING |
 | Pitch | `activeRgbToFreq` → `rgbToFreq` / `rgbToFreqMultiOctave` | hue → pitch class, lightness → octave → Hz | BUILT |
-| Envelope | `getCmykAdsr(col)` | CMYK → the card's own envelope (FRTVI on) | BUILT |
+| Envelope | `getCmykAdsr(col)` | CMYK → the card's own envelope (ΔtRTVI on) | BUILT |
 | Envelope | `blendAdsr(cmyk,user,mode)` | card's envelope × the four sliders | BUILT |
 | **Shape** | `noteShape(col,vol,channel,force)` | **the one envelope calculation**: opacity, blend, gravity, RGB wedge | BUILT |
 | Shape | `noteGainPoints(s,dur,t0)` | shape → four `[time, gain]` points | BUILT |
 | Play | `scheduleCardNote(...)` | plays those points | BUILT |
 | Graphs | `buildFxGraph(channel,ci,kind)` | draws from `noteShape`, so the picture is the sound | BUILT |
 | Readout | `fxBlockParticle(channel,ci)` | the Physics Engine pane's per-card table (particle · strike · color vector) | READING |
-| Readout | `fxBlockFrtvi` force line | the FRTVI pane's Force range across the channel's cards | READING |
+| Readout | `fxBlockFrtvi` force line | the ΔtRTVI pane's Force range across the channel's cards | READING |
 | Safety | `ensureFx(channel)` | fills missing settings so old songs still load | BUILT |
 | Strike | strike → energy → height; atmosphere; drag; terminal velocity | | AGREED |
 
@@ -164,14 +165,13 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 ## Status board
 
 **BUILT**
-Atmosphere → sound (Phase 3b): your ADSR scaled by flight ratios against a reference card (decay and release × τ/τ_ref, sustain × s/s_ref), vacuum stretches the most, floaters swell (opt-in), white keeps its envelope · Flight plot (height / speed per card) · Atmosphere replaces the Gravity sag for sustain, but Gravity still lowers the peak (lift cost) · Color → pitch · suit → waveform · CMYK → envelope · FRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, Δt, Force, regime, length, tilt, spin per card) · Attack relabelled Δt.
+RGB Particle Controls (six assignable color numbers; songs saved before it keep R→Peak and B→Sustain, with G→Pan at 0 because the old pan never reached the sound; new ones start with G→Pan live) · Atmosphere → sound (Phase 3b): your ADSR scaled by flight ratios against a reference card (decay and release × τ/τ_ref, sustain × s/s_ref), vacuum stretches the most, floaters swell (opt-in), white keeps its envelope · Flight plot (height / speed per card) · Atmosphere replaces the Gravity sag for sustain, but Gravity still lowers the peak (lift cost) · Color → pitch · suit → waveform · CMYK → envelope · ΔtRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, Δt, Force, regime, length, tilt, spin per card) · Attack relabelled Δt.
 
 **AGREED, not built**
-- Old RGB Particle stays until its replacement has been heard, then retires.
 - Particle cloud with voices is an **effect**, later, outside the Physics Engine.
 
 **Direction, not decided**
-- Length, tilt and spin do nothing yet, not even pan. Later they may become controls the **user** assigns to whatever they want each to drive.
+- More features for the controls to drive (filter, resonance, vibrato…) as those effects arrive. Possible later: lock a control to one fixed job.
 
 **PARKED**
 Material (list to be pulled from the cards) · striker (surface area, hardness) and ADSR labels in front · cutoff / resonance / modulation as offsets from the card's material · photon energy (E = h·f from pitch; white stays on strike energy for now) · Planck-scale constants · Gravity layers 2 and 3 · bounce `vy = −vy·e`.
@@ -218,6 +218,6 @@ Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square �
 
 **Fixed Oct 18 (older than 3b):** short notes with a long decay put the release breakpoint before the decay one, and RGB Particle could push a peak a hair over 1.0. Breakpoints are now always returned in time order (Web Audio had been re-sorting them silently, but the note's stop time followed the wrong point, so tails could be cut). Peak is capped at 1. In 6,000 random notes: 5,822 identical, 176 re-ordered, 2 capped.
 
-**Constants:** c² = 1000 · light-like at v/c ≥ 0.5 · ρ = 1.225 kg/m³ (sea level) · g = 9.81 m/s² · peak 0.70×vol (FRTVI off), 0.90×vol (FRTVI on) · `GRAV_LIFT_K = 0.6` · `GRAV_INERTIA_K = 1.2` · sag factor 0.22.
+**Constants:** c² = 1000 · light-like at v/c ≥ 0.5 · ρ = 1.225 kg/m³ (sea level) · g = 9.81 m/s² · peak 0.70×vol (ΔtRTVI off), 0.90×vol (ΔtRTVI on) · `GRAV_LIFT_K = 0.6` · `GRAV_INERTIA_K = 1.2` · sag factor 0.22.
 
 **Semantic layer** (Mu's card text → embeddings → 2D plot) stays separate. Its "gravity" has nothing to do with the Organ's gravity.

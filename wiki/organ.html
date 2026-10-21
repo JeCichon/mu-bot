@@ -41,6 +41,22 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .step-preset:hover,.step-preset.on{border-color:var(--gold);color:var(--gold);background:var(--gf);}
 #sb-status{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.15em;color:rgba(201,169,110,.3);}
 #bar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+/* LEVELS (Phase A · step 1) */
+.vol-wrap{display:block;width:max-content;margin-top:3px;}
+.vol-row{display:flex;align-items:center;gap:5px;}
+.vol-row .track-vol{margin-top:0;}
+.vol-db{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.04em;color:rgba(201,169,110,.7);min-width:38px;cursor:text;user-select:none;white-space:nowrap;}
+.vol-db:hover{color:var(--gold);}
+.vol-db-in{width:44px;font-family:'Cinzel',serif;font-size:9px;background:rgba(0,0,0,.5);border:1px solid rgba(201,169,110,.5);color:var(--gold);padding:0 2px;border-radius:2px;outline:none;}
+.ch-meter{position:relative;height:4px;margin-top:3px;width:100%;border-radius:1px;overflow:hidden;
+  background:linear-gradient(to right,#3f7a55 0,#4f8c5f 70%,#c9a96e 85%,#c4573e 100%);}
+.ch-meter b{position:absolute;right:0;top:0;bottom:0;width:100%;background:#0b0a12;}
+.ch-meter i{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(240,232,210,.85);left:0;}
+#master-meter{display:flex;align-items:center;gap:8px;padding:0 2px;cursor:pointer;}
+#mm-canvas{width:150px;height:26px;display:block;border-radius:2px;}
+.mm-read{display:flex;flex-direction:column;gap:2px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.08em;color:rgba(201,169,110,.65);white-space:nowrap;line-height:1.15;}
+.mm-read b{font-weight:400;color:var(--gold);}
+
 .nav-link{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.15em;color:rgba(201,169,110,.3);text-decoration:none;padding:4px 8px;border:1px solid rgba(201,169,110,.1);border-radius:2px;transition:all .2s;}
 #auth-status{display:flex;align-items:center;gap:6px;}
 #auth-avatar{width:20px;height:20px;border-radius:50%;border:1px solid rgba(201,169,110,.35);}
@@ -672,6 +688,10 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   <div class="sep"></div>
   <button id="octave-mode-btn" class="tb oct-mode-btn" title="Toggle between single-octave (F4–F5) and multi-octave (lightness = register)">◈ OCTAVE: SINGLE</button>
   <div id="bar-right">
+  <div id="master-meter" title="MASTER LEVEL. Bars: left and right peak (dBFS) with a hold tick. PEAK: loudest sample since play. LUFS: K-weighted loudness, S = last 3 seconds, I = whole run since Play. Click to reset.">
+    <canvas id="mm-canvas"></canvas>
+    <div class="mm-read"><span id="mm-peak">PEAK <b>—</b></span><span id="mm-lufs">LUFS S <b>—</b> · I <b>—</b></span></div>
+  </div>
     <span id="auth-status"></span>
     <span id="sb-status">☁ connecting…</span>
     <a href="https://jecichon.github.io/trickno-tools/tarot_piano.html" class="nav-link">🎹 Piano</a>
@@ -1958,6 +1978,149 @@ function getCtx(){
   if(audioCtx.state==='suspended') audioCtx.resume();
   return audioCtx;
 }
+// ════════════════════════════════════════════════════════
+// LEVEL BUSES + METERS  (Phase A · step 1)
+// Before, every note plugged straight into the speakers. Now each channel has its own bus and all the buses meet at one master bus.
+// Each bus is a plain gain of exactly 1, so the sound is unchanged; small analysers just listen in (they never touch the sound).
+// Only the live context gets buses. Exports (and the audio tests) still go straight to the destination.
+// ════════════════════════════════════════════════════════
+const LB={ctx:null,master:null,mTap:null,kTap:null,ch:new Map(),meterEls:new Set(),raf:0,frame:0,tPrev:0,
+  lastT:0,carry:0,blk:{sum:0,n:0},blocks:[],pre:[0],silentFor:99,
+  m:{L:-120,R:-120,hL:-120,hR:-120,hLt:0,hRt:0},maxPeak:-120,lufsS:-Infinity,lufsI:-Infinity,txtT:0};
+const LB_FLOOR=-60;            // bottom of every meter (dBFS)
+const LB_RELEASE=24;           // meter fall-back speed, dB per second
+function lbTap(a,src,fft){
+  const sp=a.createChannelSplitter(2);src.connect(sp);
+  const mk=()=>{const n=a.createAnalyser();n.fftSize=fft;n.smoothingTimeConstant=0;return n;};
+  const L=mk(),R=mk();sp.connect(L,0);sp.connect(R,1);
+  return{L,R,bl:new Float32Array(fft),br:new Float32Array(fft)};
+}
+function lbMaster(a){
+  if(LB.ctx!==a){
+    LB.ctx=a;LB.ch=new Map();lbResetLoudness();
+    const m=a.createGain();m.channelCount=2;m.channelCountMode='explicit';m.connect(a.destination);
+    LB.master=m;LB.mTap=lbTap(a,m,2048);
+    // K-weighting for loudness (ITU-R BS.1770): a +4 dB high shelf near 1.7 kHz, then a ~38 Hz high-pass. The result only feeds an analyser.
+    const hs=a.createBiquadFilter();hs.type='highshelf';hs.frequency.value=1681.97;hs.gain.value=3.9998;
+    const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=38.13;hp.Q.value=20*Math.log10(0.5003); // Web Audio Q is in dB here
+    m.connect(hs);hs.connect(hp);LB.kTap=lbTap(a,hp,2048);
+    LB.lastT=a.currentTime;LB.carry=0;
+    if(!LB.raf) LB.raf=requestAnimationFrame(lbTick);
+  }
+  return LB.master;
+}
+// Where a note plugs in: its channel's bus (live), or straight to the speakers (export / tests).
+function lbOut(a,channel){
+  if(a!==audioCtx) return a.destination;
+  const m=lbMaster(a);
+  const id=channel&&channel.id;if(!id) return m;
+  let b=LB.ch.get(id);
+  if(!b){const g=a.createGain();g.channelCount=2;g.channelCountMode='explicit';g.connect(m);
+    b={g,tap:lbTap(a,g,1024),db:LB_FLOOR,hold:LB_FLOOR,holdT:0};LB.ch.set(id,b);}
+  return b.g;
+}
+function lbResetLoudness(){
+  LB.blk={sum:0,n:0};LB.blocks=[];LB.pre=[0];LB.silentFor=99;LB.maxPeak=-120;LB.lufsS=-Infinity;LB.lufsI=-Infinity;
+  LB.m.hL=LB.m.hR=-120;
+}
+function lbDb(x){return x>1e-6?20*Math.log10(x):-120;}
+function lbPeaks(tap){
+  tap.L.getFloatTimeDomainData(tap.bl);tap.R.getFloatTimeDomainData(tap.br);
+  let pl=0,pr=0;
+  for(let i=0;i<tap.bl.length;i++){const x=tap.bl[i]<0?-tap.bl[i]:tap.bl[i];if(x>pl)pl=x;const y=tap.br[i]<0?-tap.br[i]:tap.br[i];if(y>pr)pr=y;}
+  return[pl,pr];
+}
+function lbLufs(z){return z>0?-0.691+10*Math.log10(z):-Infinity;}
+// integrated loudness: BS.1770 two-stage gate (absolute −70 LUFS, then 10 LU under the average of what survived)
+function lbIntegrated(){
+  const N=LB.blocks.length;if(N<4) return -Infinity;
+  const pre=LB.pre;let sum=0,cnt=0;const W=N-3,pw=new Float64Array(W);
+  for(let j=0;j<W;j++){const z=(pre[j+4]-pre[j])/4;pw[j]=z;if(lbLufs(z)>-70){sum+=z;cnt++;}}
+  if(!cnt) return -Infinity;
+  const gate=lbLufs(sum/cnt)-10;let s2=0,c2=0;
+  for(let j=0;j<W;j++){const l=lbLufs(pw[j]);if(l>-70&&l>gate){s2+=pw[j];c2++;}}
+  return c2?lbLufs(s2/c2):-Infinity;
+}
+function lbPushBlock(z){
+  LB.blocks.push(z);LB.pre.push(LB.pre[LB.pre.length-1]+z);
+  if(LB.blocks.length>40000){ // keep roughly the last hour; rebuild the running sums
+    LB.blocks.splice(0,8000);LB.pre=[0];for(let i=0;i<LB.blocks.length;i++)LB.pre.push(LB.pre[i]+LB.blocks[i]);
+  }
+}
+function lbTick(){
+  LB.raf=requestAnimationFrame(lbTick);
+  const a=LB.ctx;if(!a||document.hidden) return;
+  LB.frame++;
+  const hot=playing||LB.silentFor<3;
+  if(!hot&&(LB.frame%12)) return;   // resting: a few reads a second is plenty
+  const nowMs=performance.now();const dt=LB.tPrev?Math.min(0.25,(nowMs-LB.tPrev)/1000):0.016;LB.tPrev=nowMs;
+  // channel meters
+  LB.ch.forEach(b=>{
+    const[pl,pr]=lbPeaks(b.tap);const db=lbDb(Math.max(pl,pr));
+    b.db=db>b.db?db:Math.max(db,b.db-LB_RELEASE*dt);
+    if(db>=b.hold){b.hold=db;b.holdT=nowMs;}else if(nowMs-b.holdT>1200){b.hold=Math.max(db,b.hold-LB_RELEASE*dt);}
+  });
+  LB.meterEls.forEach(el=>{
+    if(!el.isConnected){LB.meterEls.delete(el);return;}
+    const b=LB.ch.get(el.dataset.chid);const db=b?b.db:LB_FLOOR,hd=b?b.hold:LB_FLOOR;
+    const f=Math.max(0,Math.min(1,(db-LB_FLOOR)/-LB_FLOOR)),h=Math.max(0,Math.min(1,(hd-LB_FLOOR)/-LB_FLOOR));
+    if(el._f===undefined||Math.abs(f-el._f)>0.004){el._f=f;el.firstChild.style.width=((1-f)*100).toFixed(1)+'%';}
+    if(el._h===undefined||Math.abs(h-el._h)>0.004){el._h=h;el.lastChild.style.left=(h*100).toFixed(1)+'%';el.lastChild.style.display=h>0.01?'block':'none';}
+  });
+  // master peaks
+  const[ml,mr]=lbPeaks(LB.mTap);const dL=lbDb(ml),dR=lbDb(mr),M=LB.m;
+  M.L=dL>M.L?dL:Math.max(dL,M.L-LB_RELEASE*dt);M.R=dR>M.R?dR:Math.max(dR,M.R-LB_RELEASE*dt);
+  if(dL>=M.hL){M.hL=dL;M.hLt=nowMs;}else if(nowMs-M.hLt>1500){M.hL=Math.max(dL,M.hL-LB_RELEASE*dt);}
+  if(dR>=M.hR){M.hR=dR;M.hRt=nowMs;}else if(nowMs-M.hRt>1500){M.hR=Math.max(dR,M.hR-LB_RELEASE*dt);}
+  LB.maxPeak=Math.max(LB.maxPeak,dL,dR);
+  // loudness: take only the samples that arrived since last frame, in 100 ms blocks
+  const[kl,kr]=[LB.kTap.bl,LB.kTap.br];LB.kTap.L.getFloatTimeDomainData(kl);LB.kTap.R.getFloatTimeDomainData(kr);
+  const t=a.currentTime;const want=(t-LB.lastT)*a.sampleRate+LB.carry;LB.lastT=t;
+  let n=Math.floor(want);LB.carry=want-n;if(n>kl.length)n=kl.length;if(n<0)n=0;
+  if(n>0){
+    let sq=0;for(let i=kl.length-n;i<kl.length;i++){sq+=kl[i]*kl[i]+kr[i]*kr[i];}
+    LB.blk.sum+=sq;LB.blk.n+=n;
+    const need=Math.round(0.1*a.sampleRate);
+    if(LB.blk.n>=need){
+      const z=LB.blk.sum/LB.blk.n;LB.blk={sum:0,n:0};
+      if(z>1e-10) LB.silentFor=0;else LB.silentFor+=0.1;
+      if(playing||z>1e-10) lbPushBlock(z);
+    }
+  }
+  if(nowMs-LB.txtT>250){
+    LB.txtT=nowMs;
+    const B=LB.blocks,N=B.length;
+    if(N>=30&&(playing||LB.silentFor<3)){LB.lufsS=lbLufs((LB.pre[N]-LB.pre[N-30])/30);}else if(!playing&&LB.silentFor>=3){LB.lufsS=-Infinity;}
+    LB.lufsI=lbIntegrated();
+    lbPaintText();
+  }
+  lbDrawMaster();
+}
+const lbF=(v,d=1)=>(v===-Infinity||v<-99)?'—':((v<0?'−':'')+Math.abs(v).toFixed(d));
+function lbPaintText(){
+  const p=document.getElementById('mm-peak'),l=document.getElementById('mm-lufs');if(!p||!l) return;
+  const pk=lbF(LB.maxPeak);
+  const pt='PEAK <b>'+pk+'</b>'+(pk==='—'?'':' dBFS');
+  if(p._t!==pt){p._t=pt;p.innerHTML=pt;}
+  const lt='LUFS S <b>'+lbF(LB.lufsS)+'</b> · I <b>'+lbF(LB.lufsI)+'</b>';
+  if(l._t!==lt){l._t=lt;l.innerHTML=lt;}
+}
+function lbDrawMaster(){
+  const cv=document.getElementById('mm-canvas');if(!cv) return;
+  const dpr=window.devicePixelRatio||1,w=150,h=26;
+  if(cv.width!==w*dpr){cv.width=w*dpr;cv.height=h*dpr;}
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  g.fillStyle='#0b0a12';g.fillRect(0,0,w,h);
+  const grad=g.createLinearGradient(0,0,w,0);
+  grad.addColorStop(0,'#3f7a55');grad.addColorStop(.7,'#4f8c5f');grad.addColorStop(.85,'#c9a96e');grad.addColorStop(1,'#c4573e');
+  const X=db=>Math.max(0,Math.min(1,(db-LB_FLOOR)/-LB_FLOOR))*w;
+  const bar=(y,db,hd)=>{g.fillStyle=grad;g.fillRect(0,y,X(db),9);if(hd>LB_FLOOR+1){g.fillStyle='rgba(240,232,210,.9)';g.fillRect(Math.min(w-2,X(hd)),y,2,9);}};
+  bar(3,LB.m.L,LB.m.hL);bar(14,LB.m.R,LB.m.hR);
+  // faint scale: every 10 dB, a little taller at −6
+  g.fillStyle='rgba(201,169,110,.28)';for(let d=-50;d<=0;d+=10){g.fillRect(Math.round(X(d))-.5,0,1,2);g.fillRect(Math.round(X(d))-.5,h-2,1,2);}
+  g.fillStyle='rgba(196,87,62,.7)';g.fillRect(Math.round(X(-6))-.5,0,1,3);
+}
+
 function previewCard(n,effColor=null,octShift=0){
   stopPreview();
   const col=effColor||cardColor(n);
@@ -1970,7 +2133,7 @@ function previewCard(n,effColor=null,octShift=0){
   previewOsc.frequency.value=freq;
   previewGain.gain.setValueAtTime(0,a.currentTime);
   previewGain.gain.linearRampToValueAtTime(pianoVol*0.32,a.currentTime+0.025);
-  previewOsc.connect(previewGain);previewGain.connect(a.destination);previewOsc.start();
+  previewOsc.connect(previewGain);previewGain.connect(lbOut(a,null));previewOsc.start();
 }
 // ── "Color of Sound" chart data (Melendez/Goss, flutopedia.com) ──
 // Real chart: one octave F4→F5, frequency doubled ×40 into visible light.
@@ -2562,7 +2725,7 @@ function scheduleCardNote(n,t,dur,vol=0.8,octShift=0,effColor=null,pan=0,clipBpm
   // RGB Particle Controls can nudge pan and pitch (shape.panNudge / shape.pitchMul); both are 0 / 1 unless a control is assigned to them.
   const s=noteShape(col,vol,channel,{suit:card.suit});
   const freq=baseFreq*Math.pow(2,octShift)*(s.pitchMul||1);
-  const panner=a.createStereoPanner();panner.pan.value=Math.max(-1,Math.min(1,pan+(s.panNudge||0)));panner.connect(a.destination);
+  const panner=a.createStereoPanner();panner.pan.value=Math.max(-1,Math.min(1,pan+(s.panNudge||0)));panner.connect(lbOut(a,channel));
   const osc=a.createOscillator(),g=a.createGain();
   osc.type=WAVES[card.suit]||'sine';osc.frequency.value=freq;
   const pts=noteGainPoints(s,dur,t);
@@ -2579,9 +2742,9 @@ function scheduleCardNote(n,t,dur,vol=0.8,octShift=0,effColor=null,pan=0,clipBpm
   }
 }
 
-function scheduleDrumNote(slotIdx,t,vol=0.8,pan=0){
+function scheduleDrumNote(slotIdx,t,vol=0.8,pan=0,channel=null){
   const a=getCtx();const p=DRUM_PARAMS[slotIdx];if(!p) return;
-  const panner=a.createStereoPanner();panner.pan.value=Math.max(-1,Math.min(1,pan));panner.connect(a.destination);
+  const panner=a.createStereoPanner();panner.pan.value=Math.max(-1,Math.min(1,pan));panner.connect(lbOut(a,channel));
   // Noise component
   const bufSamples=Math.ceil(a.sampleRate*(p.A+p.D+p.R+0.05));
   const buf=a.createBuffer(1,bufSamples,a.sampleRate);
@@ -3454,7 +3617,7 @@ function breakApartClip(clipIdx,repIdx){
 }
 
 function startPlay(){
-  const a=getCtx();playing=true;schedStep=0;nextNoteTime=a.currentTime+0.05;
+  const a=getCtx();lbResetLoudness();playing=true;schedStep=0;nextNoteTime=a.currentTime+0.05;
   lastScheduledPatternIndex=-1; // force grid render on first clip
   if(playMode==='song'&&arrangementClips.length>0){
     // Start from timelinePos (stop-in-place) — don't reset unless at end
@@ -3600,7 +3763,7 @@ function fireStep(step,t,clipBpm=null){
     if(!pd) return;
     if(ch.suit==='drums'&&pd.drumSteps){
       DRUM_SLOTS.forEach((_,si)=>{
-        if(pd.drumSteps[si][step]) scheduleDrumNote(si,t,ch.vol,pan);
+        if(pd.drumSteps[si][step]) scheduleDrumNote(si,t,ch.vol,pan,ch);
       });
     } else if(pd.steps){
       const n=pd.steps[step];
@@ -5350,6 +5513,19 @@ document.getElementById('switch-mode-btn').addEventListener('click',()=>{
   }
 });
 
+function fmtVolDb(v){
+  if(!(v>0.00005)) return '−∞ dB';
+  const d=20*Math.log10(v);return (d<-0.05?'−':'')+Math.abs(d).toFixed(1)+' dB';
+}
+// Typed volume: "-12" or "-12.5 dB" (decibels), "40%" (of full), "off" / "-inf" (silent). Returns 0–1, or null if it makes no sense.
+function parseVolText(t){
+  const s=String(t).trim().toLowerCase().replace('−','-').replace(/\s+/g,'');
+  if(!s) return null;
+  if(s==='off'||s==='mute'||s==='-inf'||s==='-infdb'||s==='inf') return 0;
+  if(s.endsWith('%')){const p=parseFloat(s);return isNaN(p)?null:Math.max(0,Math.min(1,p/100));}
+  const d=parseFloat(s.replace(/db$/,''));
+  return isNaN(d)?null:Math.pow(10,Math.min(0,d)/20);
+}
 function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
   const info=channel.suit?SUIT_INFO[channel.suit]:null;
   const isDrum=channel.suit==='drums';
@@ -5379,11 +5555,43 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     const ul=document.createElement('span');ul.className='track-unassigned';ul.textContent='Click to assign';
     ul.addEventListener('click',e=>openInstPicker(ci,e));inf.appendChild(ul);
   }
+  // Volume: the stored value is still 0–1 (unchanged); the readout is its level in dB (1.0 = 0 dB).
+  // Fine adjust: hold Shift and drag (0.1 dB per pixel), or double-click the dB number and type a value (e.g. -12, -12.5, off, 40%).
   const vol=document.createElement('input');vol.type='range';vol.className='track-vol';
-  vol.min=0;vol.max=1;vol.step=0.05;vol.value=channel.vol;
-  vol.addEventListener('input',e=>{beginGesture();channel.vol=parseFloat(e.target.value);});
-  vol.addEventListener('change',commitGesture);
-  inf.appendChild(vol);
+  vol.min=0;vol.max=1;vol.step=0.01;vol.value=channel.vol;
+  vol.title='Volume. Shift-drag = fine (0.1 dB per pixel). Double-click the dB number to type a value.';
+  const volDb=document.createElement('span');volDb.className='vol-db';volDb.textContent=fmtVolDb(channel.vol);
+  volDb.title='Level in dB (1.0 = 0 dB). Double-click to type: -12, -12.5, off, or 40%';
+  const setVol=v=>{v=Math.max(0,Math.min(1,v));channel.vol=v;vol.value=v;volDb.textContent=fmtVolDb(v);};
+  vol.addEventListener('input',e=>{beginGesture();channel.vol=parseFloat(e.target.value);volDb.textContent=fmtVolDb(channel.vol);});
+  vol.addEventListener('change',()=>{commitGesture();saveState();});
+  vol.addEventListener('mousedown',e=>{
+    if(!e.shiftKey) return;
+    e.preventDefault();beginGesture();
+    const x0=e.clientX,db0=channel.vol>0?20*Math.log10(channel.vol):-60;
+    const mv=ev=>{const d=Math.min(0,db0+(ev.clientX-x0)*0.1);setVol(d<=-60?0:Math.pow(10,d/20));};
+    const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);commitGesture();saveState();};
+    window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
+  });
+  volDb.addEventListener('dblclick',()=>{
+    const inp=document.createElement('input');inp.className='vol-db-in';
+    inp.value=channel.vol>0?(20*Math.log10(channel.vol)).toFixed(1):'off';
+    volDb.replaceWith(inp);inp.focus();inp.select();
+    let done=false;
+    const fin=ok=>{
+      if(done) return;done=true;
+      if(ok){const v=parseVolText(inp.value);if(v!==null){beginGesture();setVol(v);commitGesture();saveState();}}
+      inp.replaceWith(volDb);
+    };
+    inp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')fin(true);else if(e.key==='Escape')fin(false);});
+    inp.addEventListener('blur',()=>fin(true));
+  });
+  const volRow=document.createElement('div');volRow.className='vol-row';volRow.appendChild(vol);volRow.appendChild(volDb);
+  const meter=document.createElement('div');meter.className='ch-meter';meter.dataset.chid=channel.id;
+  meter.appendChild(document.createElement('b'));meter.appendChild(document.createElement('i'));
+  LB.meterEls.add(meter);
+  const volWrap=document.createElement('div');volWrap.className='vol-wrap';volWrap.appendChild(volRow);volWrap.appendChild(meter);
+  inf.appendChild(volWrap);
   if(channel.suit){
     const panRow=document.createElement('div');panRow.className='pan-row';
     const panLbl=document.createElement('span');panLbl.className='oct-lbl';panLbl.textContent='PAN';
@@ -5621,7 +5829,7 @@ function buildDrumCell(channel,ci,si){
       btn.classList.toggle('on');
       if(pd.drumSteps[sli][si]) btn.style.setProperty('--dc',slot.color);
       // Immediate audio preview
-      if(pd.drumSteps[sli][si]){const a=getCtx();scheduleDrumNote(sli,a.currentTime,channel.vol,channel.pan||0);}
+      if(pd.drumSteps[sli][si]){const a=getCtx();scheduleDrumNote(sli,a.currentTime,channel.vol,channel.pan||0,channel);}
       // Update hasAny class on cell
       const hasAny=pd.drumSteps.some(row=>row[si]);
       el.classList.toggle('filled',hasAny);
@@ -6747,6 +6955,8 @@ async function init(){
   // Sync zoom display with default
   document.getElementById('tl-zoom-val').textContent=tlPxPerStep;
   buildCircleLayout();render();
+  const mm=document.getElementById('master-meter');if(mm) mm.addEventListener('click',()=>{lbResetLoudness();lbPaintText();lbDrawMaster();});
+  lbPaintText();lbDrawMaster();
 }
 init();
 </script>
