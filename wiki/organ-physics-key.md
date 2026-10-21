@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 19, 2026 (RGB Particle Controls; ΔtRTVI). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 21, 2026 (Phase A step 1: level buses and meters). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -166,6 +166,10 @@ Effects Lab (button + list) · effect tile · pane · graph · particle readout 
 
 **BUILT**
 RGB Particle Controls (six assignable color numbers; songs saved before it keep R→Peak and B→Sustain, with G→Pan at 0 because the old pan never reached the sound; new ones start with G→Pan live) · Atmosphere → sound (Phase 3b): your ADSR scaled by flight ratios against a reference card (decay and release × τ/τ_ref, sustain × s/s_ref), vacuum stretches the most, floaters swell (opt-in), white keeps its envelope · Flight plot (height / speed per card) · Atmosphere replaces the Gravity sag for sustain, but Gravity still lowers the peak (lift cost) · Color → pitch · suit → waveform · CMYK → envelope · ΔtRTVI sliders, blend, opacity · mass in Gravity (lift cost, release stretch) · Gravity sag (WEDGED) · Physics Engine switch · RGB Particle (WEDGED: R → peak, B → sustain, G → pan, and the pan part never reached the sound) · Effects Lab with + / × · live graphs · Physics Engine readout (mass, volume, density, shape, Δt, Force, regime, length, tilt, spin per card) · Attack relabelled Δt.
+
+**BUILT, tools (not physics): Phase A step 1, Oct 21.** Every channel now plugs into its own *level bus* (a gain of exactly 1), and all buses meet at one *master bus*; analysers listen in but never touch the sound (offline render with and without them differs by about 4e-8, inaudible; exports still go straight to the speakers). Per-channel meter under each volume slider (−60 to 0 dBFS, peak hold). Master meter in the header: L/R peak bars, PEAK (sample peak since Play), LUFS short-term and integrated (K-weighted, BS.1770 gating; matched ffmpeg's EBU R128 on a test song within 0.1 LU). Volume sliders keep the stored 0–1 value, step 0.01, with a dB readout (1.0 = 0 dB); Shift-drag = 0.1 dB per pixel; double-click the number to type `-12`, `-12.5`, `40%` or `off`.
+
+**ROADMAP (agreed Oct 21).** Phase A (eyes and ears): step 1 levels ✔ → step 2 header mini-analyzer that opens a floating pop-out panel inside the page, pattern blocks wrap to two rows → step 3 full analyzer (log-frequency spectrum, oscilloscope with X-Y, stereo correlation) → step 4 master EQ (opt-in, default off) with a master trim. Phase B (time): note length (default one step, so old songs are unchanged) → piano-roll mode over the same notes (rows in card order by default, button for pitch order) → multiple timeline layers. Phase C: drums as their own phase, with the striker idea. Later: suits combining waveforms (needs the scope first); Material is on hold. A true separate pop-out window for a second monitor may come after the in-page one.
 
 **AGREED, not built**
 - Particle cloud with voices is an **effect**, later, outside the Physics Engine.

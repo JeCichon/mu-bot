@@ -41,6 +41,32 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .step-preset:hover,.step-preset.on{border-color:var(--gold);color:var(--gold);background:var(--gf);}
 #sb-status{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.15em;color:rgba(201,169,110,.3);}
 #bar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+/* MONITOR + ANALYZER (Phase A · step 2) */
+#pattern-bar{flex-wrap:wrap;}
+#pattern-chips{flex-wrap:wrap;overflow-x:hidden;overflow-y:auto;max-height:86px;min-width:220px;align-content:flex-start;padding-bottom:0;}
+#monitor{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:0 6px;}
+#mini-spec{width:200px;height:60px;display:block;border-radius:3px;cursor:pointer;border:1px solid rgba(201,169,110,.18);transition:border-color .15s;}
+#mini-spec:hover{border-color:rgba(201,169,110,.55);}
+#pattern-btns{display:flex;flex-direction:column;gap:6px;flex-shrink:0;}
+#an-panel{position:fixed;z-index:120;left:40px;top:120px;width:620px;height:420px;min-width:380px;min-height:280px;display:none;flex-direction:column;
+  background:rgba(8,5,18,.97);border:1px solid rgba(201,169,110,.35);border-radius:6px;box-shadow:0 14px 50px rgba(0,0,0,.85);resize:both;overflow:hidden;}
+#an-panel.open{display:flex;}
+#an-title{display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--border);cursor:move;user-select:none;flex-shrink:0;
+  font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;color:var(--gold);}
+#an-title .an-sp{flex:1;}
+#an-title button,.an-foot button{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;background:transparent;border:1px solid rgba(201,169,110,.25);color:rgba(201,169,110,.75);padding:2px 8px;border-radius:2px;cursor:pointer;}
+#an-title button:hover,.an-foot button:hover{background:var(--gf);color:var(--gold);}
+.an-foot button.on{background:var(--gf);color:var(--gold);border-color:rgba(201,169,110,.55);}
+#an-cvwrap{position:relative;flex:1;min-height:120px;}
+#an-spec{position:absolute;inset:0;width:100%;height:100%;display:block;}
+#an-bands{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:6px 10px 4px;flex-shrink:0;}
+.an-band{display:flex;flex-direction:column;gap:2px;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.1em;color:rgba(201,169,110,.55);}
+.an-band b{font-weight:400;font-size:12px;color:var(--gold);letter-spacing:.02em;}
+.an-band i{display:block;height:3px;background:rgba(201,169,110,.1);border-radius:1px;overflow:hidden;}
+.an-band u{display:block;height:100%;width:0;background:linear-gradient(to right,#4f8c5f,#c9a96e);}
+.an-foot{display:flex;align-items:center;gap:8px;padding:4px 10px 8px;flex-shrink:0;font-family:'EB Garamond',serif;font-size:11px;color:rgba(201,169,110,.4);}
+.an-foot .an-sp{flex:1;}
+
 /* LEVELS (Phase A · step 1) */
 .vol-wrap{display:block;width:max-content;margin-top:3px;}
 .vol-row{display:flex;align-items:center;gap:5px;}
@@ -52,8 +78,8 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   background:linear-gradient(to right,#3f7a55 0,#4f8c5f 70%,#c9a96e 85%,#c4573e 100%);}
 .ch-meter b{position:absolute;right:0;top:0;bottom:0;width:100%;background:#0b0a12;}
 .ch-meter i{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(240,232,210,.85);left:0;}
-#master-meter{display:flex;align-items:center;gap:8px;padding:0 2px;cursor:pointer;}
-#mm-canvas{width:150px;height:26px;display:block;border-radius:2px;}
+#master-meter{display:flex;flex-direction:column;justify-content:center;gap:4px;cursor:pointer;}
+#mm-canvas{width:170px;height:26px;display:block;border-radius:2px;}
 .mm-read{display:flex;flex-direction:column;gap:2px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.08em;color:rgba(201,169,110,.65);white-space:nowrap;line-height:1.15;}
 .mm-read b{font-weight:400;color:var(--gold);}
 
@@ -688,10 +714,6 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   <div class="sep"></div>
   <button id="octave-mode-btn" class="tb oct-mode-btn" title="Toggle between single-octave (F4–F5) and multi-octave (lightness = register)">◈ OCTAVE: SINGLE</button>
   <div id="bar-right">
-  <div id="master-meter" title="MASTER LEVEL. Bars: left and right peak (dBFS) with a hold tick. PEAK: loudest sample since play. LUFS: K-weighted loudness, S = last 3 seconds, I = whole run since Play. Click to reset.">
-    <canvas id="mm-canvas"></canvas>
-    <div class="mm-read"><span id="mm-peak">PEAK <b>—</b></span><span id="mm-lufs">LUFS S <b>—</b> · I <b>—</b></span></div>
-  </div>
     <span id="auth-status"></span>
     <span id="sb-status">☁ connecting…</span>
     <a href="https://jecichon.github.io/trickno-tools/tarot_piano.html" class="nav-link">🎹 Piano</a>
@@ -701,8 +723,24 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 <div id="pattern-bar">
   <span class="ctl-lbl">PATTERN</span>
   <div id="pattern-chips"></div>
-  <button id="add-pattern-btn" class="tb">+ New</button>
-  <button id="switch-mode-btn" class="tb switch-mode-queue" title="Queue: waits for loop end. Instant: switches mid-pattern">⌛ QUEUE</button>
+  <div id="monitor">
+    <canvas id="mini-spec" title="Live spectrum of the master output. Click to open the analyzer."></canvas>
+    <div id="master-meter" title="MASTER LEVEL. Bars: left and right peak (dBFS) with a hold tick. PEAK: loudest sample since play. LUFS: K-weighted loudness, S = last 3 seconds, I = whole run since Play. Click to reset.">
+      <canvas id="mm-canvas"></canvas>
+      <div class="mm-read"><span id="mm-peak">PEAK <b>—</b></span><span id="mm-lufs">LUFS S <b>—</b> · I <b>—</b></span></div>
+    </div>
+  </div>
+  <div id="pattern-btns">
+    <button id="add-pattern-btn" class="tb">+ New</button>
+    <button id="switch-mode-btn" class="tb switch-mode-queue" title="Queue: waits for loop end. Instant: switches mid-pattern">⌛ QUEUE</button>
+  </div>
+</div>
+
+<div id="an-panel">
+  <div id="an-title"><span>ANALYZER</span><span>·</span><span style="opacity:.6">SPECTRUM</span><span class="an-sp"></span><button id="an-close" title="Close">✕</button></div>
+  <div id="an-cvwrap"><canvas id="an-spec"></canvas></div>
+  <div id="an-bands"></div>
+  <div class="an-foot"><button id="an-hold" class="on" title="Keep a slowly falling peak line">HOLD</button><button id="an-hold-reset" title="Clear the peak line">CLEAR</button><span class="an-sp">Left and right are summed to one mix. Levels are close to dBFS. Hover for pitch.</span></div>
 </div>
 
 <div id="timeline-panel" class="tl-hidden">
@@ -1984,7 +2022,7 @@ function getCtx(){
 // Each bus is a plain gain of exactly 1, so the sound is unchanged; small analysers just listen in (they never touch the sound).
 // Only the live context gets buses. Exports (and the audio tests) still go straight to the destination.
 // ════════════════════════════════════════════════════════
-const LB={ctx:null,master:null,mTap:null,kTap:null,ch:new Map(),meterEls:new Set(),raf:0,frame:0,tPrev:0,
+const LB={ctx:null,master:null,mTap:null,kTap:null,spec:null,specDb:null,dt:0.016,ch:new Map(),meterEls:new Set(),raf:0,frame:0,tPrev:0,
   lastT:0,carry:0,blk:{sum:0,n:0},blocks:[],pre:[0],silentFor:99,
   m:{L:-120,R:-120,hL:-120,hR:-120,hLt:0,hRt:0},maxPeak:-120,lufsS:-Infinity,lufsI:-Infinity,txtT:0};
 const LB_FLOOR=-60;            // bottom of every meter (dBFS)
@@ -2000,6 +2038,7 @@ function lbMaster(a){
     LB.ctx=a;LB.ch=new Map();lbResetLoudness();
     const m=a.createGain();m.channelCount=2;m.channelCountMode='explicit';m.connect(a.destination);
     LB.master=m;LB.mTap=lbTap(a,m,2048);
+    const sp=a.createAnalyser();sp.fftSize=8192;sp.smoothingTimeConstant=0.8;sp.minDecibels=-110;sp.maxDecibels=0;m.connect(sp);LB.spec=sp;LB.specDb=new Float32Array(sp.frequencyBinCount);
     // K-weighting for loudness (ITU-R BS.1770): a +4 dB high shelf near 1.7 kHz, then a ~38 Hz high-pass. The result only feeds an analyser.
     const hs=a.createBiquadFilter();hs.type='highshelf';hs.frequency.value=1681.97;hs.gain.value=3.9998;
     const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=38.13;hp.Q.value=20*Math.log10(0.5003); // Web Audio Q is in dB here
@@ -2053,7 +2092,7 @@ function lbTick(){
   LB.frame++;
   const hot=playing||LB.silentFor<3;
   if(!hot&&(LB.frame%12)) return;   // resting: a few reads a second is plenty
-  const nowMs=performance.now();const dt=LB.tPrev?Math.min(0.25,(nowMs-LB.tPrev)/1000):0.016;LB.tPrev=nowMs;
+  const nowMs=performance.now();const dt=LB.tPrev?Math.min(0.25,(nowMs-LB.tPrev)/1000):0.016;LB.tPrev=nowMs;LB.dt=dt;
   // channel meters
   LB.ch.forEach(b=>{
     const[pl,pr]=lbPeaks(b.tap);const db=lbDb(Math.max(pl,pr));
@@ -2095,6 +2134,156 @@ function lbTick(){
     lbPaintText();
   }
   lbDrawMaster();
+  lbSpectra();
+}
+
+// ── Spectrum + analyzer panel (Phase A · step 2) ─────────────────────────
+// A mini live spectrum sits next to the master meter; clicking it opens a floating, draggable, resizable panel inside the page.
+const SPEC_BANDS=[['SUB',20,60],['BASS',60,250],['LOW MID',250,500],['MID',500,2000],['HI MID',2000,4000],['PRES',4000,8000],['AIR',8000,20000]];
+const SPEC_F0=20,SPEC_F1=20000;        // the picture spans 20 Hz to 20 kHz, evenly per octave
+const LB_SPEC_OFFS=13.8;               // calibration (measured): the analyser reads a full-scale sine at about −13.8 dB; this brings it to 0 dB
+const AN_HOLD_FALL=8;                  // dB per second the peak line falls
+const AN={open:false,x:null,y:null,w:620,h:420,hold:true,holdArr:null,mouseX:null,txtT:0,shares:new Array(7).fill(0),curve:null};
+const AN_KEY='trico_analyzer_ui';      // window position and size only; never stored in songs
+function lbX2f(x,w){return SPEC_F0*Math.pow(SPEC_F1/SPEC_F0,x/w);}
+function lbF2x(f,w){return w*Math.log(f/SPEC_F0)/Math.log(SPEC_F1/SPEC_F0);}
+// one dB value per pixel column: the loudest bin under that column (or a blend of two bins when a column is narrower than one bin)
+function lbSpecCurve(w,out){
+  const d=LB.specDb,N=d.length,binHz=LB.ctx.sampleRate/(2*N);
+  for(let x=0;x<w;x++){
+    const b0=lbX2f(x,w)/binHz,b1=lbX2f(x+1,w)/binHz;let v;
+    if(b1-b0<1){const bc=(b0+b1)/2,i=Math.min(N-2,Math.floor(bc)),fr=bc-i;v=Math.max(-140,d[i])*(1-fr)+Math.max(-140,d[i+1])*fr;}
+    else{v=-140;const hi=Math.min(N-1,Math.floor(b1));for(let i=Math.max(0,Math.ceil(b0));i<=hi;i++){if(d[i]>v)v=d[i];}}
+    out[x]=v+LB_SPEC_OFFS;
+  }
+}
+function lbBandShares(){
+  const d=LB.specDb,N=d.length,binHz=LB.ctx.sampleRate/(2*N);let tot=0;
+  const e=SPEC_BANDS.map(([n,a,b])=>{let p=0;for(let i=Math.max(1,Math.ceil(a/binHz));i<=Math.min(N-1,Math.floor(b/binHz));i++)p+=Math.pow(10,Math.max(-140,d[i])/10);tot+=p;return p;});
+  return tot>1e-12?e.map(p=>p/tot):null;
+}
+const LB_NOTES=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+function lbNoteName(f){const m=69+12*Math.log2(f/440),r=Math.round(m),c=Math.round((m-r)*100);return LB_NOTES[((r%12)+12)%12]+(Math.floor(r/12)-1)+' '+(c>=0?'+':'−')+Math.abs(c)+'¢';}
+function lbSizeCanvas(cv){
+  const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(!w||!h) return null;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);return{g,w,h};
+}
+function lbDrawMini(){
+  const cv=document.getElementById('mini-spec');if(!cv) return;
+  const z=lbSizeCanvas(cv);if(!z) return;const{g,w,h}=z,TOP=-10,BOT=-90;
+  g.fillStyle='#0b0a12';g.fillRect(0,0,w,h);
+  g.fillStyle='rgba(201,169,110,.2)';[100,1000,10000].forEach(f=>g.fillRect(Math.round(lbF2x(f,w)),0,1,h));
+  g.font="7px 'Cinzel',serif";g.fillStyle='rgba(201,169,110,.35)';[['100',100],['1k',1000],['10k',10000]].forEach(([t,f])=>g.fillText(t,lbF2x(f,w)+2,h-3));
+  if(!LB.specDb) return;
+  const n=Math.floor(w);if(!AN.mini||AN.mini.length!==n)AN.mini=new Float32Array(n);
+  lbSpecCurve(n,AN.mini);
+  const Y=db=>h-2-(h-4)*Math.max(0,Math.min(1,(db-BOT)/(TOP-BOT)));
+  g.beginPath();g.moveTo(0,h);for(let x=0;x<n;x++)g.lineTo(x,Y(AN.mini[x]));g.lineTo(n-1,h);g.closePath();
+  const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'rgba(201,169,110,.65)');gr.addColorStop(1,'rgba(201,169,110,.06)');g.fillStyle=gr;g.fill();
+  g.beginPath();for(let x=0;x<n;x++){const y=Y(AN.mini[x]);x?g.lineTo(x,y):g.moveTo(x,y);}g.strokeStyle='rgba(224,200,150,.9)';g.lineWidth=1;g.stroke();
+}
+function lbDrawPanel(){
+  const cv=document.getElementById('an-spec');if(!cv) return;
+  const z=lbSizeCanvas(cv);if(!z) return;const{g,w,h}=z;
+  const padL=34,padR=6,padT=16,padB=16,pw=w-padL-padR,ph=h-padT-padB,TOP=0,BOT=-96;
+  const X=f=>padL+lbF2x(f,pw),Y=db=>padT+ph*Math.max(0,Math.min(1,(TOP-db)/(TOP-BOT)));
+  g.fillStyle='#0b0a12';g.fillRect(0,0,w,h);
+  // band zones with names across the top
+  g.font="8px 'Cinzel',serif";g.textAlign='center';
+  SPEC_BANDS.forEach(([n,a,b],i)=>{
+    const x0=X(a),x1=X(b);
+    if(i%2===0){g.fillStyle='rgba(201,169,110,.035)';g.fillRect(x0,padT,x1-x0,ph);}
+    g.fillStyle='rgba(201,169,110,.45)';g.fillText(n,(x0+x1)/2,10);
+  });
+  // grid
+  g.textAlign='right';g.font="8px 'Cinzel',serif";
+  for(let db=TOP;db>=BOT;db-=12){const y=Math.round(Y(db))+.5;g.fillStyle=db===0?'rgba(196,87,62,.35)':'rgba(201,169,110,.1)';g.fillRect(padL,y,pw,1);g.fillStyle='rgba(201,169,110,.45)';g.fillText(db,padL-4,y+3);}
+  g.textAlign='center';
+  [20,30,40,50,60,70,80,90,100,200,300,400,500,600,700,800,900,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,20000].forEach(f=>{
+    const x=Math.round(X(f))+.5,major=[20,50,100,200,500,1000,2000,5000,10000,20000].includes(f);
+    g.fillStyle=major?'rgba(201,169,110,.16)':'rgba(201,169,110,.05)';g.fillRect(x,padT,1,ph);
+    if(major){g.fillStyle='rgba(201,169,110,.5)';g.fillText(f>=1000?(f/1000)+'k':String(f),x,h-4);}
+  });
+  if(!LB.specDb){g.fillStyle='rgba(201,169,110,.35)';g.font="11px 'EB Garamond',serif";g.fillText('Press Play to see the sound.',padL+pw/2,padT+ph/2);return;}
+  const n=Math.floor(pw);if(!AN.curve||AN.curve.length!==n){AN.curve=new Float32Array(n);AN.holdArr=new Float32Array(n).fill(-140);}
+  lbSpecCurve(n,AN.curve);
+  if(AN.hold){for(let i=0;i<n;i++){const v=AN.curve[i],hv=AN.holdArr[i]-AN_HOLD_FALL*LB.dt;AN.holdArr[i]=v>hv?v:hv;}}
+  // live fill + line
+  g.beginPath();g.moveTo(padL,padT+ph);for(let i=0;i<n;i++)g.lineTo(padL+i,Y(AN.curve[i]));g.lineTo(padL+n-1,padT+ph);g.closePath();
+  const gr=g.createLinearGradient(0,padT,0,padT+ph);gr.addColorStop(0,'rgba(201,169,110,.6)');gr.addColorStop(1,'rgba(201,169,110,.05)');g.fillStyle=gr;g.fill();
+  g.beginPath();for(let i=0;i<n;i++){const y=Y(AN.curve[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(232,208,158,.95)';g.lineWidth=1.2;g.stroke();
+  if(AN.hold){g.beginPath();for(let i=0;i<n;i++){const y=Y(AN.holdArr[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(240,232,210,.4)';g.lineWidth=1;g.stroke();}
+  // hover readout: frequency, nearest note, level
+  if(AN.mouseX!==null){
+    const i=Math.max(0,Math.min(n-1,Math.round(AN.mouseX-padL)));
+    if(AN.mouseX>=padL&&AN.mouseX<=padL+pw){
+      const f=lbX2f(i+.5,pw),db=AN.curve[i];
+      g.fillStyle='rgba(240,232,210,.35)';g.fillRect(padL+i,padT,1,ph);
+      const t=(f<1000?f.toFixed(1):(f/1000).toFixed(2)+'k')+' Hz · '+lbNoteName(f)+' · '+(db<-99?'—':db.toFixed(1)+' dB');
+      g.font="9px 'Cinzel',serif";const tw=g.measureText(t).width+12,bx=Math.min(w-tw-4,Math.max(padL,padL+i+8));
+      g.fillStyle='rgba(8,5,18,.92)';g.fillRect(bx,padT+4,tw,16);g.strokeStyle='rgba(201,169,110,.4)';g.lineWidth=1;g.strokeRect(bx+.5,padT+4.5,tw-1,15);
+      g.fillStyle='#e8d09e';g.textAlign='left';g.fillText(t,bx+6,padT+15);
+    }
+  }
+}
+function lbPaintBands(){
+  const sh=lbBandShares(),cells=document.querySelectorAll('#an-bands .an-band');if(!cells.length) return;
+  SPEC_BANDS.forEach((_,i)=>{
+    AN.shares[i]=sh?AN.shares[i]*0.5+sh[i]*0.5:0;
+    const p=AN.shares[i]*100,c=cells[i];
+    c.querySelector('b').textContent=sh?(p<1?(p<0.1?'<0.1':p.toFixed(1)):Math.round(p))+'%':'—';
+    c.querySelector('u').style.width=(sh?Math.min(100,p):0)+'%';
+  });
+}
+function lbSpectra(){
+  if(LB.specDb&&LB.spec) LB.spec.getFloatFrequencyData(LB.specDb);
+  lbDrawMini();
+  if(AN.open){
+    lbDrawPanel();
+    const nowMs=performance.now();if(nowMs-AN.txtT>200&&LB.specDb){AN.txtT=nowMs;lbPaintBands();}
+  }
+}
+function anSave(){try{localStorage.setItem(AN_KEY,JSON.stringify({open:AN.open,x:AN.x,y:AN.y,w:AN.w,h:AN.h,hold:AN.hold}));}catch(e){}}
+function anPlace(){
+  const p=document.getElementById('an-panel');if(!p) return;
+  const vw=window.innerWidth,vh=window.innerHeight;
+  AN.w=Math.max(380,Math.min(AN.w,vw-20));AN.h=Math.max(280,Math.min(AN.h,vh-20));
+  if(AN.x===null){AN.x=Math.max(10,vw-AN.w-30);AN.y=140;}
+  AN.x=Math.max(0,Math.min(AN.x,vw-120));AN.y=Math.max(0,Math.min(AN.y,vh-60));
+  p.style.left=AN.x+'px';p.style.top=AN.y+'px';p.style.width=AN.w+'px';p.style.height=AN.h+'px';
+}
+function anSetOpen(o){
+  AN.open=o;const p=document.getElementById('an-panel');p.classList.toggle('open',o);
+  if(o){anPlace();AN.curve=null;lbDrawPanel();}
+  anSave();
+}
+function anInit(){
+  try{Object.assign(AN,JSON.parse(localStorage.getItem(AN_KEY)||'{}'));}catch(e){}
+  const p=document.getElementById('an-panel');if(!p) return;
+  const bands=document.getElementById('an-bands');
+  bands.innerHTML=SPEC_BANDS.map(([n,a,b])=>`<div class="an-band" title="${n}: ${a>=1000?a/1000+'k':a}–${b>=1000?b/1000+'k':b} Hz. Share of the sound's energy in this band."><span>${n}</span><b>—</b><i><u></u></i></div>`).join('');
+  document.getElementById('mini-spec').addEventListener('click',()=>anSetOpen(!AN.open));
+  document.getElementById('an-close').addEventListener('click',()=>anSetOpen(false));
+  const hold=document.getElementById('an-hold');hold.classList.toggle('on',AN.hold);
+  hold.addEventListener('click',()=>{AN.hold=!AN.hold;hold.classList.toggle('on',AN.hold);if(AN.holdArr)AN.holdArr.fill(-140);anSave();});
+  document.getElementById('an-hold-reset').addEventListener('click',()=>{if(AN.holdArr)AN.holdArr.fill(-140);});
+  const tt=document.getElementById('an-title');
+  tt.addEventListener('mousedown',e=>{
+    if(e.target.closest('button')) return;e.preventDefault();
+    const dx=e.clientX-p.offsetLeft,dy=e.clientY-p.offsetTop;
+    const mv=ev=>{AN.x=ev.clientX-dx;AN.y=ev.clientY-dy;anPlace();};
+    const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);anSave();};
+    window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
+  });
+  const cv=document.getElementById('an-spec');
+  cv.addEventListener('mousemove',e=>{AN.mouseX=e.clientX-cv.getBoundingClientRect().left;if(!playing&&LB.silentFor>=3)lbDrawPanel();});
+  cv.addEventListener('mouseleave',()=>{AN.mouseX=null;if(!playing&&LB.silentFor>=3)lbDrawPanel();});
+  let rt=0;
+  if(window.ResizeObserver) new ResizeObserver(()=>{if(!AN.open) return;AN.w=p.offsetWidth;AN.h=p.offsetHeight;AN.curve=null;lbDrawPanel();clearTimeout(rt);rt=setTimeout(anSave,300);}).observe(p);
+  window.addEventListener('resize',()=>{if(AN.open)anPlace();});
+  anPlace();p.classList.toggle('open',!!AN.open);
+  lbDrawMini();if(AN.open) lbDrawPanel();
 }
 const lbF=(v,d=1)=>(v===-Infinity||v<-99)?'—':((v<0?'−':'')+Math.abs(v).toFixed(d));
 function lbPaintText(){
@@ -2107,8 +2296,8 @@ function lbPaintText(){
 }
 function lbDrawMaster(){
   const cv=document.getElementById('mm-canvas');if(!cv) return;
-  const dpr=window.devicePixelRatio||1,w=150,h=26;
-  if(cv.width!==w*dpr){cv.width=w*dpr;cv.height=h*dpr;}
+  const dpr=window.devicePixelRatio||1,w=cv.clientWidth||170,h=cv.clientHeight||26;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
   const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
   g.fillStyle='#0b0a12';g.fillRect(0,0,w,h);
   const grad=g.createLinearGradient(0,0,w,0);
@@ -6956,7 +7145,7 @@ async function init(){
   document.getElementById('tl-zoom-val').textContent=tlPxPerStep;
   buildCircleLayout();render();
   const mm=document.getElementById('master-meter');if(mm) mm.addEventListener('click',()=>{lbResetLoudness();lbPaintText();lbDrawMaster();});
-  lbPaintText();lbDrawMaster();
+  lbPaintText();lbDrawMaster();anInit();
 }
 init();
 </script>
