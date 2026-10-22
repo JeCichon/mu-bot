@@ -54,6 +54,23 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 #an-title{display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--border);cursor:move;user-select:none;flex-shrink:0;
   font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;color:var(--gold);}
 #an-title .an-sp{flex:1;}
+#an-title .an-tab{border-color:transparent;letter-spacing:.16em;font-size:10px;padding:2px 8px;opacity:.55;}
+#an-title .an-tab.on{border-color:rgba(201,169,110,.45);background:var(--gf);color:var(--gold);opacity:1;}
+.an-sec{display:none;flex:1;flex-direction:column;min-height:0;}
+.an-sec.on{display:flex;}
+#an-scopewrap{position:relative;flex:1;min-height:140px;}
+#an-scope{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.an-ctrl{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:5px 10px 3px;flex-shrink:0;}
+.an-ctrl .an-lbl{font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.14em;color:rgba(201,169,110,.45);margin-left:8px;}
+.an-ctrl .an-lbl:first-child{margin-left:0;}
+.an-ctrl button{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;background:transparent;border:1px solid rgba(201,169,110,.22);color:rgba(201,169,110,.7);padding:2px 7px;border-radius:2px;cursor:pointer;}
+.an-ctrl button:hover{background:var(--gf);color:var(--gold);}
+.an-ctrl button.on{background:var(--gf);color:var(--gold);border-color:rgba(201,169,110,.55);}
+.an-corr-row{display:flex;align-items:center;gap:8px;padding:2px 10px 8px;flex-shrink:0;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.14em;color:rgba(201,169,110,.5);}
+#an-corr{position:relative;flex:1;height:8px;border-radius:2px;background:linear-gradient(to right,#c4573e 0,#c4573e 8%,#c9a96e 28%,#4f8c5f 62%,#4f8c5f 100%);opacity:.9;}
+#an-corr::before{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:rgba(240,232,210,.4);}
+#an-corr i{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1.5px;background:#f0e8d2;border-radius:1px;left:50%;box-shadow:0 0 4px rgba(0,0,0,.8);}
+#an-corr-v{font-weight:400;color:var(--gold);min-width:44px;text-align:right;letter-spacing:.04em;}
 #an-title button,.an-foot button{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;background:transparent;border:1px solid rgba(201,169,110,.25);color:rgba(201,169,110,.75);padding:2px 8px;border-radius:2px;cursor:pointer;}
 #an-title button:hover,.an-foot button:hover{background:var(--gf);color:var(--gold);}
 .an-foot button.on{background:var(--gf);color:var(--gold);border-color:rgba(201,169,110,.55);}
@@ -737,10 +754,24 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 </div>
 
 <div id="an-panel">
-  <div id="an-title"><span>ANALYZER</span><span>·</span><span style="opacity:.6">SPECTRUM</span><span class="an-sp"></span><button id="an-close" title="Close">✕</button></div>
-  <div id="an-cvwrap"><canvas id="an-spec"></canvas></div>
-  <div id="an-bands"></div>
-  <div class="an-foot"><button id="an-hold" class="on" title="Keep a slowly falling peak line">HOLD</button><button id="an-hold-reset" title="Clear the peak line">CLEAR</button><span class="an-sp">Left and right are summed to one mix. Levels are close to dBFS. Hover for pitch.</span></div>
+  <div id="an-title"><span>ANALYZER</span><button class="an-tab on" data-tab="spec">SPECTRUM</button><button class="an-tab" data-tab="scope">SCOPE</button><span class="an-sp"></span><button id="an-close" title="Close">✕</button></div>
+  <div id="an-sec-spec" class="an-sec on">
+    <div id="an-cvwrap"><canvas id="an-spec"></canvas></div>
+    <div id="an-bands"></div>
+    <div class="an-foot"><button id="an-hold" class="on" title="Keep a slowly falling peak line">HOLD</button><button id="an-hold-reset" title="Clear the peak line">CLEAR</button><span class="an-sp">Left and right are summed to one mix. Levels are close to dBFS. Hover for pitch.</span></div>
+  </div>
+  <div id="an-sec-scope" class="an-sec">
+    <div id="an-scopewrap"><canvas id="an-scope"></canvas></div>
+    <div class="an-ctrl">
+      <span class="an-lbl">VIEW</span>
+      <button data-view="wave">WAVE</button><button data-view="xy">X–Y</button><button data-view="both">BOTH</button><button id="an-rot" title="Rotate the X–Y picture 45°: a centered (mono) sound becomes a vertical line, width spreads sideways">45°</button>
+      <span class="an-lbl">TIME</span>
+      <button data-ms="5">5</button><button data-ms="10">10</button><button data-ms="20">20</button><button data-ms="50">50</button><button data-ms="100">100 ms</button>
+      <span class="an-lbl">GAIN</span>
+      <button data-gain="1">1×</button><button data-gain="2">2×</button><button data-gain="4">4×</button><button data-gain="8">8×</button><button data-gain="auto">AUTO</button>
+    </div>
+    <div class="an-corr-row"><span>OUT OF PHASE</span><div id="an-corr"><i></i></div><span>MONO</span><b id="an-corr-v">—</b></div>
+  </div>
 </div>
 
 <div id="timeline-panel" class="tl-hidden">
@@ -2022,7 +2053,7 @@ function getCtx(){
 // Each bus is a plain gain of exactly 1, so the sound is unchanged; small analysers just listen in (they never touch the sound).
 // Only the live context gets buses. Exports (and the audio tests) still go straight to the destination.
 // ════════════════════════════════════════════════════════
-const LB={ctx:null,master:null,mTap:null,kTap:null,spec:null,specDb:null,dt:0.016,ch:new Map(),meterEls:new Set(),raf:0,frame:0,tPrev:0,
+const LB={ctx:null,master:null,mTap:null,kTap:null,sTap:null,spec:null,specDb:null,dt:0.016,ch:new Map(),meterEls:new Set(),raf:0,frame:0,tPrev:0,
   lastT:0,carry:0,blk:{sum:0,n:0},blocks:[],pre:[0],silentFor:99,
   m:{L:-120,R:-120,hL:-120,hR:-120,hLt:0,hRt:0},maxPeak:-120,lufsS:-Infinity,lufsI:-Infinity,txtT:0};
 const LB_FLOOR=-60;            // bottom of every meter (dBFS)
@@ -2037,7 +2068,7 @@ function lbMaster(a){
   if(LB.ctx!==a){
     LB.ctx=a;LB.ch=new Map();lbResetLoudness();
     const m=a.createGain();m.channelCount=2;m.channelCountMode='explicit';m.connect(a.destination);
-    LB.master=m;LB.mTap=lbTap(a,m,2048);
+    LB.master=m;LB.mTap=lbTap(a,m,2048);LB.sTap=lbTap(a,m,8192);
     const sp=a.createAnalyser();sp.fftSize=8192;sp.smoothingTimeConstant=0.8;sp.minDecibels=-110;sp.maxDecibels=0;m.connect(sp);LB.spec=sp;LB.specDb=new Float32Array(sp.frequencyBinCount);
     // K-weighting for loudness (ITU-R BS.1770): a +4 dB high shelf near 1.7 kHz, then a ~38 Hz high-pass. The result only feeds an analyser.
     const hs=a.createBiquadFilter();hs.type='highshelf';hs.frequency.value=1681.97;hs.gain.value=3.9998;
@@ -2143,7 +2174,7 @@ const SPEC_BANDS=[['SUB',20,60],['BASS',60,250],['LOW MID',250,500],['MID',500,2
 const SPEC_F0=20,SPEC_F1=20000;        // the picture spans 20 Hz to 20 kHz, evenly per octave
 const LB_SPEC_OFFS=13.8;               // calibration (measured): the analyser reads a full-scale sine at about −13.8 dB; this brings it to 0 dB
 const AN_HOLD_FALL=8;                  // dB per second the peak line falls
-const AN={open:false,x:null,y:null,w:620,h:420,hold:true,holdArr:null,mouseX:null,txtT:0,shares:new Array(7).fill(0),curve:null};
+const AN={tab:'spec',view:'wave',ms:20,gain:'auto',rot:false,gainNow:1,corr:0,corrT:0,xyLastT:0,xyCarry:0,xyLast:null,xyc:null,open:false,x:null,y:null,w:620,h:420,hold:true,holdArr:null,mouseX:null,txtT:0,shares:new Array(7).fill(0),curve:null};
 const AN_KEY='trico_analyzer_ui';      // window position and size only; never stored in songs
 function lbX2f(x,w){return SPEC_F0*Math.pow(SPEC_F1/SPEC_F0,x/w);}
 function lbF2x(f,w){return w*Math.log(f/SPEC_F0)/Math.log(SPEC_F1/SPEC_F0);}
@@ -2236,15 +2267,124 @@ function lbPaintBands(){
     c.querySelector('u').style.width=(sh?Math.min(100,p):0)+'%';
   });
 }
+
+// ── Oscilloscope (Phase A · step 3) ──────────────────────────────────────
+// WAVE: the last few milliseconds of the master mix, held still by a rising zero-crossing trigger. X–Y: left against right, drawn like a
+// phosphor screen (each frame fades the last). Everything reads the master bus, so Solo on a channel shows only that channel.
+function lbScopeGain(pk){
+  if(AN.gain!=='auto') return AN.gainNow=+AN.gain;
+  const target=pk>1e-4?Math.min(100,0.82/pk):1;
+  AN.gainNow=target<AN.gainNow?target:AN.gainNow+(target-AN.gainNow)*0.06;   // drops at once when a peak arrives, rises slowly
+  return AN.gainNow;
+}
+function lbDrawWave(g,x0,y0,rw,rh,L,R,N,sr){
+  g.save();g.beginPath();g.rect(x0,y0,rw,rh);g.clip();
+  g.fillStyle='#0b0a12';g.fillRect(x0,y0,rw,rh);
+  // graticule: 10 divisions across, 8 down
+  g.fillStyle='rgba(201,169,110,.07)';for(let i=1;i<10;i++)g.fillRect(Math.round(x0+rw*i/10),y0,1,rh);for(let i=1;i<8;i++)g.fillRect(x0,Math.round(y0+rh*i/8),rw,1);
+  g.fillStyle='rgba(201,169,110,.22)';g.fillRect(x0,Math.round(y0+rh/2),rw,1);
+  const span=Math.max(16,Math.min(N-2,Math.round(AN.ms/1000*sr)));
+  // trigger: the most recent rising zero-crossing of the mix that still leaves a whole window after it
+  let st=N-span-1;
+  for(let i=N-span-1;i>1;i--){const a0=(L[i-1]+R[i-1])*.5,a1=(L[i]+R[i])*.5;if(a0<0&&a1>=0){st=i;break;}}
+  let pk=0;for(let i=st;i<st+span;i++){const a=Math.abs(L[i]),b=Math.abs(R[i]);if(a>pk)pk=a;if(b>pk)pk=b;}
+  const gain=lbScopeGain(pk),cy=y0+rh/2,amp=rh/2*0.92*gain;
+  const trace=(arr,col,lw)=>{
+    g.beginPath();
+    for(let px=0;px<=rw;px++){const v=arr[Math.min(N-1,st+Math.round(px*span/rw))];const y=cy-Math.max(-1.2,Math.min(1.2,v*gain))*rh/2*0.92;px?g.lineTo(x0+px,y):g.moveTo(x0+px,y);}
+    g.strokeStyle=col;g.lineWidth=lw;g.stroke();
+  };
+  trace(R,'rgba(140,200,255,.75)',1.1);trace(L,'rgba(232,208,158,.95)',1.3);
+  g.restore();
+  g.strokeStyle='rgba(201,169,110,.25)';g.lineWidth=1;g.strokeRect(x0+.5,y0+.5,rw-1,rh-1);
+  g.font="8.5px 'Cinzel',serif";g.textAlign='left';g.fillStyle='rgba(201,169,110,.6)';
+  g.fillText(AN.ms+' ms · gain '+(AN.gain==='auto'?'AUTO ×'+gain.toFixed(1):'×'+gain)+' · peak '+(pk>1e-6?(20*Math.log10(pk)).toFixed(1)+' dB':'—'),x0+6,y0+12);
+  g.fillStyle='rgba(232,208,158,.8)';g.fillText('L',x0+6,y0+rh-6);g.fillStyle='rgba(140,200,255,.8)';g.fillText('R',x0+18,y0+rh-6);
+  return pk;
+}
+function lbDrawXY(g,x0,y0,rw,rh,L,R,N,sr,dpr){
+  const size=Math.min(rw,rh),bx=Math.round(x0+(rw-size)/2),by=Math.round(y0+(rh-size)/2),cx=bx+size/2,cy=by+size/2,half=size/2*0.9;
+  // trail layer (off-screen), faded a little every frame, then composited over the graticule
+  const pxs=Math.round(size*dpr);
+  if(!AN.xyc||AN.xyc.width!==pxs){AN.xyc=document.createElement('canvas');AN.xyc.width=AN.xyc.height=pxs;AN.xyLast=null;}
+  const t=AN.xyc.getContext('2d');t.setTransform(dpr,0,0,dpr,0,0);
+  t.globalCompositeOperation='destination-out';t.fillStyle='rgba(0,0,0,0.16)';t.fillRect(0,0,size,size);
+  t.globalCompositeOperation='lighter';
+  const a=LB.ctx;const now=a.currentTime;const want=(now-AN.xyLastT)*sr+AN.xyCarry;AN.xyLastT=now;
+  let n=Math.floor(want);AN.xyCarry=want-n;if(n>N)n=N;if(n<0)n=0;if(n>4096)n=4096;
+  let pk=0;for(let i=N-Math.max(n,1024);i<N;i++){const p=Math.abs(L[i]),q=Math.abs(R[i]);if(p>pk)pk=p;if(q>pk)pk=q;}
+  const gain=AN.view==='xy'||AN.view==='both'?(AN.view==='both'?AN.gainNow:lbScopeGain(pk)):1;
+  // rotated: x = side ((L−R)/2), y = mid ((L+R)/2), so a centered sound is a vertical line; plain: x = L, y = R
+  const px=(l,r)=>AN.rot?size/2+((l-r)*.5)*half*gain:size/2+l*half*gain;
+  const py=(l,r)=>AN.rot?size/2-((l+r)*.5)*half*gain:size/2-r*half*gain;
+  if(n>1){
+    t.beginPath();let first=true;
+    if(AN.xyLast){t.moveTo(AN.xyLast[0],AN.xyLast[1]);first=false;}
+    for(let i=N-n;i<N;i++){const x=px(L[i],R[i]),y=py(L[i],R[i]);if(first){t.moveTo(x,y);first=false;}else t.lineTo(x,y);}
+    AN.xyLast=[px(L[N-1],R[N-1]),py(L[N-1],R[N-1])];
+    t.lineJoin='round';t.strokeStyle='rgba(232,208,158,.22)';t.lineWidth=3.2;t.stroke();
+    t.strokeStyle='rgba(255,236,190,.8)';t.lineWidth=1.1;t.stroke();
+  }
+  g.save();g.beginPath();g.rect(bx,by,size,size);g.clip();
+  g.fillStyle='#0b0a12';g.fillRect(bx,by,size,size);
+  g.strokeStyle='rgba(201,169,110,.12)';g.lineWidth=1;
+  g.beginPath();g.arc(cx,cy,half,0,6.2832);g.stroke();g.beginPath();g.arc(cx,cy,half/2,0,6.2832);g.stroke();
+  g.fillStyle='rgba(201,169,110,.2)';g.fillRect(Math.round(cx),by,1,size);g.fillRect(bx,Math.round(cy),size,1);
+  if(!AN.rot){g.strokeStyle='rgba(201,169,110,.12)';g.beginPath();g.moveTo(bx,by+size);g.lineTo(bx+size,by);g.stroke();}
+  g.drawImage(AN.xyc,bx,by,size,size);
+  g.restore();
+  g.strokeStyle='rgba(201,169,110,.25)';g.strokeRect(bx+.5,by+.5,size-1,size-1);
+  g.font="8.5px 'Cinzel',serif";g.fillStyle='rgba(201,169,110,.55)';g.textAlign='center';
+  if(AN.rot){g.fillText('MID',cx,by+11);g.fillText('SIDE',bx+size-18,cy-4);g.fillText('SIDE',bx+18,cy-4);}
+  else{g.fillText('R',cx,by+11);g.fillText('L',bx+size-8,cy-4);g.fillText('MONO ↗',bx+size-30,by+12);}
+  return pk;
+}
+function lbDrawScope(){
+  const cv=document.getElementById('an-scope');if(!cv||!LB.sTap) {if(cv){const z=lbSizeCanvas(cv);if(z){z.g.fillStyle='#0b0a12';z.g.fillRect(0,0,z.w,z.h);z.g.font="11px 'EB Garamond',serif";z.g.fillStyle='rgba(201,169,110,.35)';z.g.textAlign='center';z.g.fillText('Press Play to see the sound.',z.w/2,z.h/2);}}return;}
+  const z=lbSizeCanvas(cv);if(!z) return;const{g,w,h}=z,dpr=window.devicePixelRatio||1;
+  const T=LB.sTap;T.L.getFloatTimeDomainData(T.bl);T.R.getFloatTimeDomainData(T.br);
+  const L=T.bl,R=T.br,N=L.length,sr=LB.ctx.sampleRate;
+  g.fillStyle='#08060f';g.fillRect(0,0,w,h);
+  const pad=8,gap=8,iw=w-pad*2,ih=h-pad*2;
+  if(AN.view==='wave') lbDrawWave(g,pad,pad,iw,ih,L,R,N,sr);
+  else if(AN.view==='xy') lbDrawXY(g,pad,pad,iw,ih,L,R,N,sr,dpr);
+  else{
+    const ww=Math.round((iw-gap)*0.55);
+    lbDrawWave(g,pad,pad,ww,ih,L,R,N,sr);
+    lbDrawXY(g,pad+ww+gap,pad,iw-ww-gap,ih,L,R,N,sr,dpr);
+  }
+  // stereo correlation over the last ~46 ms
+  let sLR=0,sLL=0,sRR=0;for(let i=N-2048;i<N;i++){sLR+=L[i]*R[i];sLL+=L[i]*L[i];sRR+=R[i]*R[i];}
+  const den=Math.sqrt(sLL*sRR);
+  if(den>1e-9){AN.corr=AN.corr*0.88+(sLR/den)*0.12;AN.corrOn=true;}else{AN.corrOn=false;}
+  const nowMs=performance.now();
+  if(nowMs-AN.corrT>100){
+    AN.corrT=nowMs;
+    const mk=document.querySelector('#an-corr i'),vv=document.getElementById('an-corr-v');
+    if(mk){mk.style.left=((AN.corr+1)/2*100).toFixed(1)+'%';mk.style.opacity=AN.corrOn?1:.25;}
+    if(vv) vv.textContent=AN.corrOn?(AN.corr>=0?'+':'−')+Math.abs(AN.corr).toFixed(2):'—';
+  }
+}
+function lbDrawActive(){ if(AN.tab==='scope') lbDrawScope(); else lbDrawPanel(); }
+function anSyncUI(){
+  const p=document.getElementById('an-panel');if(!p) return;
+  document.querySelectorAll('#an-title .an-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===AN.tab));
+  document.getElementById('an-sec-spec').classList.toggle('on',AN.tab==='spec');
+  document.getElementById('an-sec-scope').classList.toggle('on',AN.tab==='scope');
+  document.querySelectorAll('#an-sec-scope [data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===AN.view));
+  document.querySelectorAll('#an-sec-scope [data-ms]').forEach(b=>b.classList.toggle('on',+b.dataset.ms===AN.ms));
+  document.querySelectorAll('#an-sec-scope [data-gain]').forEach(b=>b.classList.toggle('on',String(b.dataset.gain)===String(AN.gain)));
+  document.getElementById('an-rot').classList.toggle('on',!!AN.rot);
+}
 function lbSpectra(){
   if(LB.specDb&&LB.spec) LB.spec.getFloatFrequencyData(LB.specDb);
   lbDrawMini();
   if(AN.open){
-    lbDrawPanel();
-    const nowMs=performance.now();if(nowMs-AN.txtT>200&&LB.specDb){AN.txtT=nowMs;lbPaintBands();}
+    lbDrawActive();
+    if(AN.tab==='spec'){const nowMs=performance.now();if(nowMs-AN.txtT>200&&LB.specDb){AN.txtT=nowMs;lbPaintBands();}}
   }
 }
-function anSave(){try{localStorage.setItem(AN_KEY,JSON.stringify({open:AN.open,x:AN.x,y:AN.y,w:AN.w,h:AN.h,hold:AN.hold}));}catch(e){}}
+function anSave(){try{localStorage.setItem(AN_KEY,JSON.stringify({open:AN.open,x:AN.x,y:AN.y,w:AN.w,h:AN.h,hold:AN.hold,tab:AN.tab,view:AN.view,ms:AN.ms,gain:AN.gain,rot:AN.rot}));}catch(e){}}
 function anPlace(){
   const p=document.getElementById('an-panel');if(!p) return;
   const vw=window.innerWidth,vh=window.innerHeight;
@@ -2255,7 +2395,7 @@ function anPlace(){
 }
 function anSetOpen(o){
   AN.open=o;const p=document.getElementById('an-panel');p.classList.toggle('open',o);
-  if(o){anPlace();AN.curve=null;lbDrawPanel();}
+  if(o){anPlace();AN.curve=null;anSyncUI();lbDrawActive();}
   anSave();
 }
 function anInit(){
@@ -2277,13 +2417,19 @@ function anInit(){
     window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
   });
   const cv=document.getElementById('an-spec');
-  cv.addEventListener('mousemove',e=>{AN.mouseX=e.clientX-cv.getBoundingClientRect().left;if(!playing&&LB.silentFor>=3)lbDrawPanel();});
-  cv.addEventListener('mouseleave',()=>{AN.mouseX=null;if(!playing&&LB.silentFor>=3)lbDrawPanel();});
+  cv.addEventListener('mousemove',e=>{AN.mouseX=e.clientX-cv.getBoundingClientRect().left;if(!playing&&LB.silentFor>=3&&AN.tab==='spec')lbDrawPanel();});
+  cv.addEventListener('mouseleave',()=>{AN.mouseX=null;if(!playing&&LB.silentFor>=3&&AN.tab==='spec')lbDrawPanel();});
   let rt=0;
-  if(window.ResizeObserver) new ResizeObserver(()=>{if(!AN.open) return;AN.w=p.offsetWidth;AN.h=p.offsetHeight;AN.curve=null;lbDrawPanel();clearTimeout(rt);rt=setTimeout(anSave,300);}).observe(p);
+  if(window.ResizeObserver) new ResizeObserver(()=>{if(!AN.open) return;AN.w=p.offsetWidth;AN.h=p.offsetHeight;AN.curve=null;AN.xyc=null;lbDrawActive();clearTimeout(rt);rt=setTimeout(anSave,300);}).observe(p);
   window.addEventListener('resize',()=>{if(AN.open)anPlace();});
+  document.querySelectorAll('#an-title .an-tab').forEach(b=>b.addEventListener('click',()=>{AN.tab=b.dataset.tab;AN.curve=null;AN.xyc=null;anSyncUI();anSave();lbDrawActive();}));
+  document.querySelectorAll('#an-sec-scope [data-view]').forEach(b=>b.addEventListener('click',()=>{AN.view=b.dataset.view;AN.xyc=null;anSyncUI();anSave();lbDrawActive();}));
+  document.querySelectorAll('#an-sec-scope [data-ms]').forEach(b=>b.addEventListener('click',()=>{AN.ms=+b.dataset.ms;anSyncUI();anSave();}));
+  document.querySelectorAll('#an-sec-scope [data-gain]').forEach(b=>b.addEventListener('click',()=>{AN.gain=b.dataset.gain==='auto'?'auto':+b.dataset.gain;anSyncUI();anSave();}));
+  document.getElementById('an-rot').addEventListener('click',()=>{AN.rot=!AN.rot;AN.xyc=null;anSyncUI();anSave();});
+  anSyncUI();
   anPlace();p.classList.toggle('open',!!AN.open);
-  lbDrawMini();if(AN.open) lbDrawPanel();
+  lbDrawMini();if(AN.open) lbDrawActive();
 }
 const lbF=(v,d=1)=>(v===-Infinity||v<-99)?'—':((v<0?'−':'')+Math.abs(v).toFixed(d));
 function lbPaintText(){
