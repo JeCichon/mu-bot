@@ -78,6 +78,9 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-b.on{color:#0b0a12;font-weight:600;}
 .eq-b.sel{outline:1px solid #f0e8d2;outline-offset:1px;}
 .eq-fields{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:5px 10px 3px;flex-shrink:0;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.12em;color:rgba(201,169,110,.5);}
+.an-foot select{font-family:'Cinzel',serif;font-size:10px;background:rgba(0,0,0,.45);border:1px solid rgba(201,169,110,.25);color:var(--gold);padding:2px 4px;border-radius:2px;outline:none;max-width:210px;}
+.an-foot{flex-wrap:wrap;}
+.an-foot button:disabled{opacity:.3;cursor:default;}
 .eq-fields select,.eq-fields input,.an-foot input{font-family:'Cinzel',serif;font-size:10px;background:rgba(0,0,0,.45);border:1px solid rgba(201,169,110,.25);color:var(--gold);padding:2px 4px;border-radius:2px;outline:none;}
 .eq-fields input{width:58px;text-align:right;}
 .eq-fields input:disabled,.eq-fields select:disabled{opacity:.3;}
@@ -784,7 +787,10 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
       <span>GAIN</span><input id="eq-g" title="dB, ±15"><span>DB</span>
       <span>Q</span><input id="eq-q" title="0.1 – 18">
     </div>
-    <div class="an-foot"><button id="eq-power" title="Turn the master EQ on or off. Off = the sound is untouched.">EQ OFF</button><span>TRIM</span><input id="eq-trim" title="Master output level in dB (0 = unchanged)"><span>DB</span><button id="eq-reset" title="Put all eight bands back to their starting values (and trim to 0)">RESET</button><span class="an-sp">Drag a dot: across = frequency, up/down = gain (or Q on cuts and notch). Alt-drag or scroll = Q. Shift = fine. Click a number to switch a band on or off.</span></div>
+    <div class="an-foot"><button id="eq-power" title="Turn the master EQ on or off. Off = the sound is untouched.">EQ OFF</button>
+      <span>PRESET</span><select id="eq-preset" title="Starting points. Choosing one fills the eight bands and switches the EQ on; your trim is kept. Undo brings back what you had."></select><button id="eq-psave" title="Save the current eight bands as a preset of your own (kept in this browser)">SAVE</button><button id="eq-pdel" title="Delete the selected preset of yours">DEL</button>
+      <span>TRIM</span><input id="eq-trim" title="Master output level in dB (0 = unchanged)"><span>DB</span><button id="eq-reset" title="Put all eight bands back to their starting values (and trim to 0)">RESET</button>
+      <span class="an-sp" style="flex-basis:100%">Drag a dot: across = frequency, up/down = gain (or Q on cuts and notch). Alt-drag or scroll = Q. Shift = fine. Click a number to switch a band on or off.</span></div>
   </div>
   <div id="an-sec-scope" class="an-sec">
     <div id="an-scopewrap"><canvas id="an-scope"></canvas></div>
@@ -2570,36 +2576,129 @@ function eqSyncUI(){
   gg.disabled=!eqHasGain(b.type);q.disabled=!eqHasQ(b.type);
   if(document.activeElement!==tr)tr.value=(masterEq.trim>=0?'+':'−')+Math.abs(masterEq.trim).toFixed(1);
   const pw=document.getElementById('eq-power');pw.classList.toggle('on',masterEq.on);pw.textContent=masterEq.on?'EQ ON':'EQ OFF';
+  if(typeof eqPresetSync==='function') eqPresetSync();
   if(AN.open&&AN.tab==='eq') lbDrawActive();
 }
 function eqChanged(structural){
   if(structural) eqStructural();else eqParams();
   eqSyncUI();saveState();
 }
+// ── EQ presets ───────────────────────────────────────────────────────────
+// Rough character sketches, not measurements: I cannot listen to recordings, so these are starting shapes built from how each sound is
+// commonly described (worn tape, cassette bandwidth, cold and exact, abrasive…). The organ makes its own tones, so treat them as directions to push from.
+// Each entry is eight slots (null = band off): [type, Hz, dB, Q].
+const EQ_PRESETS=[
+  ['Starting points',[
+    ['Flat (all bands off)',[null,null,null,null,null,null,null,null]],
+    ['Feel the floor',[['lc12',25,0,.71],['ls',80,2,.71],['pk',220,-3,1.2],['pk',1300,3.5,1.2],null,null,['hs',8000,2,.71],null]],
+    ['Kick click',[['lc12',28,0,.71],null,['pk',350,-2,1.2],['pk',1300,4,1.2],['pk',3500,2.5,1.5],null,null,null]],
+    ['De-mud',[['lc12',30,0,.71],null,['pk',250,-3.5,1.3],['pk',500,-2,1.5],null,null,null,null]],
+    ['Presence lift',[null,null,null,null,['pk',2500,3,1],['pk',5000,2.5,1],['hs',10000,2,.71],null]],
+    ['Lo-fi squeeze (radio band)',[['lc12',120,0,.71],null,null,['pk',900,2.5,.9],null,null,null,['hc12',6000,0,.71]]]
+  ]],
+  ['Bands · rough character sketches',[
+    ['Boards of Canada · warm faded tape',[['lc12',30,0,.71],['ls',120,2,.71],['pk',320,2,.8],null,['pk',3000,-2.5,.8],null,['hs',7000,-4,.71],['hc12',12000,0,.71]]],
+    ['Autechre · cold and exact',[['lc48',32,0,.71],null,['pk',350,-3,1.5],['pk',2500,2,1.2],['pk',6000,3,1.2],null,['hs',10000,3,.71],null]],
+    ['Death Grips · abrasive',[null,['ls',60,4,.71],['pk',400,-4,1],['pk',2800,5,1.3],['pk',5500,4,1],null,['hs',9000,2,.71],['hc12',16000,0,.71]]],
+    ['Deerhunter · Cryptograms (submerged)',[['lc12',45,0,.71],null,['pk',180,2,.9],['pk',1600,-2,1],null,null,['hs',4500,-5,.71],['hc12',9000,0,.71]]],
+    ['Deerhunter · Rainwater Cassette (dubbed)',[['lc12',90,0,.71],['ls',120,-2,.71],null,['pk',1100,3,.9],['pk',5000,-2,1],null,null,['hc12',8000,0,.71]]],
+    ['Deerhunter · Microcastle (warm haze)',[null,['ls',100,1.5,.71],['pk',250,2,.8],['pk',2000,1.5,.8],null,null,['hs',6500,-2,.71],['hc12',14000,0,.71]]],
+    ['Radiohead · cold and dark',[['lc12',40,0,.71],['ls',90,1,.71],['pk',400,-2.5,1],['pk',2200,2,1],null,null,['hs',9000,-2,.71],null]],
+    ['Tortoise · dry and roomy',[null,['ls',100,1,.71],['pk',250,-2,1],['pk',3000,1.5,.9],null,null,['hs',10000,1.5,.71],null]],
+    ['Scott Walker · dark and hollow',[['lc12',35,0,.71],['ls',70,2,.71],['pk',500,-3,.9],null,['pk',4000,2,1],null,['hs',10000,-1.5,.71],null]]
+  ]],
+  ['Games',[
+    ['16-bit console (FF4 / 5 / 6 era)',[['lc12',60,0,.71],null,['pk',500,1.5,.8],null,['pk',2500,-1.5,1],null,['hs',6000,-3,.71],['hc12',10000,0,.71]]],
+    ['Metroid · hard squares',[['lc12',70,0,.71],null,null,['pk',1000,3,1],['pk',3500,3,1.2],null,null,['hc12',12000,0,.71]]]
+  ]],
+  ['Tape',[
+    ['Tape loop · worn reel',[['lc12',40,0,.71],['pk',70,2.5,1.2],['pk',200,1.5,1],null,['pk',3500,-2,.9],null,['hs',4500,-3,.71],['hc12',7000,0,.71]]]
+  ]]
+];
+const EQ_UP_KEY='trico_eq_presets';   // your own presets: kept in this browser only (the song itself always carries its EQ)
+function eqUserPresets(){try{const a=JSON.parse(localStorage.getItem(EQ_UP_KEY)||'[]');return Array.isArray(a)?a.filter(p=>p&&p.name&&Array.isArray(p.bands)):[];}catch(e){return[];}}
+function eqSaveUserPresets(a){try{localStorage.setItem(EQ_UP_KEY,JSON.stringify(a));}catch(e){}}
+function eqBandsFromSlots(slots){
+  return EQ_DEF.map(([t,f,g,q],i)=>{const e=slots[i];return e?{on:true,type:e[0],f:e[1],g:e[2],q:e[3]}:{on:false,type:t,f,g:0,q};});
+}
+function eqBandsMatch(a,b){
+  return a.every((x,i)=>{const y=b[i];if(!x.on&&!y.on) return true;
+    return x.on===y.on&&x.type===y.type&&Math.abs(x.f/y.f-1)<0.004&&Math.abs(x.g-y.g)<0.06&&Math.abs(x.q-y.q)<0.02;});
+}
+function eqPresetFill(){
+  const sel=document.getElementById('eq-preset');if(!sel) return;
+  let h='<option value="c">— custom —</option>';
+  EQ_PRESETS.forEach(([grp,list],gi)=>{h+=`<optgroup label="${grp}">`+list.map(([n],i)=>`<option value="b:${gi}:${i}">${n}</option>`).join('')+'</optgroup>';});
+  const up=eqUserPresets();if(up.length) h+='<optgroup label="Yours">'+up.map((p,i)=>`<option value="u:${i}">${String(p.name).replace(/</g,'&lt;')}</option>`).join('')+'</optgroup>';
+  sel.innerHTML=h;eqPresetSync();
+}
+function eqPresetSync(){
+  const sel=document.getElementById('eq-preset');if(!sel) return;
+  let v='c';
+  eqUserPresets().forEach((p,i)=>{if(v==='c'&&eqBandsMatch(masterEq.bands,eqNormalize({bands:p.bands}).bands)) v=`u:${i}`;});
+  if(v==='c') EQ_PRESETS.forEach(([,list],gi)=>list.forEach(([,slots],i)=>{if(v==='c'&&eqBandsMatch(masterEq.bands,eqBandsFromSlots(slots))) v=`b:${gi}:${i}`;}));
+  if([...sel.options].some(o=>o.value===v)) sel.value=v;else sel.value='c';
+  const del=document.getElementById('eq-pdel');if(del) del.disabled=!sel.value.startsWith('u:');
+}
 function eqInitUI(){
   const wrap=document.getElementById('eq-bands');if(!wrap) return;
   wrap.innerHTML=masterEq.bands.map((b,i)=>`<button class="eq-b" title="Band ${i+1}: click to switch on or off (Shift-click selects without switching)">${i+1}</button>`).join('');
   [...wrap.children].forEach((el,i)=>el.addEventListener('click',e=>{
-    masterEq.sel=i;if(!e.shiftKey){masterEq.bands[i].on=!masterEq.bands[i].on;eqChanged(true);}else{eqSyncUI();saveState();}
+    if(e.shiftKey){masterEq.sel=i;eqSyncUI();saveState();return;}
+    pushHistory();masterEq.sel=i;masterEq.bands[i].on=!masterEq.bands[i].on;eqChanged(true);
   }));
   const ty=document.getElementById('eq-type');ty.innerHTML=EQ_TYPES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  ty.addEventListener('change',()=>{masterEq.bands[masterEq.sel].type=ty.value;eqChanged(true);});
+  ty.addEventListener('change',()=>{pushHistory();masterEq.bands[masterEq.sel].type=ty.value;eqChanged(true);});
   const bind=(id,fn)=>{const el=document.getElementById(id);const go=()=>{fn(el.value);eqSyncUI();};
     el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){el.blur();}else if(e.key==='Escape'){el.value='';el.blur();}});
     el.addEventListener('blur',go);};
-  bind('eq-f',v=>{const x=eqParseF(v);if(x!==null){masterEq.bands[masterEq.sel].f=x;eqChanged(false);}});
-  bind('eq-g',v=>{const x=eqParseNum(v,-EQ_GAIN_MAX,EQ_GAIN_MAX);if(x!==null&&eqHasGain(masterEq.bands[masterEq.sel].type)){masterEq.bands[masterEq.sel].g=x;eqChanged(false);}});
-  bind('eq-q',v=>{const x=eqParseNum(v,EQ_Q_MIN,EQ_Q_MAX);if(x!==null&&eqHasQ(masterEq.bands[masterEq.sel].type)){masterEq.bands[masterEq.sel].q=x;eqChanged(false);}});
-  bind('eq-trim',v=>{const x=eqParseNum(v,-36,12);if(x!==null){masterEq.trim=x;eqChanged(false);}});
-  document.getElementById('eq-power').addEventListener('click',()=>{eqSetOn(!masterEq.on);eqSyncUI();saveState();});
-  document.getElementById('eq-reset').addEventListener('click',()=>{const on=masterEq.on;masterEq=eqFresh();masterEq.on=on;eqAfterLoad();saveState();});
-  // dragging dots on the curve
+  const sb=()=>masterEq.bands[masterEq.sel];
+  bind('eq-f',v=>{const x=eqParseF(v);if(x!==null&&x!==sb().f){pushHistory();sb().f=x;eqChanged(false);}});
+  bind('eq-g',v=>{const x=eqParseNum(v,-EQ_GAIN_MAX,EQ_GAIN_MAX);if(x!==null&&eqHasGain(sb().type)&&x!==sb().g){pushHistory();sb().g=x;eqChanged(false);}});
+  bind('eq-q',v=>{const x=eqParseNum(v,EQ_Q_MIN,EQ_Q_MAX);if(x!==null&&eqHasQ(sb().type)&&x!==sb().q){pushHistory();sb().q=x;eqChanged(false);}});
+  bind('eq-trim',v=>{const x=eqParseNum(v,-36,12);if(x!==null&&x!==masterEq.trim){pushHistory();masterEq.trim=x;eqChanged(false);}});
+  document.getElementById('eq-power').addEventListener('click',()=>{pushHistory();eqSetOn(!masterEq.on);eqSyncUI();saveState();});
+  document.getElementById('eq-reset').addEventListener('click',()=>{pushHistory();const on=masterEq.on;masterEq=eqFresh();masterEq.on=on;eqAfterLoad();saveState();});
+  // presets
+  eqPresetFill();
+  const ps=document.getElementById('eq-preset');
+  ps.addEventListener('change',()=>{
+    const v=ps.value;if(v==='c') return;
+    let slots=null,bands=null;
+    if(v.startsWith('b:')){const[,gi,i]=v.split(':').map(x=>+x||0);slots=EQ_PRESETS[+v.split(':')[1]][1][+v.split(':')[2]][1];bands=eqBandsFromSlots(slots);}
+    else{const p=eqUserPresets()[+v.split(':')[1]];if(p) bands=eqNormalize({bands:p.bands}).bands;}
+    if(!bands){eqPresetSync();return;}
+    pushHistory();
+    masterEq.bands=bands;masterEq.on=!bands.every(b=>!b.on)||masterEq.on;
+    const first=bands.findIndex(b=>b.on);masterEq.sel=first>=0?first:0;
+    eqAfterLoad();saveState();
+  });
+  document.getElementById('eq-psave').addEventListener('click',()=>{
+    const btn=document.getElementById('eq-psave');if(btn._busy) return;btn._busy=true;
+    const inp=document.createElement('input');inp.type='text';inp.placeholder='name';inp.style.width='110px';inp.style.textAlign='left';
+    btn.replaceWith(inp);inp.focus();
+    let done=false;
+    const fin=ok=>{
+      if(done) return;done=true;
+      const nm=inp.value.trim().slice(0,40);
+      if(ok&&nm){const up=eqUserPresets().filter(p=>p.name!==nm);up.push({name:nm,bands:JSON.parse(JSON.stringify(masterEq.bands))});eqSaveUserPresets(up);}
+      inp.replaceWith(btn);btn._busy=false;eqPresetFill();
+      if(ok&&nm){const o=[...ps.options].find(o=>o.textContent===nm&&o.value.startsWith('u:'));if(o) ps.value=o.value;eqPresetSync();}
+    };
+    inp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')fin(true);else if(e.key==='Escape')fin(false);});
+    inp.addEventListener('blur',()=>fin(true));
+  });
+  document.getElementById('eq-pdel').addEventListener('click',()=>{
+    const v=ps.value;if(!v.startsWith('u:')) return;
+    const up=eqUserPresets();up.splice(+v.split(':')[1],1);eqSaveUserPresets(up);eqPresetFill();
+  });
+  // dragging dots on the curve (one drag = one undo step)
   const cv=document.getElementById('an-eqc');
   const geom=()=>{const w=cv.clientWidth,h=cv.clientHeight;return{pw:w-EQ_PAD.l-EQ_PAD.r,ph:h-EQ_PAD.t-EQ_PAD.b};};
   cv.addEventListener('mousedown',e=>{
     const r=cv.getBoundingClientRect(),{pw,ph}=geom(),mx=e.clientX-r.left,my=e.clientY-r.top;
     const i=eqHit(mx,my,pw,ph,EQ_PAD.l,EQ_PAD.t);if(i<0) return;
-    e.preventDefault();masterEq.sel=i;const b=masterEq.bands[i];
+    e.preventDefault();beginGesture();masterEq.sel=i;const b=masterEq.bands[i];
     const f0=b.f,g0=b.g,q0=b.q,x0=e.clientX,y0=e.clientY;AN.eqDrag=true;
     const mv=ev=>{
       const k=ev.shiftKey?0.2:1,dx=(ev.clientX-x0)*k,dy=(ev.clientY-y0)*k;
@@ -2609,7 +2708,7 @@ function eqInitUI(){
       else if(eqHasQ(b.type)) b.q=Math.max(EQ_Q_MIN,Math.min(EQ_Q_MAX,q0*Math.exp(-dy/70)));
       eqParams();eqSyncUI();
     };
-    const up=()=>{AN.eqDrag=false;window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);saveState();};
+    const up=()=>{AN.eqDrag=false;window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);commitGesture();saveState();};
     window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);eqSyncUI();
   });
   cv.addEventListener('mousemove',e=>{
@@ -2618,7 +2717,8 @@ function eqInitUI(){
   cv.addEventListener('wheel',e=>{
     const r=cv.getBoundingClientRect(),{pw,ph}=geom();let i=eqHit(e.clientX-r.left,e.clientY-r.top,pw,ph,EQ_PAD.l,EQ_PAD.t);if(i<0)i=masterEq.sel;
     const b=masterEq.bands[i];if(!b.on||!eqHasQ(b.type)) return;
-    e.preventDefault();masterEq.sel=i;b.q=Math.max(EQ_Q_MIN,Math.min(EQ_Q_MAX,b.q*Math.exp(-e.deltaY*0.0018)));eqParams();eqSyncUI();clearTimeout(AN.wheelT);AN.wheelT=setTimeout(saveState,400);
+    e.preventDefault();beginGesture();masterEq.sel=i;b.q=Math.max(EQ_Q_MIN,Math.min(EQ_Q_MAX,b.q*Math.exp(-e.deltaY*0.0018)));eqParams();eqSyncUI();
+    clearTimeout(AN.wheelT);AN.wheelT=setTimeout(()=>{commitGesture();saveState();},500);
   },{passive:false});
   eqSyncUI();
 }
@@ -3901,30 +4001,34 @@ let undoStack=[],redoStack=[];
 const MAX_HISTORY=60;
 let pendingGesture=null; // for slider/color-drag gestures (begin...commit)
 
-function snapshotState(){return JSON.stringify({bpm,channels,patterns,activePatternIndex,arrangementClips:JSON.parse(JSON.stringify(arrangementClips)),channelGroups:JSON.parse(JSON.stringify(channelGroups))});}
+function snapshotState(){return JSON.stringify({bpm,channels,patterns,activePatternIndex,arrangementClips:JSON.parse(JSON.stringify(arrangementClips)),channelGroups:JSON.parse(JSON.stringify(channelGroups)),songMultiOctave,masterEq});}
 function restoreSnapshot(json){
   const d=JSON.parse(json);
   bpm=d.bpm;channels=d.channels;patterns=d.patterns;activePatternIndex=d.activePatternIndex||0;
   if(d.arrangementClips) arrangementClips=d.arrangementClips;
   if(d.channelGroups) channelGroups=d.channelGroups; else channelGroups=[];
+  if(d.songMultiOctave!==undefined){songMultiOctave=d.songMultiOctave;updateOctaveModeBtn();}
+  masterEq=eqNormalize(d.masterEq);eqAfterLoad();
   selectedClips.clear();selectedChannels.clear();
   document.getElementById('bpm-val').textContent=bpm;
   syncStepPresetUI();
   render();saveState();
 }
-function pushHistory(){
-  undoStack.push(snapshotState());
-  if(undoStack.length>MAX_HISTORY) undoStack.shift();
+// pushSnap: file a "before" picture. A picture identical to the newest one is not filed twice, so one action is always one undo step.
+function pushSnap(snap){
   redoStack=[];
+  if(!(undoStack.length&&undoStack[undoStack.length-1]===snap)){
+    undoStack.push(snap);
+    if(undoStack.length>MAX_HISTORY) undoStack.shift();
+  }
   updateHistoryButtons();
 }
+function pushHistory(){pushSnap(snapshotState());}
 function beginGesture(){if(pendingGesture===null) pendingGesture=snapshotState();}
 function commitGesture(){
   if(pendingGesture!==null){
-    undoStack.push(pendingGesture);
-    if(undoStack.length>MAX_HISTORY) undoStack.shift();
-    redoStack=[];pendingGesture=null;
-    updateHistoryButtons();
+    const pre=pendingGesture;pendingGesture=null;
+    if(pre!==snapshotState()) pushSnap(pre);   // a gesture that changed nothing leaves no undo step
   }
 }
 function undo(){
@@ -3945,6 +4049,22 @@ function updateHistoryButtons(){
 }
 document.getElementById('undo-btn').addEventListener('click',undo);
 document.getElementById('redo-btn').addEventListener('click',redo);
+// The Effects Lab was never wired to undo. One delegated rule covers every slider, number box, menu and button inside it:
+// sliders and number boxes are gestures (begin on the first input, commit on change); menus and buttons file the picture from just before.
+(function(){
+  const inLab=t=>t&&t.closest&&t.closest('.effects-panel,.effects-rail,.fx-labbar');
+  const ifChanged=pre=>setTimeout(()=>{if(snapshotState()!==pre) pushSnap(pre);},0);
+  document.addEventListener('input',e=>{if(inLab(e.target)) beginGesture();},true);
+  document.addEventListener('change',e=>{
+    const t=e.target;if(!inLab(t)) return;
+    if(t.tagName==='SELECT'||t.type==='checkbox'||t.type==='radio') ifChanged(snapshotState());
+  },true);
+  document.addEventListener('change',e=>{
+    const t=e.target;if(!inLab(t)) return;
+    if(!(t.tagName==='SELECT'||t.type==='checkbox'||t.type==='radio')) commitGesture();
+  },false);
+  document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button');if(b&&inLab(b)) ifChanged(snapshotState());},true);
+})();
 document.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='select'||tag==='textarea') return;
@@ -4473,12 +4593,13 @@ function buildGroupHeader(group,gi){
   // Name
   const nameEl=document.createElement('span');nameEl.className='group-name';nameEl.textContent=group.name;
   nameEl.addEventListener('dblclick',()=>{
+    beginGesture();
     nameEl.contentEditable='true';nameEl.classList.add('editing');nameEl.focus();
     window.getSelection().selectAllChildren(nameEl);
   });
   nameEl.addEventListener('blur',()=>{
     nameEl.contentEditable='false';nameEl.classList.remove('editing');
-    group.name=nameEl.textContent.trim()||group.name;saveState();
+    group.name=nameEl.textContent.trim()||group.name;commitGesture();saveState();
   });
   nameEl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();nameEl.blur();}});
   // Gradient button
@@ -5871,12 +5992,13 @@ function populateClipStats(clipIdx){
   nameEl.textContent=pat?pat.name:'[deleted]';
   nameEl.style.color=pat?patternBorderCss(pat):undefined;
   nameEl.onclick=()=>{
+    beginGesture();
     nameEl.contentEditable='true';nameEl.classList.add('editing');nameEl.focus();
     window.getSelection().selectAllChildren(nameEl);
   };
   nameEl.onblur=()=>{
     nameEl.contentEditable='false';nameEl.classList.remove('editing');
-    if(pat){pat.name=nameEl.textContent.trim()||pat.name;renderTimeline();renderPatternBar();saveState();}
+    if(pat){pat.name=nameEl.textContent.trim()||pat.name;commitGesture();renderTimeline();renderPatternBar();saveState();}
   };
   nameEl.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();nameEl.blur();}};
   const swatch=document.getElementById('csp-swatch');
