@@ -78,8 +78,10 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-b.on{color:#0b0a12;font-weight:600;}
 .eq-b.sel{outline:1px solid #f0e8d2;outline-offset:1px;}
 .eq-fields{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:5px 10px 3px;flex-shrink:0;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.12em;color:rgba(201,169,110,.5);}
-.an-foot select{font-family:'Cinzel',serif;font-size:10px;background:rgba(0,0,0,.45);border:1px solid rgba(201,169,110,.25);color:var(--gold);padding:2px 4px;border-radius:2px;outline:none;max-width:210px;}
+.an-foot select{font-family:'Cinzel',serif;font-size:12px;background:var(--bg);border:1px solid rgba(201,169,110,.25);color:var(--gold);padding:2px 4px;border-radius:2px;outline:none;max-width:210px;}
 .an-foot{flex-wrap:wrap;}
+.an-foot select option,.an-foot select optgroup{background:var(--bg);color:var(--gold);font-size:12px;}
+.an-foot select optgroup{font-style:italic;color:rgba(201,169,110,.65);}
 .an-foot button:disabled{opacity:.3;cursor:default;}
 .eq-fields select,.eq-fields input,.an-foot input{font-family:'Cinzel',serif;font-size:10px;background:rgba(0,0,0,.45);border:1px solid rgba(201,169,110,.25);color:var(--gold);padding:2px 4px;border-radius:2px;outline:none;}
 .eq-fields input{width:58px;text-align:right;}
@@ -2157,58 +2159,71 @@ function eqApplyNode(nd,sp,t,smooth){
   if(sp.g!==undefined) set(nd.gain,sp.g);
   if(sp.q!==undefined) set(nd.Q,(sp.t==='highpass'||sp.t==='lowpass')?20*Math.log10(sp.q):sp.q);   // Web Audio gives the cuts' Q in dB
 }
-// live graph: master bus → [dry] ─┐
-//                          └→ head → band filters → [wet] ─┴→ output (trim) → meters + speakers
+// live graph: master bus → [dry] ─────────────────────────────┐
+//                          └→ head → band filters → [wet] (path A or B) ─┴→ output (trim) → meters + speakers
+// Two identical wet paths exist. A band switched on/off or a new filter type is built on the idle path, then the sound is crossfaded
+// across to it (about 30 ms), so the song never drops out. Moving frequency/gain/Q never rewires: it glides on the live path.
 function lbEqBuild(a,m){
-  const E={dry:a.createGain(),wet:a.createGain(),out:a.createGain(),head:a.createGain(),secs:[],tm:0};
-  E.out.channelCount=2;E.out.channelCountMode='explicit';E.head.channelCount=2;E.head.channelCountMode='explicit';
-  m.connect(E.dry);E.dry.connect(E.out);E.wet.connect(E.out);E.out.connect(a.destination);
-  E.dry.gain.value=masterEq.on?0:1;E.wet.gain.value=masterEq.on?1:0;E.out.gain.value=Math.pow(10,masterEq.trim/20);
+  const mk=()=>{const P={head:a.createGain(),wet:a.createGain(),secs:[]};P.head.channelCount=2;P.head.channelCountMode='explicit';P.head.connect(P.wet);return P;};
+  const E={dry:a.createGain(),out:a.createGain(),paths:[mk(),mk()],cur:0,tm:0,off:0};
+  E.out.channelCount=2;E.out.channelCountMode='explicit';
+  m.connect(E.dry);E.dry.connect(E.out);E.paths.forEach(P=>{P.wet.gain.value=0;P.wet.connect(E.out);});E.out.connect(a.destination);
+  E.dry.gain.value=masterEq.on?0:1;E.paths[0].wet.gain.value=masterEq.on?1:0;E.out.gain.value=Math.pow(10,masterEq.trim/20);
   E.m=m;LB.eq=E;
-  if(masterEq.on) m.connect(E.head);
-  eqWire();
+  if(masterEq.on) m.connect(E.paths[0].head);
+  eqWire(E.paths[0]);
   return E.out;
 }
-function eqWire(){
+function eqWire(P){
   const E=LB.eq,a=LB.ctx;if(!E||!a) return;
-  try{E.head.disconnect();}catch(e){}
-  E.secs.forEach(ss=>{if(ss)ss.forEach(n=>{try{n.disconnect();}catch(e){}});});
+  P=P||E.paths[E.cur];
+  try{P.head.disconnect();}catch(e){}
+  P.secs.forEach(ss=>{if(ss)ss.forEach(n=>{try{n.disconnect();}catch(e){}});});
   const chain=[];
   masterEq.bands.forEach((b,i)=>{
-    if(!b.on){E.secs[i]=null;return;}
+    if(!b.on){P.secs[i]=null;return;}
     const specs=eqSecs(b),sig=specs.map(x=>x.t).join();
-    let nodes=E.secs[i];
-    if(!nodes||nodes.sig!==sig){nodes=specs.map(x=>{const n=a.createBiquadFilter();n.type=x.t;return n;});nodes.sig=sig;E.secs[i]=nodes;}
+    let nodes=P.secs[i];
+    if(!nodes||nodes.sig!==sig){nodes=specs.map(x=>{const n=a.createBiquadFilter();n.type=x.t;return n;});nodes.sig=sig;P.secs[i]=nodes;}
     nodes.forEach((n,k)=>eqApplyNode(n,specs[k],a.currentTime,false));
     nodes.forEach(n=>chain.push(n));
   });
-  let prev=E.head;chain.forEach(n=>{prev.connect(n);prev=n;});prev.connect(E.wet);
+  let prev=P.head;chain.forEach(n=>{prev.connect(n);prev=n;});prev.connect(P.wet);
 }
-// structural change (a band on/off or a new filter type): the wet path ducks for a few milliseconds while it is rewired
+// structural change: rebuild on the idle path, then crossfade to it
 function eqStructural(){
   const E=LB.eq,a=LB.ctx;if(!E||!a) return;
-  const t=a.currentTime;E.wet.gain.cancelScheduledValues(t);E.wet.gain.setTargetAtTime(0,t,0.004);
-  clearTimeout(E.tm);E.tm=setTimeout(()=>{eqWire();const t2=a.currentTime;E.wet.gain.cancelScheduledValues(t2);E.wet.gain.setTargetAtTime(masterEq.on?1:0,t2,0.006);},20);
+  if(!masterEq.on){eqWire();return;}
+  const old=E.paths[E.cur],ni=1-E.cur,N=E.paths[ni],t=a.currentTime;
+  N.wet.gain.cancelScheduledValues(t);N.wet.gain.setValueAtTime(0,t);
+  N.secs=[];                      // fresh filters (their memory starts empty, which the fade hides)
+  try{E.m.connect(N.head);}catch(e){}
+  eqWire(N);
+  N.wet.gain.setTargetAtTime(1,t,0.008);
+  old.wet.gain.cancelScheduledValues(t);old.wet.gain.setTargetAtTime(0,t,0.008);
+  E.cur=ni;
+  clearTimeout(E.tm);E.tm=setTimeout(()=>{if(E.cur!==ni||LB.eq!==E) return;try{E.m.disconnect(old.head);}catch(e){}old.wet.gain.value=0;},300);
 }
 function eqParams(){   // frequency / gain / Q / trim moved: smooth, no rewiring
   const E=LB.eq,a=LB.ctx;if(!E||!a) return;const t=a.currentTime;
-  masterEq.bands.forEach((b,i)=>{const nodes=E.secs[i];if(!b.on||!nodes) return;const specs=eqSecs(b);if(specs.length!==nodes.length) return;nodes.forEach((n,k)=>eqApplyNode(n,specs[k],t,true));});
+  E.paths.forEach(P=>masterEq.bands.forEach((b,i)=>{const nodes=P.secs[i];if(!b.on||!nodes) return;const specs=eqSecs(b);if(specs.length!==nodes.length) return;nodes.forEach((n,k)=>eqApplyNode(n,specs[k],t,true));}));
   E.out.gain.setTargetAtTime(Math.pow(10,masterEq.trim/20),t,0.012);
 }
 function eqSetOn(on){
   masterEq.on=on;const E=LB.eq,a=LB.ctx;if(!E||!a) return;const t=a.currentTime;
-  clearTimeout(E.off);
-  if(on){E.m.connect(E.head);eqWire();E.dry.gain.cancelScheduledValues(t);E.wet.gain.cancelScheduledValues(t);E.dry.gain.setTargetAtTime(0,t,0.01);E.wet.gain.setTargetAtTime(1,t,0.01);}
-  else{E.dry.gain.cancelScheduledValues(t);E.wet.gain.cancelScheduledValues(t);E.dry.gain.setTargetAtTime(1,t,0.01);E.wet.gain.setTargetAtTime(0,t,0.01);
-    E.off=setTimeout(()=>{if(!masterEq.on){try{E.m.disconnect(E.head);}catch(e){}}},250);}
+  clearTimeout(E.off);const P=E.paths[E.cur];
+  if(on){E.m.connect(P.head);eqWire(P);E.dry.gain.cancelScheduledValues(t);P.wet.gain.cancelScheduledValues(t);E.dry.gain.setTargetAtTime(0,t,0.01);P.wet.gain.setTargetAtTime(1,t,0.01);}
+  else{E.dry.gain.cancelScheduledValues(t);P.wet.gain.cancelScheduledValues(t);E.dry.gain.setTargetAtTime(1,t,0.01);P.wet.gain.setTargetAtTime(0,t,0.01);
+    E.off=setTimeout(()=>{if(!masterEq.on){try{E.m.disconnect(P.head);}catch(e){}}},250);}
 }
 function eqAfterLoad(){   // a song was loaded or reset: bring the live graph and the panel in line with masterEq
   const E=LB.eq,a=LB.ctx;
   if(E&&a){
-    const t=a.currentTime;E.dry.gain.setValueAtTime(masterEq.on?0:1,t);E.wet.gain.setValueAtTime(masterEq.on?1:0,t);
-    try{E.m.disconnect(E.head);}catch(e){}
-    if(masterEq.on) E.m.connect(E.head);
-    eqWire();E.out.gain.setValueAtTime(Math.pow(10,masterEq.trim/20),t);
+    const t=a.currentTime,P=E.paths[E.cur],Q=E.paths[1-E.cur];
+    E.dry.gain.setValueAtTime(masterEq.on?0:1,t);P.wet.gain.setValueAtTime(masterEq.on?1:0,t);Q.wet.gain.setValueAtTime(0,t);
+    try{E.m.disconnect(P.head);}catch(e){}try{E.m.disconnect(Q.head);}catch(e){}
+    if(masterEq.on) E.m.connect(P.head);
+    eqWire(P);E.out.gain.setValueAtTime(Math.pow(10,masterEq.trim/20),t);
   }
   if(typeof eqSyncUI==='function') eqSyncUI();
 }

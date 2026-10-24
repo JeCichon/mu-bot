@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 22, 2026 (Phase A steps 1–4: meters, spectrum, scope, master EQ). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 24, 2026 (Phase A step 4 + EQ presets + undo audit). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -233,3 +233,8 @@ Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square �
 **Constants:** c² = 1000 · light-like at v/c ≥ 0.5 · ρ = 1.225 kg/m³ (sea level) · g = 9.81 m/s² · peak 0.70×vol (ΔtRTVI off), 0.90×vol (ΔtRTVI on) · `GRAV_LIFT_K = 0.6` · `GRAV_INERTIA_K = 1.2` · sag factor 0.22.
 
 **Semantic layer** (Mu's card text → embeddings → 2D plot) stays separate. Its "gravity" has nothing to do with the Organ's gravity.
+
+### BUILT Oct 24, 2026: EQ presets and the undo audit
+- **EQ presets** (dropdown in the EQ footer): Starting points, band sketches (Boards of Canada, Autechre, Death Grips, Deerhunter x3, Radiohead, Tortoise, Scott Walker), Games (16-bit console, Metroid), Tape (worn reel), plus **your own** (SAVE/DEL, kept in this browser under `trico_eq_presets`). Choosing one fills the eight bands and switches the EQ on; trim is untouched. Shows "custom" once you nudge a band. **WEDGED / sketches, not measurements:** I cannot listen to recordings, so these come from how each sound is commonly described; to make one real, attach a clip and measure its spectrum.
+- **Undo now covers:** master EQ (every drag, typed field, band toggle, type menu, power, reset, preset), Effects Lab sliders/number boxes/menus/buttons (one slider drag = one step), group and pattern renames, and the octave mode. A gesture that changes nothing leaves no undo step; identical pictures are never filed twice.
+- **Deliberately not undoable:** loop and play-mode toggles, switching pattern view (view state, not song content). Offer: include them if wanted.
