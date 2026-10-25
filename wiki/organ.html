@@ -794,6 +794,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
     </div>
     <div class="an-foot"><button id="eq-power" title="Turn the master EQ on or off. Off = the sound is untouched.">EQ OFF</button>
       <span>MODE</span><select id="eq-mode" title="STEREO: every band works on both channels. MID/SIDE: Mid is what both speakers share (center: kick, bass, voice), Side is what differs between them (width). LEFT/RIGHT: the two channels separately. Each band then chooses its lane with the lane button."><option value="st">STEREO</option><option value="ms">MID / SIDE</option><option value="lr">LEFT / RIGHT</option></select>
+      <button id="eq-adapt" title="ADAPTIVE Q: while lit, a bell gets narrower the more you boost or cut it (as many analog-style EQs do), so big moves stay focused instead of smearing. Applies to all bell bands.">ADAPT Q</button>
       <button id="eq-aud" title="AUDITION: while this is lit, holding a dot (dragging it) plays only what that band is working on: the slice around a bell or notch, or the part a cut removes. Nothing is changed or saved.">AUDITION</button>
       <span>PRESET</span><select id="eq-preset" title="Starting points. Choosing one fills the eight bands and switches the EQ on; your trim is kept. Undo brings back what you had."></select><button id="eq-psave" title="Save the current eight bands as a preset of your own (kept in this browser)">SAVE</button><button id="eq-pdel" title="Delete the selected preset of yours">DEL</button>
       <span>SCALE</span><input id="eq-scale" title="Scales every band's gain at once: 100% = as drawn, 0% = flat, 200% = double. Click and type, or scroll over it."><span>%</span>
@@ -2110,16 +2111,17 @@ const EQ_TYPES=[['lc48','LOW CUT 48'],['lc12','LOW CUT 12'],['ls','LOW SHELF'],[
 const EQ_DEF=[['lc12',40,0,0.71],['ls',100,0,0.71],['pk',250,0,1],['pk',800,0,1],['pk',2000,0,1],['pk',5000,0,1],['hs',8000,0,0.71],['hc12',16000,0,0.71]];
 const EQ_GAIN_MAX=15,EQ_Q_MIN=0.1,EQ_Q_MAX=18;
 const EQ_BW8=[0.5098,0.6013,0.9,2.5629];   // the four section Qs of an 8th-order Butterworth filter (a 48 dB/oct cut)
-function eqFresh(){return{on:false,trim:0,scale:1,mode:'st',sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q,lane:0}))};}
+function eqFresh(){return{on:false,trim:0,scale:1,mode:'st',adapt:false,sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q,lane:0}))};}
 const EQ_LANES={ms:['MID','SIDE'],lr:['LEFT','RIGHT']};   // in Mid/Side and Left/Right modes each band works on lane 0 or lane 1
 let masterEq=eqFresh();
 const eqEg=b=>b.g*(typeof masterEq.scale==='number'?masterEq.scale:1);   // the gain actually heard: the band's gain times the master Scale
+const EQ_ADAPT_K=0.08;   // WEDGED: Adaptive Q adds 8% to Q per dB of gain (15 dB → about 2.2×). Hand-picked, not a published curve.
 const eqHasGain=t=>t==='ls'||t==='pk'||t==='hs';
 const eqHasQ=t=>t!=='ls'&&t!=='hs';
 function eqNormalize(o){
   const d=eqFresh();if(!o||typeof o!=='object') return d;
   const num=(v,lo,hi,df)=>(typeof v==='number'&&isFinite(v))?Math.max(lo,Math.min(hi,v)):df;
-  d.on=!!o.on;d.trim=num(o.trim,-36,12,0);d.scale=num(o.scale,0,2,1);d.mode=(o.mode==='ms'||o.mode==='lr')?o.mode:'st';d.sel=Math.max(0,Math.min(7,(o.sel|0)));
+  d.on=!!o.on;d.trim=num(o.trim,-36,12,0);d.scale=num(o.scale,0,2,1);d.mode=(o.mode==='ms'||o.mode==='lr')?o.mode:'st';d.adapt=!!o.adapt;d.sel=Math.max(0,Math.min(7,(o.sel|0)));
   if(Array.isArray(o.bands)) o.bands.slice(0,8).forEach((b,i)=>{
     if(!b) return;const t=EQ_TYPES.some(x=>x[0]===b.type)?b.type:d.bands[i].type;
     d.bands[i]={on:!!b.on,type:t,f:num(b.f,20,20000,d.bands[i].f),g:num(b.g,-EQ_GAIN_MAX,EQ_GAIN_MAX,0),q:num(b.q,EQ_Q_MIN,EQ_Q_MAX,d.bands[i].q),lane:b.lane===1?1:0};
@@ -2137,7 +2139,7 @@ function eqSecs(b){
     case'ls':return[{t:'lowshelf',f,g:eqEg(b)}];
     case'hs':return[{t:'highshelf',f,g:eqEg(b)}];
     case'nt':return[{t:'notch',f,q}];
-    default:return[{t:'peaking',f,g:eqEg(b),q}];
+    default:{const g=eqEg(b);return[{t:'peaking',f,g,q:masterEq.adapt?q*(1+EQ_ADAPT_K*Math.abs(g)):q}];}   // Adaptive Q: the bell narrows as its boost or cut grows
   }
 }
 // filter-cookbook coefficients (the same formulas Web Audio uses), so the curve can be drawn without any audio running
@@ -2663,6 +2665,7 @@ function eqSyncUI(){
   const sc=document.getElementById('eq-scale');if(sc&&document.activeElement!==sc)sc.value=Math.round((typeof masterEq.scale==='number'?masterEq.scale:1)*100);
   const mo=document.getElementById('eq-mode');if(mo&&mo.value!==masterEq.mode) mo.value=masterEq.mode||'st';
   const ln=document.getElementById('eq-lane');if(ln){const L=EQ_LANES[masterEq.mode];ln.style.display=L?'':'none';if(L) ln.textContent=L[b.lane|0];}
+  const ad=document.getElementById('eq-adapt');if(ad) ad.classList.toggle('on',!!masterEq.adapt);
   const au=document.getElementById('eq-aud');if(au)au.classList.toggle('on',!!AN.audMode);
   if(document.activeElement!==tr)tr.value=(masterEq.trim>=0?'+':'−')+Math.abs(masterEq.trim).toFixed(1);
   const pw=document.getElementById('eq-power');pw.classList.toggle('on',masterEq.on);pw.textContent=masterEq.on?'EQ ON':'EQ OFF';
@@ -2751,6 +2754,7 @@ function eqInitUI(){
   document.getElementById('eq-scale').addEventListener('wheel',e=>{e.preventDefault();beginGesture();masterEq.scale=Math.max(0,Math.min(2,Math.round((masterEq.scale*100-Math.sign(e.deltaY)*(e.shiftKey?1:5)))/100));eqChanged(false);clearTimeout(AN.scT);AN.scT=setTimeout(()=>{commitGesture();saveState();},500);},{passive:false});
   document.getElementById('eq-mode').addEventListener('change',e=>{pushHistory();masterEq.mode=e.target.value;eqChanged(true);if(AN.auditioning) eqAudApply(false);});
   document.getElementById('eq-lane').addEventListener('click',()=>{pushHistory();const b=masterEq.bands[masterEq.sel];b.lane=(b.lane|0)?0:1;eqChanged(true);});
+  document.getElementById('eq-adapt').addEventListener('click',()=>{pushHistory();masterEq.adapt=!masterEq.adapt;eqChanged(false);});
   document.getElementById('eq-aud').addEventListener('click',()=>{AN.audMode=!AN.audMode;if(!AN.audMode&&AN.auditioning) eqAudition(false);eqSyncUI();});
   document.getElementById('eq-power').addEventListener('click',()=>{pushHistory();eqSetOn(!masterEq.on);eqSyncUI();saveState();});
   document.getElementById('eq-reset').addEventListener('click',()=>{pushHistory();const on=masterEq.on;masterEq=eqFresh();masterEq.on=on;eqAfterLoad();saveState();});

@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 24, 2026 (Phase A step 4 + presets + undo audit + 4b part 1). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 24, 2026 (Phase A step 4 + presets + undo audit + 4b parts 1–2). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -243,4 +243,10 @@ Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square �
 ### BUILT Oct 24, 2026: Step 4b part 1 (Audition and Scale)
 - **Scale** (footer, 0–200%): multiplies every band's gain at once (`eqEg(b)` = stored gain × scale). 100% = as drawn, 0% = flat. The curve, dots, live sound and exports all use the scaled gain; dragging a dot edits the stored gain so the dot stays under the pointer. Saved with the song (`masterEq.scale`), undoable, scroll over the box to nudge (Shift = 1%).
 - **Audition** (footer toggle, never saved): while lit, holding a dot plays only what that band works on: bandpass at its frequency and Q for bells/notches; the part a cut removes (low cut → lowpass, high cut → highpass); the lifted or dropped region for shelves. Releasing restores the normal sound. WEDGED: audition bandpass uses the band's Q directly, cuts/shelves use Q 0.707.
-- Still to build in 4b: Mid/Side and Left/Right modes (with an Edit switch), Adaptive Q, oversampling.
+- Still to build in 4b: Adaptive Q, oversampling.
+
+### BUILT Oct 25, 2026: Step 4b part 2 (Mid/Side and Left/Right)
+- **MODE** (footer): STEREO (default, everything as before), MID / SIDE, LEFT / RIGHT. One mode for the whole EQ (as in Ableton), and **each band picks its lane** with a lane button next to Q (Mid or Side; Left or Right). The whole EQ lives in one mode, so the two lanes are truly independent and each curve is exact.
+- **Mid** = (L+R)/2, what both speakers share (center). **Side** = (L−R)/2, what differs between them (width). Decode is L = Mid+Side, R = Mid−Side, unity when nothing filters. Checked: a tone on the left only, +6 dB on Mid gives L .374 / R .124; on Right lane leaves L untouched; M/S with no gain is identical. Offline export matches live.
+- **Display:** the lane of the selected band is the bold curve; the other lane is a thin blue curve; dots of the other lane are dimmed (still draggable). Mode and lanes are saved with the song, undoable, and presets work in any mode (they set bands on lane 0).
+- **Audition** follows the lane: a Side band plays only the Side signal (a centered sound gives silence), Mid plays only the Mid, Left/Right play that channel alone.
