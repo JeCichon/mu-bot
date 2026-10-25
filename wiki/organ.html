@@ -88,6 +88,8 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-fields input:disabled,.eq-fields select:disabled{opacity:.3;}
 .eq-fields input:focus,.an-foot input:focus{border-color:rgba(201,169,110,.7);}
 .an-foot input{width:46px;text-align:right;}
+#eq-lane{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;background:rgba(140,185,255,.1);border:1px solid rgba(140,185,255,.45);color:#b9d3ff;padding:3px 9px;border-radius:2px;cursor:pointer;}
+#eq-lane:hover{background:rgba(140,185,255,.2);}
 #eq-power.on{background:var(--gf);color:#e8d09e;border-color:rgba(201,169,110,.7);}
 #an-corr-v{font-weight:400;color:var(--gold);min-width:44px;text-align:right;letter-spacing:.04em;}
 #an-title button,.an-foot button{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;background:transparent;border:1px solid rgba(201,169,110,.25);color:rgba(201,169,110,.75);padding:2px 8px;border-radius:2px;cursor:pointer;}
@@ -788,8 +790,10 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
       <span>FREQ</span><input id="eq-f" title="Hz. You can type 80, 2.5k, …"><span>HZ</span>
       <span>GAIN</span><input id="eq-g" title="dB, ±15"><span>DB</span>
       <span>Q</span><input id="eq-q" title="0.1 – 18">
+      <button id="eq-lane" title="Which lane this band works on (Mid or Side, Left or Right). Only used in Mid/Side and Left/Right modes." style="display:none"></button>
     </div>
     <div class="an-foot"><button id="eq-power" title="Turn the master EQ on or off. Off = the sound is untouched.">EQ OFF</button>
+      <span>MODE</span><select id="eq-mode" title="STEREO: every band works on both channels. MID/SIDE: Mid is what both speakers share (center: kick, bass, voice), Side is what differs between them (width). LEFT/RIGHT: the two channels separately. Each band then chooses its lane with the lane button."><option value="st">STEREO</option><option value="ms">MID / SIDE</option><option value="lr">LEFT / RIGHT</option></select>
       <button id="eq-aud" title="AUDITION: while this is lit, holding a dot (dragging it) plays only what that band is working on: the slice around a bell or notch, or the part a cut removes. Nothing is changed or saved.">AUDITION</button>
       <span>PRESET</span><select id="eq-preset" title="Starting points. Choosing one fills the eight bands and switches the EQ on; your trim is kept. Undo brings back what you had."></select><button id="eq-psave" title="Save the current eight bands as a preset of your own (kept in this browser)">SAVE</button><button id="eq-pdel" title="Delete the selected preset of yours">DEL</button>
       <span>SCALE</span><input id="eq-scale" title="Scales every band's gain at once: 100% = as drawn, 0% = flat, 200% = double. Click and type, or scroll over it."><span>%</span>
@@ -2106,7 +2110,8 @@ const EQ_TYPES=[['lc48','LOW CUT 48'],['lc12','LOW CUT 12'],['ls','LOW SHELF'],[
 const EQ_DEF=[['lc12',40,0,0.71],['ls',100,0,0.71],['pk',250,0,1],['pk',800,0,1],['pk',2000,0,1],['pk',5000,0,1],['hs',8000,0,0.71],['hc12',16000,0,0.71]];
 const EQ_GAIN_MAX=15,EQ_Q_MIN=0.1,EQ_Q_MAX=18;
 const EQ_BW8=[0.5098,0.6013,0.9,2.5629];   // the four section Qs of an 8th-order Butterworth filter (a 48 dB/oct cut)
-function eqFresh(){return{on:false,trim:0,scale:1,sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q}))};}
+function eqFresh(){return{on:false,trim:0,scale:1,mode:'st',sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q,lane:0}))};}
+const EQ_LANES={ms:['MID','SIDE'],lr:['LEFT','RIGHT']};   // in Mid/Side and Left/Right modes each band works on lane 0 or lane 1
 let masterEq=eqFresh();
 const eqEg=b=>b.g*(typeof masterEq.scale==='number'?masterEq.scale:1);   // the gain actually heard: the band's gain times the master Scale
 const eqHasGain=t=>t==='ls'||t==='pk'||t==='hs';
@@ -2114,10 +2119,10 @@ const eqHasQ=t=>t!=='ls'&&t!=='hs';
 function eqNormalize(o){
   const d=eqFresh();if(!o||typeof o!=='object') return d;
   const num=(v,lo,hi,df)=>(typeof v==='number'&&isFinite(v))?Math.max(lo,Math.min(hi,v)):df;
-  d.on=!!o.on;d.trim=num(o.trim,-36,12,0);d.scale=num(o.scale,0,2,1);d.sel=Math.max(0,Math.min(7,(o.sel|0)));
+  d.on=!!o.on;d.trim=num(o.trim,-36,12,0);d.scale=num(o.scale,0,2,1);d.mode=(o.mode==='ms'||o.mode==='lr')?o.mode:'st';d.sel=Math.max(0,Math.min(7,(o.sel|0)));
   if(Array.isArray(o.bands)) o.bands.slice(0,8).forEach((b,i)=>{
     if(!b) return;const t=EQ_TYPES.some(x=>x[0]===b.type)?b.type:d.bands[i].type;
-    d.bands[i]={on:!!b.on,type:t,f:num(b.f,20,20000,d.bands[i].f),g:num(b.g,-EQ_GAIN_MAX,EQ_GAIN_MAX,0),q:num(b.q,EQ_Q_MIN,EQ_Q_MAX,d.bands[i].q)};
+    d.bands[i]={on:!!b.on,type:t,f:num(b.f,20,20000,d.bands[i].f),g:num(b.g,-EQ_GAIN_MAX,EQ_GAIN_MAX,0),q:num(b.q,EQ_Q_MIN,EQ_Q_MAX,d.bands[i].q),lane:b.lane===1?1:0};
   });
   return d;
 }
@@ -2152,8 +2157,8 @@ function eqMagDb(c,f,sr){
   const nr=c[0]+c[1]*c1+c[2]*c2,ni=-(c[1]*s1+c[2]*s2),dr=1+c[3]*c1+c[4]*c2,di=-(c[3]*s1+c[4]*s2);
   return 10*Math.log10((nr*nr+ni*ni)/(dr*dr+di*di)+1e-30);
 }
-function eqCurve(n,pw,sr,out,onlyBand){
-  const cs=[];masterEq.bands.forEach((b,i)=>{if(b.on&&(onlyBand===undefined||onlyBand===i))eqSecs(b).forEach(sp=>cs.push(eqCoef(sp,sr)));});
+function eqCurve(n,pw,sr,out,onlyBand,lane){
+  const cs=[];masterEq.bands.forEach((b,i)=>{if(b.on&&(onlyBand===undefined||onlyBand===i)&&(lane===undefined||masterEq.mode==='st'||(b.lane|0)===lane))eqSecs(b).forEach(sp=>cs.push(eqCoef(sp,sr)));});
   for(let x=0;x<n;x++){const f=lbX2f(x+.5,pw);let db=0;for(let k=0;k<cs.length;k++)db+=eqMagDb(cs[k],f,sr);out[x]=db;}
 }
 function eqApplyNode(nd,sp,t,smooth){
@@ -2167,32 +2172,48 @@ function eqApplyNode(nd,sp,t,smooth){
 // Two identical wet paths exist. A band switched on/off or a new filter type is built on the idle path, then the sound is crossfaded
 // across to it (about 30 ms), so the song never drops out. Moving frequency/gain/Q never rewires: it glides on the live path.
 function lbEqBuild(a,m){
-  const mk=()=>{const P={head:a.createGain(),wet:a.createGain(),secs:[]};P.head.channelCount=2;P.head.channelCountMode='explicit';P.head.connect(P.wet);return P;};
+  const mk=()=>{const P={head:a.createGain(),wet:a.createGain(),secs:[]};P.head.channelCount=2;P.head.channelCountMode='explicit';return P;};
   const E={dry:a.createGain(),out:a.createGain(),paths:[mk(),mk()],cur:0,tm:0,off:0};
   E.out.channelCount=2;E.out.channelCountMode='explicit';
   m.connect(E.dry);E.dry.connect(E.out);E.paths.forEach(P=>{P.wet.gain.value=0;P.wet.connect(E.out);});E.out.connect(a.destination);
   E.dry.gain.value=masterEq.on?0:1;E.paths[0].wet.gain.value=masterEq.on?1:0;E.out.gain.value=Math.pow(10,masterEq.trim/20);
-  E.aud={bp:a.createBiquadFilter(),g:a.createGain()};E.aud.g.gain.value=0;E.aud.bp.type='bandpass';m.connect(E.aud.bp);E.aud.bp.connect(E.aud.g);E.aud.g.connect(E.out);
+  E.aud=lbAudBuild(a,m,E.out);
   E.m=m;LB.eq=E;
   if(masterEq.on) m.connect(E.paths[0].head);
   eqWire(E.paths[0]);
   return E.out;
+}
+// Builds the band filters between `head` and `wet`. Stereo mode: one chain on both channels. Left/Right: the channels are split and each lane has its own chain.
+// Mid/Side: Mid=(L+R)/2 and Side=(L−R)/2 are made, each lane has its own chain, then L=Mid+Side and R=Mid−Side put it back (unity when nothing is filtering).
+// `store` keeps each band's filter nodes between rebuilds (live); `mx` collects helper nodes so they can be unplugged next time.
+function eqBuildInto(a,head,wet,store,mx){
+  const mode=masterEq.mode||'st';const chains=[[],[]];
+  masterEq.bands.forEach((b,i)=>{
+    if(!b.on){store[i]=null;return;}
+    const specs=eqSecs(b),sig=specs.map(x=>x.t).join();
+    let nodes=store[i];
+    if(!nodes||nodes.sig!==sig){nodes=specs.map(x=>{const n=a.createBiquadFilter();n.type=x.t;return n;});nodes.sig=sig;store[i]=nodes;}
+    nodes.forEach((n,k)=>eqApplyNode(n,specs[k],a.currentTime,false));
+    nodes.forEach(n=>chains[mode==='st'?0:(b.lane|0)].push(n));
+  });
+  const link=(src,so,chain,dst,di)=>{let prev=src,po=so;chain.forEach(n=>{prev.connect(n,po,0);prev=n;po=0;});prev.connect(dst,po,di);};
+  const G=v=>{const g=a.createGain();g.gain.value=v;mx.push(g);return g;};
+  if(mode==='st'){link(head,0,chains[0],wet,0);return;}
+  const sp=a.createChannelSplitter(2),mg=a.createChannelMerger(2);mx.push(sp,mg);head.connect(sp);mg.connect(wet);
+  if(mode==='lr'){link(sp,0,chains[0],mg,0);link(sp,1,chains[1],mg,1);return;}
+  const mb=G(1),sb=G(1),lm=G(.5),rm=G(.5),ls=G(.5),rs=G(-.5);
+  sp.connect(lm,0);sp.connect(rm,1);sp.connect(ls,0);sp.connect(rs,1);lm.connect(mb);rm.connect(mb);ls.connect(sb);rs.connect(sb);
+  const mo=G(1),so=G(1),neg=G(-1);
+  link(mb,0,chains[0],mo,0);link(sb,0,chains[1],so,0);
+  mo.connect(mg,0,0);mo.connect(mg,0,1);so.connect(mg,0,0);so.connect(neg);neg.connect(mg,0,1);
 }
 function eqWire(P){
   const E=LB.eq,a=LB.ctx;if(!E||!a) return;
   P=P||E.paths[E.cur];
   try{P.head.disconnect();}catch(e){}
   P.secs.forEach(ss=>{if(ss)ss.forEach(n=>{try{n.disconnect();}catch(e){}});});
-  const chain=[];
-  masterEq.bands.forEach((b,i)=>{
-    if(!b.on){P.secs[i]=null;return;}
-    const specs=eqSecs(b),sig=specs.map(x=>x.t).join();
-    let nodes=P.secs[i];
-    if(!nodes||nodes.sig!==sig){nodes=specs.map(x=>{const n=a.createBiquadFilter();n.type=x.t;return n;});nodes.sig=sig;P.secs[i]=nodes;}
-    nodes.forEach((n,k)=>eqApplyNode(n,specs[k],a.currentTime,false));
-    nodes.forEach(n=>chain.push(n));
-  });
-  let prev=P.head;chain.forEach(n=>{prev.connect(n);prev=n;});prev.connect(P.wet);
+  (P.mx||[]).forEach(n=>{try{n.disconnect();}catch(e){}});P.mx=[];
+  eqBuildInto(a,P.head,P.wet,P.secs,P.mx);
 }
 // structural change: rebuild on the idle path, then crossfade to it
 function eqStructural(){
@@ -2203,20 +2224,39 @@ function eqStructural(){
   N.secs=[];                      // fresh filters (their memory starts empty, which the fade hides)
   try{E.m.connect(N.head);}catch(e){}
   eqWire(N);
-  N.wet.gain.setTargetAtTime(1,t,0.008);
+  N.wet.gain.setTargetAtTime(AN.auditioning?0:1,t,0.008);
   old.wet.gain.cancelScheduledValues(t);old.wet.gain.setTargetAtTime(0,t,0.008);
   E.cur=ni;
   clearTimeout(E.tm);E.tm=setTimeout(()=>{if(E.cur!==ni||LB.eq!==E) return;try{E.m.disconnect(old.head);}catch(e){}old.wet.gain.value=0;},300);
+}
+// Audition graph: five little bandpass lanes (whole stereo, Mid, Side, Left, Right) hang off the master bus; only the lane the selected band works on is let through.
+function lbAudBuild(a,m,out){
+  const A={g:a.createGain(),bps:[],gates:[]};A.g.gain.value=0;A.g.connect(out);
+  const bp=()=>{const n=a.createBiquadFilter();n.type='bandpass';A.bps.push(n);return n;};
+  const gate=()=>{const n=a.createGain();n.gain.value=0;A.gates.push(n);return n;};
+  const G=v=>{const g=a.createGain();g.gain.value=v;return g;};
+  const mg=a.createChannelMerger(2),sp=a.createChannelSplitter(2);mg.connect(A.g);m.connect(sp);
+  // 0 whole stereo
+  const b0=bp(),g0=gate();m.connect(b0);b0.connect(g0);g0.connect(A.g);
+  // 1 mid, 2 side
+  const mb=G(1),sb=G(1);[[sp,0,mb,.5],[sp,1,mb,.5],[sp,0,sb,.5],[sp,1,sb,-.5]].forEach(([s_,o,d,v])=>{const g=G(v);s_.connect(g,o);g.connect(d);});
+  const b1=bp(),g1=gate();mb.connect(b1);b1.connect(g1);g1.connect(mg,0,0);g1.connect(mg,0,1);
+  const b2=bp(),g2=gate(),ng=G(-1);sb.connect(b2);b2.connect(g2);g2.connect(mg,0,0);g2.connect(ng);ng.connect(mg,0,1);
+  // 3 left, 4 right
+  const b3=bp(),g3=gate();sp.connect(b3,0);b3.connect(g3);g3.connect(mg,0,0);
+  const b4=bp(),g4=gate();sp.connect(b4,1);b4.connect(g4);g4.connect(mg,0,1);
+  return A;
 }
 // AUDITION: hear only the part of the sound the selected band is working on (the band around a bell/notch; what a cut or shelf removes or lifts).
 // Temporary and never saved: nothing about the song changes, and exports are untouched.
 function eqAudApply(smooth){
   const E=LB.eq,a=LB.ctx;if(!E||!a||!E.aud) return;
-  const b=masterEq.bands[masterEq.sel],t=a.currentTime,A=E.aud.bp;
+  const b=masterEq.bands[masterEq.sel],t=a.currentTime;
   let ty='bandpass';if(b.type==='lc12'||b.type==='lc48'||b.type==='ls') ty='lowpass';else if(b.type==='hc12'||b.type==='hc48'||b.type==='hs') ty='highpass';
-  if(A.type!==ty) A.type=ty;
   const q=(ty==='bandpass')?b.q:0.7071;
-  if(smooth){A.frequency.setTargetAtTime(b.f,t,0.012);A.Q.setTargetAtTime(q,t,0.012);}else{A.frequency.value=b.f;A.Q.value=q;}
+  E.aud.bps.forEach(A=>{if(A.type!==ty)A.type=ty;if(smooth){A.frequency.setTargetAtTime(b.f,t,0.012);A.Q.setTargetAtTime(q,t,0.012);}else{A.frequency.value=b.f;A.Q.value=q;}});
+  const mode=masterEq.mode||'st',lane=mode==='st'?0:1+(mode==='ms'?0:2)+(b.lane|0);   // 0 whole · 1 mid · 2 side · 3 left · 4 right
+  E.aud.gates.forEach((g,k)=>{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(k===lane?1:0,t,0.005);});
 }
 function eqAudition(on){
   AN.auditioning=!!on;const E=LB.eq,a=LB.ctx;if(!E||!a||!E.aud) return;
@@ -2252,9 +2292,9 @@ function eqAfterLoad(){   // a song was loaded or reset: bring the live graph an
 // export / other offline contexts: the same EQ, built once per context (only when the EQ or trim is in use; otherwise straight to the speakers)
 function lbEqOffline(a){
   if(a.__eqIn) return a.__eqIn;
-  const inp=a.createGain();inp.channelCount=2;inp.channelCountMode='explicit';let prev=inp;
-  if(masterEq.on) masterEq.bands.forEach(b=>{if(!b.on) return;eqSecs(b).forEach(sp=>{const n=a.createBiquadFilter();n.type=sp.t;eqApplyNode(n,sp,0,false);prev.connect(n);prev=n;});});
-  const out=a.createGain();out.gain.value=Math.pow(10,masterEq.trim/20);prev.connect(out);out.connect(a.destination);
+  const inp=a.createGain();inp.channelCount=2;inp.channelCountMode='explicit';
+  const out=a.createGain();out.gain.value=Math.pow(10,masterEq.trim/20);out.connect(a.destination);
+  if(masterEq.on) eqBuildInto(a,inp,out,[],[]);else inp.connect(out);
   a.__eqIn=inp;return inp;
 }
             // bottom of every meter (dBFS)
@@ -2578,16 +2618,25 @@ function lbDrawEqOverlay(g,padL,padT,pw,ph){
   g.textAlign='left';g.font="8px 'Cinzel',serif";
   [12,6,0,-6,-12].forEach(db=>{g.fillStyle=db===0?'rgba(240,232,210,.28)':'rgba(240,232,210,.08)';g.fillRect(padL,Math.round(gy(db)),pw,1);const lb=(db>0?'+':db<0?'−':'')+Math.abs(db);g.fillStyle='rgba(8,5,18,.85)';g.fillRect(padL+pw-24,gy(db)-10,22,11);g.fillStyle='rgba(240,232,210,.7)';g.fillText(lb,padL+pw-22,gy(db)-2);});
   const n=Math.floor(pw);if(!AN.eqc||AN.eqc.length!==n)AN.eqc=new Float32Array(n);
-  eqCurve(n,pw,sr,AN.eqc);
+  const lanes=EQ_LANES[masterEq.mode],cl=lanes?(masterEq.bands[masterEq.sel].lane|0):undefined;
+  if(lanes){   // the other lane, drawn thin behind the lane being edited
+    if(!AN.eqc2||AN.eqc2.length!==n)AN.eqc2=new Float32Array(n);
+    eqCurve(n,pw,sr,AN.eqc2,undefined,1-cl);
+    g.beginPath();for(let i=0;i<n;i++){const y=gy(AN.eqc2[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(140,185,255,.55)';g.lineWidth=1.1;g.stroke();
+  }
+  eqCurve(n,pw,sr,AN.eqc,undefined,cl);
   g.beginPath();g.moveTo(padL,cy);for(let i=0;i<n;i++)g.lineTo(padL+i,gy(AN.eqc[i]));g.lineTo(padL+n-1,cy);g.closePath();g.fillStyle='rgba(240,232,210,.10)';g.fill();
   g.beginPath();for(let i=0;i<n;i++){const y=gy(AN.eqc[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(250,244,226,.95)';g.lineWidth=1.6;g.stroke();
   masterEq.bands.forEach((b,i)=>{
     if(!b.on) return;
     const x=padL+lbF2x(b.f,pw),y=eqHasGain(b.type)?gy(eqEg(b)):cy,sel=i===masterEq.sel;
+    const other=lanes&&(b.lane|0)!==cl;if(other) g.globalAlpha=(on?1:0.4)*0.55;
     g.beginPath();g.arc(x,y,sel?8:6.5,0,6.2832);g.fillStyle=eqColor(i);g.fill();
     g.lineWidth=sel?2:1;g.strokeStyle=sel?'#fff':'rgba(8,5,18,.9)';g.stroke();
     g.fillStyle='#0b0a12';g.font="bold 8px 'Cinzel',serif";g.textAlign='center';g.fillText(i+1,x,y+3);
+    g.globalAlpha=on?1:0.4;
   });
+  if(lanes){g.font="9px 'Cinzel',serif";g.textAlign='left';g.fillStyle='rgba(250,244,226,.9)';g.fillText(lanes[cl],padL+6,padT+11);g.fillStyle='rgba(140,185,255,.8)';g.fillText(lanes[1-cl],padL+6+g.measureText(lanes[cl]).width+12,padT+11);}
   g.restore();
   if(!on){g.font="10px 'Cinzel',serif";g.textAlign='center';g.fillStyle='rgba(232,208,158,.75)';g.fillText('EQ OFF — the sound is untouched. Press EQ OFF below to switch it on.',padL+pw/2,padT+ph-10);}
 }
@@ -2612,6 +2661,8 @@ function eqSyncUI(){
   if(document.activeElement!==q)q.value=eqHasQ(b.type)?(+b.q.toFixed(2)):'—';
   gg.disabled=!eqHasGain(b.type);q.disabled=!eqHasQ(b.type);
   const sc=document.getElementById('eq-scale');if(sc&&document.activeElement!==sc)sc.value=Math.round((typeof masterEq.scale==='number'?masterEq.scale:1)*100);
+  const mo=document.getElementById('eq-mode');if(mo&&mo.value!==masterEq.mode) mo.value=masterEq.mode||'st';
+  const ln=document.getElementById('eq-lane');if(ln){const L=EQ_LANES[masterEq.mode];ln.style.display=L?'':'none';if(L) ln.textContent=L[b.lane|0];}
   const au=document.getElementById('eq-aud');if(au)au.classList.toggle('on',!!AN.audMode);
   if(document.activeElement!==tr)tr.value=(masterEq.trim>=0?'+':'−')+Math.abs(masterEq.trim).toFixed(1);
   const pw=document.getElementById('eq-power');pw.classList.toggle('on',masterEq.on);pw.textContent=masterEq.on?'EQ ON':'EQ OFF';
@@ -2698,6 +2749,8 @@ function eqInitUI(){
   bind('eq-trim',v=>{const x=eqParseNum(v,-36,12);if(x!==null&&x!==masterEq.trim){pushHistory();masterEq.trim=x;eqChanged(false);}});
   bind('eq-scale',v=>{const x=eqParseNum(v,0,200);if(x!==null&&Math.abs(x/100-masterEq.scale)>1e-9){pushHistory();masterEq.scale=x/100;eqChanged(false);}});
   document.getElementById('eq-scale').addEventListener('wheel',e=>{e.preventDefault();beginGesture();masterEq.scale=Math.max(0,Math.min(2,Math.round((masterEq.scale*100-Math.sign(e.deltaY)*(e.shiftKey?1:5)))/100));eqChanged(false);clearTimeout(AN.scT);AN.scT=setTimeout(()=>{commitGesture();saveState();},500);},{passive:false});
+  document.getElementById('eq-mode').addEventListener('change',e=>{pushHistory();masterEq.mode=e.target.value;eqChanged(true);if(AN.auditioning) eqAudApply(false);});
+  document.getElementById('eq-lane').addEventListener('click',()=>{pushHistory();const b=masterEq.bands[masterEq.sel];b.lane=(b.lane|0)?0:1;eqChanged(true);});
   document.getElementById('eq-aud').addEventListener('click',()=>{AN.audMode=!AN.audMode;if(!AN.audMode&&AN.auditioning) eqAudition(false);eqSyncUI();});
   document.getElementById('eq-power').addEventListener('click',()=>{pushHistory();eqSetOn(!masterEq.on);eqSyncUI();saveState();});
   document.getElementById('eq-reset').addEventListener('click',()=>{pushHistory();const on=masterEq.on;masterEq=eqFresh();masterEq.on=on;eqAfterLoad();saveState();});

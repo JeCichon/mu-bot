@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 24, 2026 (Phase A step 4 + EQ presets + undo audit). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 24, 2026 (Phase A step 4 + presets + undo audit + 4b part 1). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -239,3 +239,8 @@ Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square �
 - **Undo now covers:** master EQ (every drag, typed field, band toggle, type menu, power, reset, preset), Effects Lab sliders/number boxes/menus/buttons (one slider drag = one step), group and pattern renames, and the octave mode. A gesture that changes nothing leaves no undo step; identical pictures are never filed twice.
 - **Deliberately not undoable:** loop and play-mode toggles, switching pattern view (view state, not song content). Offer: include them if wanted.
 - **Band toggle without a dropout (Oct 24):** the EQ keeps two identical wet paths; a band on/off or filter-type change is built on the idle path and crossfaded (~30 ms), so the song never mutes. Measured on a live tone: old build dipped to ~0, new build holds 0.249–0.252. Dragging frequency/gain/Q still glides on the live path.
+
+### BUILT Oct 24, 2026: Step 4b part 1 (Audition and Scale)
+- **Scale** (footer, 0–200%): multiplies every band's gain at once (`eqEg(b)` = stored gain × scale). 100% = as drawn, 0% = flat. The curve, dots, live sound and exports all use the scaled gain; dragging a dot edits the stored gain so the dot stays under the pointer. Saved with the song (`masterEq.scale`), undoable, scroll over the box to nudge (Shift = 1%).
+- **Audition** (footer toggle, never saved): while lit, holding a dot plays only what that band works on: bandpass at its frequency and Q for bells/notches; the part a cut removes (low cut → lowpass, high cut → highpass); the lifted or dropped region for shelves. Releasing restores the normal sound. WEDGED: audition bandpass uses the band's Q directly, cuts/shelves use Q 0.707.
+- Still to build in 4b: Mid/Side and Left/Right modes (with an Edit switch), Adaptive Q, oversampling.
