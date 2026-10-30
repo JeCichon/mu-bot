@@ -79,7 +79,8 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-b.sel{outline:1px solid #f0e8d2;outline-offset:1px;}
 .eq-fields{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:5px 10px 3px;flex-shrink:0;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.12em;color:rgba(201,169,110,.5);}
 .an-foot select{font-family:'Cinzel',serif;font-size:12px;background:var(--bg);border:1px solid rgba(201,169,110,.25);color:var(--gold);padding:2px 4px;border-radius:2px;outline:none;max-width:210px;}
-.an-foot{flex-wrap:wrap;}
+.an-foot{flex-wrap:wrap;row-gap:6px;}
+.an-foot select#eq-preset{max-width:230px;min-width:150px;}
 .an-foot select option,.an-foot select optgroup{background:var(--bg);color:var(--gold);font-size:12px;}
 .an-foot select optgroup{font-style:italic;color:rgba(201,169,110,.65);}
 .an-foot button:disabled{opacity:.3;cursor:default;}
@@ -88,6 +89,9 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-fields input:disabled,.eq-fields select:disabled{opacity:.3;}
 .eq-fields input:focus,.an-foot input:focus{border-color:rgba(201,169,110,.7);}
 .an-foot input{width:46px;text-align:right;}
+#eq-col{display:inline-flex;align-items:center;gap:5px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:rgba(232,208,158,.85);}
+#eq-col i{display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,.45);}
+#eq-col b{font-weight:400;margin-right:6px;}
 #eq-lane{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;background:rgba(140,185,255,.1);border:1px solid rgba(140,185,255,.45);color:#b9d3ff;padding:3px 9px;border-radius:2px;cursor:pointer;}
 #eq-lane:hover{background:rgba(140,185,255,.2);}
 #eq-power.on{background:var(--gf);color:#e8d09e;border-color:rgba(201,169,110,.7);}
@@ -790,13 +794,15 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
       <span>FREQ</span><input id="eq-f" title="Hz. You can type 80, 2.5k, …"><span>HZ</span>
       <span>GAIN</span><input id="eq-g" title="dB, ±15"><span>DB</span>
       <span>Q</span><input id="eq-q" title="0.1 – 18">
+      <span id="eq-col" title="COLOR: the color of glass whose filter shape best matches this EQ (from the Color Lab's Color EQ: red = bass, green = mid, blue = treble). White = flat. The % is how closely that one color can imitate the curve."></span>
       <button id="eq-lane" title="Which lane this band works on (Mid or Side, Left or Right). Only used in Mid/Side and Left/Right modes." style="display:none"></button>
     </div>
     <div class="an-foot"><button id="eq-power" title="Turn the master EQ on or off. Off = the sound is untouched.">EQ OFF</button>
       <span>MODE</span><select id="eq-mode" title="STEREO: every band works on both channels. MID/SIDE: Mid is what both speakers share (center: kick, bass, voice), Side is what differs between them (width). LEFT/RIGHT: the two channels separately. Each band then chooses its lane with the lane button."><option value="st">STEREO</option><option value="ms">MID / SIDE</option><option value="lr">LEFT / RIGHT</option></select>
+      <button id="eq-colview" title="COLOR VIEW: tints the curve with this EQ's color and draws that color's own glass filter shape as a dashed line, so you can see how the color and the sound relate.">COLOR</button>
       <button id="eq-adapt" title="ADAPTIVE Q: while lit, a bell gets narrower the more you boost or cut it (as many analog-style EQs do), so big moves stay focused instead of smearing. Applies to all bell bands.">ADAPT Q</button>
       <button id="eq-aud" title="AUDITION: while this is lit, holding a dot (dragging it) plays only what that band is working on: the slice around a bell or notch, or the part a cut removes. Nothing is changed or saved.">AUDITION</button>
-      <span>PRESET</span><select id="eq-preset" title="Starting points. Choosing one fills the bands and switches the EQ on; your trim is kept. Every preset has a Stereo, a Mid/Side and a Left/Right version: you get the one for the MODE you are in. Undo brings back what you had."></select><button id="eq-psave" title="Save the current eight bands as a preset of your own (kept in this browser)">SAVE</button><button id="eq-pdel" title="Delete the selected preset of yours">DEL</button>
+      <span style="white-space:nowrap">PRESET</span><select id="eq-preset" title="Starting points. Choosing one fills the bands and switches the EQ on; your trim is kept. Every preset has a Stereo, a Mid/Side and a Left/Right version: you get the one for the MODE you are in. Undo brings back what you had."></select><button id="eq-psave" title="Save the current eight bands as a preset of your own (kept in this browser)">SAVE</button><button id="eq-pdel" title="Delete the selected preset of yours">DEL</button>
       <span>SCALE</span><input id="eq-scale" title="Scales every band's gain at once: 100% = as drawn, 0% = flat, 200% = double. Click and type, or scroll over it."><span>%</span>
       <span>TRIM</span><input id="eq-trim" title="Master output level in dB (0 = unchanged)"><span>DB</span><button id="eq-reset" title="Put all eight bands back to their starting values (and trim to 0)">RESET</button>
       <span class="an-sp" style="flex-basis:100%">Drag a dot: across = frequency, up/down = gain (or Q on cuts and notch). Alt-drag or scroll = Q. Shift = fine. Click a number to switch a band on or off.</span></div>
@@ -2163,6 +2169,37 @@ function eqCurve(n,pw,sr,out,onlyBand,lane){
   const cs=[];masterEq.bands.forEach((b,i)=>{if(b.on&&(onlyBand===undefined||onlyBand===i)&&(lane===undefined||masterEq.mode==='st'||(b.lane|0)===lane))eqSecs(b).forEach(sp=>cs.push(eqCoef(sp,sr)));});
   for(let x=0;x<n;x++){const f=lbX2f(x+.5,pw);let db=0;for(let k=0;k<cs.length;k++)db+=eqMagDb(cs[k],f,sr);out[x]=db;}
 }
+// ── COLOR VIEW: every EQ shape has a color (sound → color) ───────────────────────────────────────────────
+// Taken from the Tricknologic Color Lab's "Color EQ · Spectral Filters": R is a bass bump, G a mid bump, B a treble bump (cosine shapes on a log-even axis
+// from 60 Hz to 16 kHz); a color's curve is how much of each it carries, min(1, r·R + g·G + b·B). Read as colored glass: 1 = passes, 0 = blocked,
+// white = everything passes = a flat EQ. This reads an EQ curve back into the color whose glass matches it best.
+// WEDGED (hand-picked): COL_DEPTH, the dB spread that "0 to 1" stands for (12 dB), the 60 Hz–16 kHz axis, and the match score.
+const COL_F0=60,COL_F1=16000,COL_DEPTH=12,COL_N=40;
+const colU=f=>Math.max(0,Math.min(1,Math.log(f/COL_F0)/Math.log(COL_F1/COL_F0)));
+const colBump=(u,c,w)=>{const d=Math.abs(u-c)/w;return d>=1?0:0.5*(1+Math.cos(d*Math.PI));};
+const colR=u=>colBump(u,0,.62),colG=u=>colBump(u,.5,.42),colB=u=>colBump(u,1,.62);
+const colCurve=(u,r,g,b)=>Math.min(1,r*colR(u)+g*colG(u)+b*colB(u));
+const COL_UF=new Float64Array(COL_N).map((_,k)=>COL_F0*Math.pow(COL_F1/COL_F0,k/(COL_N-1)));   // sample frequencies
+const COL_BAS=Array.from(COL_UF,(f,k)=>{const u=k/(COL_N-1);return[colR(u),colG(u),colB(u)];});
+function eqDbSamples(bands,mode,lane){   // the EQ's response in dB at the color axis' sample frequencies (one lane in Mid/Side and Left/Right modes)
+  const sr=LB.ctx?LB.ctx.sampleRate:44100,cs=[];
+  bands.forEach(b=>{if(b.on&&(mode==='st'||lane===undefined||(b.lane|0)===lane))eqSecs(b).forEach(sp=>cs.push(eqCoef(sp,sr)));});
+  return COL_UF.map(f=>{let db=0;for(let k=0;k<cs.length;k++)db+=eqMagDb(cs[k],f,sr);return db;});
+}
+function eqColorFit(db){
+  let mx=-1e9,mn=1e9;db.forEach(v=>{if(v>mx)mx=v;if(v<mn)mn=v;});
+  if(mx-mn<0.15) return{r:1,g:1,b:1,match:100,mx,flat:true};
+  const T=Array.from(db,v=>Math.max(0,Math.min(1,1+(v-mx)/COL_DEPTH)));
+  const err=(r,g,b)=>{let e=0;for(let k=0;k<COL_N;k++){const t=Math.min(1,r*COL_BAS[k][0]+g*COL_BAS[k][1]+b*COL_BAS[k][2])-T[k];e+=t*t;}return e;};
+  let best=[1,1,1],be=1e9;
+  for(let r=0;r<=8;r++)for(let g=0;g<=8;g++)for(let b=0;b<=8;b++){const e=err(r/8,g/8,b/8);if(e<be){be=e;best=[r/8,g/8,b/8];}}
+  for(let step=0.0625;step>0.004;step/=2){let moved=true,guard=0;while(moved&&guard++<30){moved=false;
+    for(let c=0;c<3;c++)for(const d of[-step,step]){const t=best.slice();t[c]=Math.max(0,Math.min(1,t[c]+d));const e=err(t[0],t[1],t[2]);if(e<be-1e-12){be=e;best=t;moved=true;}}}}
+  const rms=Math.sqrt(be/COL_N);
+  return{r:best[0],g:best[1],b:best[2],match:Math.round(100*Math.max(0,1-rms/0.25)),mx,flat:false};
+}
+const colHex=(r,g,b)=>'#'+[r,g,b].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
+function eqColorOf(bands,mode,lane){const f=eqColorFit(eqDbSamples(bands,mode,lane));f.hex=colHex(f.r,f.g,f.b);return f;}
 function eqApplyNode(nd,sp,t,smooth){
   const set=(p,v)=>{if(smooth)p.setTargetAtTime(v,t,0.012);else p.value=v;};
   set(nd.frequency,sp.f);
@@ -2627,7 +2664,9 @@ function lbDrawEqOverlay(g,padL,padT,pw,ph){
     g.beginPath();for(let i=0;i<n;i++){const y=gy(AN.eqc2[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(140,185,255,.55)';g.lineWidth=1.1;g.stroke();
   }
   eqCurve(n,pw,sr,AN.eqc,undefined,cl);
-  g.beginPath();g.moveTo(padL,cy);for(let i=0;i<n;i++)g.lineTo(padL+i,gy(AN.eqc[i]));g.lineTo(padL+n-1,cy);g.closePath();g.fillStyle='rgba(240,232,210,.10)';g.fill();
+  const cc=AN.colView&&AN.colNow?AN.colNow[lanes?cl:0]:null;
+  g.beginPath();g.moveTo(padL,cy);for(let i=0;i<n;i++)g.lineTo(padL+i,gy(AN.eqc[i]));g.lineTo(padL+n-1,cy);g.closePath();g.fillStyle=cc?`rgba(${Math.round(cc.r*255)},${Math.round(cc.g*255)},${Math.round(cc.b*255)},.30)`:'rgba(240,232,210,.10)';g.fill();
+  if(cc&&!cc.flat){g.beginPath();for(let i=0;i<n;i++){const u=colU(lbX2f(i+.5,pw)),y=gy(cc.mx-COL_DEPTH*(1-colCurve(u,cc.r,cc.g,cc.b)));i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.setLineDash([5,4]);g.strokeStyle=`rgb(${Math.round(cc.r*255)},${Math.round(cc.g*255)},${Math.round(cc.b*255)})`;g.lineWidth=1.8;g.stroke();g.setLineDash([]);}
   g.beginPath();for(let i=0;i<n;i++){const y=gy(AN.eqc[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(250,244,226,.95)';g.lineWidth=1.6;g.stroke();
   masterEq.bands.forEach((b,i)=>{
     if(!b.on) return;
@@ -2665,12 +2704,21 @@ function eqSyncUI(){
   const sc=document.getElementById('eq-scale');if(sc&&document.activeElement!==sc)sc.value=Math.round((typeof masterEq.scale==='number'?masterEq.scale:1)*100);
   const mo=document.getElementById('eq-mode');if(mo&&mo.value!==masterEq.mode) mo.value=masterEq.mode||'st';
   const ln=document.getElementById('eq-lane');if(ln){const L=EQ_LANES[masterEq.mode];ln.style.display=L?'':'none';if(L) ln.textContent=L[b.lane|0];}
+  const cv_=document.getElementById('eq-colview');if(cv_) cv_.classList.toggle('on',!!AN.colView);
+  eqColorChips();
   const ad=document.getElementById('eq-adapt');if(ad) ad.classList.toggle('on',!!masterEq.adapt);
   const au=document.getElementById('eq-aud');if(au)au.classList.toggle('on',!!AN.audMode);
   if(document.activeElement!==tr)tr.value=(masterEq.trim>=0?'+':'−')+Math.abs(masterEq.trim).toFixed(1);
   const pw=document.getElementById('eq-power');pw.classList.toggle('on',masterEq.on);pw.textContent=masterEq.on?'EQ ON':'EQ OFF';
   if(typeof eqPresetSync==='function') eqPresetSync();
   if(AN.open&&AN.tab==='eq') lbDrawActive();
+}
+function eqColorChips(){
+  const el=document.getElementById('eq-col');if(!el) return;
+  const L=EQ_LANES[masterEq.mode],lanes=L?[0,1]:[undefined];
+  AN.colNow=lanes.map(l=>eqColorOf(masterEq.bands,masterEq.mode,l));
+  el.innerHTML=AN.colNow.map((c,i)=>`<i style="background:${c.hex}"></i><b>${c.flat?'FLAT':c.hex.toUpperCase()+' · '+c.match+'%'}${L?' '+L[i][0]:''}</b>`).join('');
+  if(AN.presetColorMode!==masterEq.mode&&typeof eqPresetFill==='function'){AN.presetColorMode=masterEq.mode;eqPresetFill();}
 }
 function eqChanged(structural){
   if(structural) eqStructural();else eqParams();
@@ -2769,7 +2817,7 @@ function eqBandsMatch(a,b,lanes){
 function eqPresetFill(){
   const sel=document.getElementById('eq-preset');if(!sel) return;
   let h='<option value="c">— custom —</option>';
-  EQ_PRESETS.forEach(([grp,list],gi)=>{h+=`<optgroup label="${grp}">`+list.map(([n],i)=>`<option value="b:${gi}:${i}">${n}</option>`).join('')+'</optgroup>';});
+  EQ_PRESETS.forEach(([grp,list],gi)=>{h+=`<optgroup label="${grp}">`+list.map((pr,i)=>{const bs=eqPresetBands(pr,masterEq.mode),c=eqColorOf(bs,masterEq.mode,masterEq.mode==='st'?undefined:(bs.some(b=>b.on&&!b.lane)?0:1));return `<option value="b:${gi}:${i}" style="color:${c.hex}">● ${pr[0]}</option>`;}).join('')+'</optgroup>';});
   const up=eqUserPresets();if(up.length) h+='<optgroup label="Yours">'+up.map((p,i)=>`<option value="u:${i}">${String(p.name).replace(/</g,'&lt;')}</option>`).join('')+'</optgroup>';
   sel.innerHTML=h;eqPresetSync();
 }
@@ -2802,6 +2850,7 @@ function eqInitUI(){
   document.getElementById('eq-scale').addEventListener('wheel',e=>{e.preventDefault();beginGesture();masterEq.scale=Math.max(0,Math.min(2,Math.round((masterEq.scale*100-Math.sign(e.deltaY)*(e.shiftKey?1:5)))/100));eqChanged(false);clearTimeout(AN.scT);AN.scT=setTimeout(()=>{commitGesture();saveState();},500);},{passive:false});
   document.getElementById('eq-mode').addEventListener('change',e=>{pushHistory();masterEq.mode=e.target.value;eqChanged(true);if(AN.auditioning) eqAudApply(false);});
   document.getElementById('eq-lane').addEventListener('click',()=>{pushHistory();const b=masterEq.bands[masterEq.sel];b.lane=(b.lane|0)?0:1;eqChanged(true);});
+  document.getElementById('eq-colview').addEventListener('click',()=>{AN.colView=!AN.colView;anSave();eqSyncUI();});
   document.getElementById('eq-adapt').addEventListener('click',()=>{pushHistory();masterEq.adapt=!masterEq.adapt;eqChanged(false);});
   document.getElementById('eq-aud').addEventListener('click',()=>{AN.audMode=!AN.audMode;if(!AN.audMode&&AN.auditioning) eqAudition(false);eqSyncUI();});
   document.getElementById('eq-power').addEventListener('click',()=>{pushHistory();eqSetOn(!masterEq.on);eqSyncUI();saveState();});
@@ -2893,7 +2942,7 @@ function lbSpectra(){
     if(AN.tab==='spec'){const nowMs=performance.now();if(nowMs-AN.txtT>200&&LB.specDb){AN.txtT=nowMs;lbPaintBands();}}
   }
 }
-function anSave(){try{localStorage.setItem(AN_KEY,JSON.stringify({open:AN.open,x:AN.x,y:AN.y,w:AN.w,h:AN.h,hold:AN.hold,tab:AN.tab,view:AN.view,ms:AN.ms,gain:AN.gain,rot:AN.rot}));}catch(e){}}
+function anSave(){try{localStorage.setItem(AN_KEY,JSON.stringify({open:AN.open,x:AN.x,y:AN.y,w:AN.w,h:AN.h,hold:AN.hold,tab:AN.tab,view:AN.view,ms:AN.ms,gain:AN.gain,rot:AN.rot,colView:AN.colView}));}catch(e){}}
 function anPlace(){
   const p=document.getElementById('an-panel');if(!p) return;
   const vw=window.innerWidth,vh=window.innerHeight;
