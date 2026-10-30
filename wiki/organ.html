@@ -80,6 +80,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-fields{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:5px 10px 3px;flex-shrink:0;font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.12em;color:rgba(201,169,110,.5);}
 .an-foot select{font-family:'Cinzel',serif;font-size:12px;background:var(--bg);border:1px solid rgba(201,169,110,.25);color:var(--gold);padding:2px 4px;border-radius:2px;outline:none;max-width:210px;}
 .an-foot{flex-wrap:wrap;row-gap:6px;}
+.an-grp{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
 .an-foot select#eq-preset{max-width:230px;min-width:150px;}
 .an-foot select option,.an-foot select optgroup{background:var(--bg);color:var(--gold);font-size:12px;}
 .an-foot select optgroup{font-style:italic;color:rgba(201,169,110,.65);}
@@ -89,6 +90,18 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-fields input:disabled,.eq-fields select:disabled{opacity:.3;}
 .eq-fields input:focus,.an-foot input:focus{border-color:rgba(201,169,110,.7);}
 .an-foot input{width:46px;text-align:right;}
+#eq-colorpanel{display:flex;gap:14px;align-items:center;padding:6px 10px;border-top:1px solid rgba(201,169,110,.12);}
+#ec-wheel{width:112px;height:112px;border-radius:50%;cursor:crosshair;flex:none;}
+.ec-side{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;}
+.ec-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:rgba(201,169,110,.7);}
+.ec-row b{font-weight:400;color:rgba(232,208,158,.85);}
+.ec-row input[type=range]{width:120px;accent-color:#c9a96e;}
+.ec-row input:not([type=range]){width:62px;}
+#ec-hex{width:70px;}
+.ec-row button{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;background:transparent;border:1px solid rgba(201,169,110,.25);color:rgba(201,169,110,.75);padding:2px 7px;border-radius:2px;cursor:pointer;}
+.ec-row button.on{background:var(--gf);color:var(--gold);border-color:rgba(201,169,110,.55);}
+.ec-chip{display:inline-block;width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,.4);margin-right:3px;cursor:pointer;vertical-align:middle;}
+.ec-chip:hover{border-color:#fff;}
 #eq-col{display:inline-flex;align-items:center;gap:5px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:rgba(232,208,158,.85);}
 #eq-col i{display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,.45);}
 #eq-col b{font-weight:400;margin-right:6px;}
@@ -787,6 +800,21 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   </div>
   <div id="an-sec-eq" class="an-sec">
     <div id="an-eqwrap"><canvas id="an-eqc"></canvas></div>
+    <div id="eq-colorpanel" style="display:none">
+      <canvas id="ec-wheel" width="224" height="224" title="Color wheel: angle = hue, distance from the middle = saturation. Drag to choose; the lightness slider sets dark to light."></canvas>
+      <div class="ec-side">
+        <div class="ec-row"><span>LIGHTNESS</span><input type="range" id="ec-l" min="0" max="100" step="1"><b id="ec-lv">50</b></div>
+        <div class="ec-row"><span>HEX</span><input id="ec-hex" maxlength="7"><b id="ec-rgb"></b></div>
+        <div class="ec-row"><span>TRAY</span><span id="ec-tray"></span></div>
+        <div class="ec-row">
+          <button id="ec-on" title="Switch the color filter on or off. It works together with the EQ power button and sits after the eight bands.">COLOR FILTER OFF</button>
+          <button id="ec-glass" title="GLASS: like colored glass it only cuts. White is flat; a color keeps the frequencies it carries (red = bass, green = mid, blue = treble) and dims the rest, down to DEPTH.">GLASS</button>
+          <button id="ec-tint" title="TINT: boosts where the color is strong and cuts where it is weak, around its average, so the overall level stays about the same.">TINT</button>
+          <span>DEPTH</span><input id="ec-depth" title="How many dB the color's curve is worth (0–24)"><span>DB</span>
+        </div>
+        <div class="ec-row" id="ec-targetrow"><span>TARGET</span><span id="ec-targets"></span></div>
+      </div>
+    </div>
     <div id="eq-bands"></div>
     <div class="eq-fields">
       <span>BAND <b id="eq-n" style="color:var(--gold);font-weight:400">1</b></span>
@@ -802,7 +830,8 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
       <button id="eq-colview" title="COLOR VIEW: tints the curve with this EQ's color and draws that color's own glass filter shape as a dashed line, so you can see how the color and the sound relate.">COLOR</button>
       <button id="eq-adapt" title="ADAPTIVE Q: while lit, a bell gets narrower the more you boost or cut it (as many analog-style EQs do), so big moves stay focused instead of smearing. Applies to all bell bands.">ADAPT Q</button>
       <button id="eq-aud" title="AUDITION: while this is lit, holding a dot (dragging it) plays only what that band is working on: the slice around a bell or notch, or the part a cut removes. Nothing is changed or saved.">AUDITION</button>
-      <span style="white-space:nowrap">PRESET</span><select id="eq-preset" title="Starting points. Choosing one fills the bands and switches the EQ on; your trim is kept. Every preset has a Stereo, a Mid/Side and a Left/Right version: you get the one for the MODE you are in. Undo brings back what you had."></select><button id="eq-psave" title="Save the current eight bands as a preset of your own (kept in this browser)">SAVE</button><button id="eq-pdel" title="Delete the selected preset of yours">DEL</button>
+      <button id="eq-view" title="Switch between the eight parametric BANDS and the COLOR wheel filter.">VIEW: BANDS</button>
+      <span class="an-grp"><span style="white-space:nowrap">PRESET</span><select id="eq-preset" title="Starting points. Choosing one fills the bands and switches the EQ on; your trim is kept. Every preset has a Stereo, a Mid/Side and a Left/Right version: you get the one for the MODE you are in. Undo brings back what you had."></select></span><button id="eq-psave" title="Save the current eight bands as a preset of your own (kept in this browser)">SAVE</button><button id="eq-pdel" title="Delete the selected preset of yours">DEL</button>
       <span>SCALE</span><input id="eq-scale" title="Scales every band's gain at once: 100% = as drawn, 0% = flat, 200% = double. Click and type, or scroll over it."><span>%</span>
       <span>TRIM</span><input id="eq-trim" title="Master output level in dB (0 = unchanged)"><span>DB</span><button id="eq-reset" title="Put all eight bands back to their starting values (and trim to 0)">RESET</button>
       <span class="an-sp" style="flex-basis:100%">Drag a dot: across = frequency, up/down = gain (or Q on cuts and notch). Alt-drag or scroll = Q. Shift = fine. Click a number to switch a band on or off.</span></div>
@@ -2117,7 +2146,7 @@ const EQ_TYPES=[['lc48','LOW CUT 48'],['lc12','LOW CUT 12'],['ls','LOW SHELF'],[
 const EQ_DEF=[['lc12',40,0,0.71],['ls',100,0,0.71],['pk',250,0,1],['pk',800,0,1],['pk',2000,0,1],['pk',5000,0,1],['hs',8000,0,0.71],['hc12',16000,0,0.71]];
 const EQ_GAIN_MAX=15,EQ_Q_MIN=0.1,EQ_Q_MAX=18;
 const EQ_BW8=[0.5098,0.6013,0.9,2.5629];   // the four section Qs of an 8th-order Butterworth filter (a 48 dB/oct cut)
-function eqFresh(){return{on:false,trim:0,scale:1,mode:'st',adapt:false,sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q,lane:0}))};}
+function eqFresh(){return{on:false,trim:0,scale:1,mode:'st',adapt:false,color:{on:false,r:1,g:1,b:1,glass:true,depth:12,target:'both'},sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q,lane:0}))};}
 const EQ_LANES={ms:['MID','SIDE'],lr:['LEFT','RIGHT']};   // in Mid/Side and Left/Right modes each band works on lane 0 or lane 1
 let masterEq=eqFresh();
 const eqEg=b=>b.g*(typeof masterEq.scale==='number'?masterEq.scale:1);   // the gain actually heard: the band's gain times the master Scale
@@ -2127,7 +2156,8 @@ const eqHasQ=t=>t!=='ls'&&t!=='hs';
 function eqNormalize(o){
   const d=eqFresh();if(!o||typeof o!=='object') return d;
   const num=(v,lo,hi,df)=>(typeof v==='number'&&isFinite(v))?Math.max(lo,Math.min(hi,v)):df;
-  d.on=!!o.on;d.trim=num(o.trim,-36,12,0);d.scale=num(o.scale,0,2,1);d.mode=(o.mode==='ms'||o.mode==='lr')?o.mode:'st';d.adapt=!!o.adapt;d.sel=Math.max(0,Math.min(7,(o.sel|0)));
+  d.on=!!o.on;d.trim=num(o.trim,-36,12,0);d.scale=num(o.scale,0,2,1);d.mode=(o.mode==='ms'||o.mode==='lr')?o.mode:'st';d.adapt=!!o.adapt;
+  if(o.color&&typeof o.color==='object'){const c=o.color;d.color={on:!!c.on,r:num(c.r,0,1,1),g:num(c.g,0,1,1),b:num(c.b,0,1,1),glass:c.glass!==false,depth:num(c.depth,0,24,12),target:(c.target===0||c.target===1)?c.target:'both'};}d.sel=Math.max(0,Math.min(7,(o.sel|0)));
   if(Array.isArray(o.bands)) o.bands.slice(0,8).forEach((b,i)=>{
     if(!b) return;const t=EQ_TYPES.some(x=>x[0]===b.type)?b.type:d.bands[i].type;
     d.bands[i]={on:!!b.on,type:t,f:num(b.f,20,20000,d.bands[i].f),g:num(b.g,-EQ_GAIN_MAX,EQ_GAIN_MAX,0),q:num(b.q,EQ_Q_MIN,EQ_Q_MAX,d.bands[i].q),lane:b.lane===1?1:0};
@@ -2167,7 +2197,51 @@ function eqMagDb(c,f,sr){
 }
 function eqCurve(n,pw,sr,out,onlyBand,lane){
   const cs=[];masterEq.bands.forEach((b,i)=>{if(b.on&&(onlyBand===undefined||onlyBand===i)&&(lane===undefined||masterEq.mode==='st'||(b.lane|0)===lane))eqSecs(b).forEach(sp=>cs.push(eqCoef(sp,sr)));});
+  if(onlyBand===undefined) eqColorSpecs(masterEq.mode==='st'?undefined:lane).forEach(sp=>cs.push(eqCoef(sp,sr)));
   for(let x=0;x<n;x++){const f=lbX2f(x+.5,pw);let db=0;for(let k=0;k<cs.length;k++)db+=eqMagDb(cs[k],f,sr);out[x]=db;}
+}
+// ── COLOR FILTER (color → sound) ────────────────────────────────────────────────────────────────────────
+// The Color Lab's glass curve for a color (colCurve) becomes a target in dB: GLASS = −DEPTH·(1 − curve) (only cuts: white is flat, dark glass dims everything not carried);
+// TINT = DEPTH·(curve − its average) (boosts where the color is strong, cuts where weak, overall level kept). The target is built by a fixed bank of 16 filters
+// (a low shelf, 14 bells, a high shelf, about half an octave apart, 80 Hz–12 kHz) whose gains are solved by least squares. Only the gains ever change, so moving the wheel glides without clicks.
+// WEDGED: bank layout and bell Q (0.7, wide bells that overlap smoothly; found by sweeping: worst error across test colors 0.28 dB), the 12 dB default depth, 24 dB depth ceiling.
+const CB_N=16,CB_Q=0.7,CB_F=Array.from({length:CB_N},(_,k)=>80*Math.pow(150,k/(CB_N-1)));
+const CB_TYPES=CB_F.map((_,k)=>k===0?'lowshelf':k===CB_N-1?'highshelf':'peaking');
+const cbSpec=(k,g)=>CB_TYPES[k]==='peaking'?{t:'peaking',f:CB_F[k],g,q:CB_Q}:{t:CB_TYPES[k],f:CB_F[k],g};
+const CB_G=Array.from({length:110},(_,j)=>25*Math.pow(19000/25,j/109));
+let CB_CACHE={sr:0,inv:null,phi:null},CB_LAST={key:'',w:null};
+function cbBasis(sr){
+  if(CB_CACHE.sr===sr) return CB_CACHE;
+  const phi=CB_F.map((_,k)=>{const c=eqCoef(cbSpec(k,6),sr);return CB_G.map(f=>eqMagDb(c,f,sr)/6);});
+  const A=phi.map((a,i)=>phi.map((b,j)=>{let v=0;for(let x=0;x<CB_G.length;x++)v+=a[x]*b[x];return v+(i===j?1e-3:0);}));
+  const n=CB_N,M=A.map((r,i)=>[...r,...Array.from({length:n},(_,j)=>i===j?1:0)]);   // Gauss-Jordan inverse
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[p][c]))p=r;[M[c],M[p]]=[M[p],M[c]];const d=M[c][c];for(let j=0;j<2*n;j++)M[c][j]/=d;
+    for(let r=0;r<n;r++)if(r!==c){const f=M[r][c];if(f)for(let j=0;j<2*n;j++)M[r][j]-=f*M[c][j];}}
+  CB_CACHE={sr,phi,inv:M.map(r=>r.slice(n))};return CB_CACHE;
+}
+function colTargetDb(c){   // the target curve (dB) at the fit grid
+  const T=CB_G.map(f=>colCurve(colU(f),c.r,c.g,c.b));
+  if(c.glass) return T.map(t=>-c.depth*(1-t));
+  let m=0,n=0;CB_G.forEach((f,j)=>{if(f>=COL_F0&&f<=COL_F1){m+=T[j];n++;}});m/=n;
+  return T.map(t=>c.depth*(t-m));
+}
+function cbGains(sr){   // 16 gains in dB for the current color (cached)
+  const c=masterEq.color,key=[c.r.toFixed(4),c.g.toFixed(4),c.b.toFixed(4),c.glass?1:0,c.depth,sr].join('|');
+  if(CB_LAST.key===key) return CB_LAST.w;
+  const B=cbBasis(sr),tg=colTargetDb(c),w=new Array(CB_N).fill(0);
+  for(let it=0;it<3;it++){
+    const specs=w.map((g,k)=>eqCoef(cbSpec(k,g),sr));
+    const resid=CB_G.map((f,j)=>{let db=0;for(let k=0;k<CB_N;k++)db+=eqMagDb(specs[k],f,sr);return tg[j]-db;});
+    const rhs=B.phi.map(row=>{let v=0;for(let j=0;j<row.length;j++)v+=row[j]*resid[j];return v;});
+    for(let k=0;k<CB_N;k++){let d=0;for(let m=0;m<CB_N;m++)d+=B.inv[k][m]*rhs[m];w[k]=Math.max(-30,Math.min(30,w[k]+d*(it?1:0.9)));}
+  }
+  CB_LAST={key,w};return w;
+}
+function eqColorSpecs(lane){   // the filters the color stage adds for a lane (undefined = stereo), or []
+  const c=masterEq.color;if(!c||!c.on) return[];
+  if(masterEq.mode!=='st'&&c.target!=='both'&&lane!==undefined&&c.target!==lane) return[];
+  const sr=LB.ctx?LB.ctx.sampleRate:44100,w=cbGains(sr);
+  return w.map((g,k)=>cbSpec(k,g));
 }
 // ── COLOR VIEW: every EQ shape has a color (sound → color) ───────────────────────────────────────────────
 // Taken from the Tricknologic Color Lab's "Color EQ · Spectral Filters": R is a bass bump, G a mid bump, B a treble bump (cosine shapes on a log-even axis
@@ -2184,6 +2258,7 @@ const COL_BAS=Array.from(COL_UF,(f,k)=>{const u=k/(COL_N-1);return[colR(u),colG(
 function eqDbSamples(bands,mode,lane){   // the EQ's response in dB at the color axis' sample frequencies (one lane in Mid/Side and Left/Right modes)
   const sr=LB.ctx?LB.ctx.sampleRate:44100,cs=[];
   bands.forEach(b=>{if(b.on&&(mode==='st'||lane===undefined||(b.lane|0)===lane))eqSecs(b).forEach(sp=>cs.push(eqCoef(sp,sr)));});
+  if(bands===masterEq.bands) eqColorSpecs(mode==='st'?undefined:lane).forEach(sp=>cs.push(eqCoef(sp,sr)));
   return COL_UF.map(f=>{let db=0;for(let k=0;k<cs.length;k++)db+=eqMagDb(cs[k],f,sr);return db;});
 }
 function eqColorFit(db){
@@ -2235,6 +2310,13 @@ function eqBuildInto(a,head,wet,store,mx){
     nodes.forEach((n,k)=>eqApplyNode(n,specs[k],a.currentTime,false));
     nodes.forEach(n=>chains[mode==='st'?0:(b.lane|0)].push(n));
   });
+  store.c0=null;store.c1=null;
+  [0,1].forEach(l=>{
+    if(mode==='st'&&l===1) return;
+    const sp=eqColorSpecs(mode==='st'?undefined:l);if(!sp.length) return;
+    const nodes=sp.map(x=>{const n=a.createBiquadFilter();n.type=x.t;eqApplyNode(n,x,a.currentTime,false);return n;});
+    store['c'+l]=nodes;nodes.forEach(n=>chains[l].push(n));
+  });
   const link=(src,so,chain,dst,di)=>{let prev=src,po=so;chain.forEach(n=>{prev.connect(n,po,0);prev=n;po=0;});prev.connect(dst,po,di);};
   const G=v=>{const g=a.createGain();g.gain.value=v;mx.push(g);return g;};
   if(mode==='st'){link(head,0,chains[0],wet,0);return;}
@@ -2251,6 +2333,7 @@ function eqWire(P){
   P=P||E.paths[E.cur];
   try{P.head.disconnect();}catch(e){}
   P.secs.forEach(ss=>{if(ss)ss.forEach(n=>{try{n.disconnect();}catch(e){}});});
+  ['c0','c1'].forEach(k=>{if(P.secs[k])P.secs[k].forEach(n=>{try{n.disconnect();}catch(e){}});});
   (P.mx||[]).forEach(n=>{try{n.disconnect();}catch(e){}});P.mx=[];
   eqBuildInto(a,P.head,P.wet,P.secs,P.mx);
 }
@@ -2308,6 +2391,7 @@ function eqParams(){   // frequency / gain / Q / trim moved: smooth, no rewiring
   const E=LB.eq,a=LB.ctx;if(!E||!a) return;const t=a.currentTime;
   if(AN.auditioning) eqAudApply(true);
   E.paths.forEach(P=>masterEq.bands.forEach((b,i)=>{const nodes=P.secs[i];if(!b.on||!nodes) return;const specs=eqSecs(b);if(specs.length!==nodes.length) return;nodes.forEach((n,k)=>eqApplyNode(n,specs[k],t,true));}));
+  E.paths.forEach(P=>[0,1].forEach(l=>{const nodes=P.secs['c'+l];if(!nodes) return;const sp=eqColorSpecs(masterEq.mode==='st'?undefined:l);if(sp.length!==nodes.length) return;nodes.forEach((n,k)=>eqApplyNode(n,sp[k],t,true));}));
   E.out.gain.setTargetAtTime(Math.pow(10,masterEq.trim/20),t,0.012);
 }
 function eqSetOn(on){
@@ -2664,9 +2748,10 @@ function lbDrawEqOverlay(g,padL,padT,pw,ph){
     g.beginPath();for(let i=0;i<n;i++){const y=gy(AN.eqc2[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(140,185,255,.55)';g.lineWidth=1.1;g.stroke();
   }
   eqCurve(n,pw,sr,AN.eqc,undefined,cl);
-  const cc=AN.colView&&AN.colNow?AN.colNow[lanes?cl:0]:null;
+  let cc=AN.colView&&AN.colNow?AN.colNow[lanes?cl:0]:null,ctg=null;
+  if(AN.eqview==='color'){const k=masterEq.color;cc={r:k.r,g:k.g,b:k.b,flat:false,mx:0};ctg=colTargetDb(k);}
   g.beginPath();g.moveTo(padL,cy);for(let i=0;i<n;i++)g.lineTo(padL+i,gy(AN.eqc[i]));g.lineTo(padL+n-1,cy);g.closePath();g.fillStyle=cc?`rgba(${Math.round(cc.r*255)},${Math.round(cc.g*255)},${Math.round(cc.b*255)},.30)`:'rgba(240,232,210,.10)';g.fill();
-  if(cc&&!cc.flat){g.beginPath();for(let i=0;i<n;i++){const u=colU(lbX2f(i+.5,pw)),y=gy(cc.mx-COL_DEPTH*(1-colCurve(u,cc.r,cc.g,cc.b)));i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.setLineDash([5,4]);g.strokeStyle=`rgb(${Math.round(cc.r*255)},${Math.round(cc.g*255)},${Math.round(cc.b*255)})`;g.lineWidth=1.8;g.stroke();g.setLineDash([]);}
+  if(cc&&!cc.flat){g.beginPath();for(let i=0;i<n;i++){const u=colU(lbX2f(i+.5,pw)),y=ctg?gy(ctg[Math.max(0,Math.min(CB_G.length-1,Math.round(109*Math.log(lbX2f(i+.5,pw)/25)/Math.log(760))))]):gy(cc.mx-COL_DEPTH*(1-colCurve(u,cc.r,cc.g,cc.b)));i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.setLineDash([5,4]);g.strokeStyle=`rgb(${Math.round(cc.r*255)},${Math.round(cc.g*255)},${Math.round(cc.b*255)})`;g.lineWidth=1.8;g.stroke();g.setLineDash([]);}
   g.beginPath();for(let i=0;i<n;i++){const y=gy(AN.eqc[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(250,244,226,.95)';g.lineWidth=1.6;g.stroke();
   masterEq.bands.forEach((b,i)=>{
     if(!b.on) return;
@@ -2705,13 +2790,91 @@ function eqSyncUI(){
   const mo=document.getElementById('eq-mode');if(mo&&mo.value!==masterEq.mode) mo.value=masterEq.mode||'st';
   const ln=document.getElementById('eq-lane');if(ln){const L=EQ_LANES[masterEq.mode];ln.style.display=L?'':'none';if(L) ln.textContent=L[b.lane|0];}
   const cv_=document.getElementById('eq-colview');if(cv_) cv_.classList.toggle('on',!!AN.colView);
-  eqColorChips();
+  eqColorChips();eqColorPanelSync();
   const ad=document.getElementById('eq-adapt');if(ad) ad.classList.toggle('on',!!masterEq.adapt);
   const au=document.getElementById('eq-aud');if(au)au.classList.toggle('on',!!AN.audMode);
   if(document.activeElement!==tr)tr.value=(masterEq.trim>=0?'+':'−')+Math.abs(masterEq.trim).toFixed(1);
   const pw=document.getElementById('eq-power');pw.classList.toggle('on',masterEq.on);pw.textContent=masterEq.on?'EQ ON':'EQ OFF';
   if(typeof eqPresetSync==='function') eqPresetSync();
   if(AN.open&&AN.tab==='eq') lbDrawActive();
+}
+// ── Color panel (wheel, lightness, hex, tray, glass/tint, depth, target) ──
+function colHslToRgb(h,sat,l){const a=sat*Math.min(l,1-l),f=n=>{const k=(n+h*12)%12;return l-a*Math.max(-1,Math.min(k-3,9-k,1));};return[f(0),f(8),f(4)];}
+function colRgbToHsl(r,g,b){const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn;let h=0,sat=0;
+  if(d>1e-9){sat=d/(1-Math.abs(2*l-1));if(mx===r)h=((g-b)/d+(g<b?6:0))/6;else if(mx===g)h=((b-r)/d+2)/6;else h=((r-g)/d+4)/6;}
+  return[h,sat,l];}
+function colSetRGB(r,g,b,keepHue){
+  const c=masterEq.color;c.r=Math.max(0,Math.min(1,r));c.g=Math.max(0,Math.min(1,g));c.b=Math.max(0,Math.min(1,b));
+  const[h,sat,l]=colRgbToHsl(c.r,c.g,c.b);if(!keepHue||(sat>0.02&&l>0.02&&l<0.98)){AN.colH=h;AN.colS=sat;}AN.colL=l;
+}
+function colFromHSL(){const[r,g,b]=colHslToRgb(AN.colH||0,AN.colS||0,AN.colL===undefined?0.5:AN.colL);colSetRGB(r,g,b,true);AN.colL=Math.max(0,Math.min(1,AN.colL));}
+function eqColorPanelSync(){
+  const pn=document.getElementById('eq-colorpanel');if(!pn) return;
+  const inColor=AN.eqview==='color';
+  pn.style.display=inColor?'flex':'none';
+  document.getElementById('eq-bands').style.display=inColor?'none':'';
+  const fl=document.querySelector('#an-sec-eq .eq-fields');if(fl) fl.style.display=inColor?'none':'';
+  const vb=document.getElementById('eq-view');if(vb){vb.textContent='VIEW: '+(inColor?'COLOR':'BANDS');vb.classList.toggle('on',inColor);}
+  if(!inColor) return;
+  const c=masterEq.color;
+  if(AN.colH===undefined){const[h,sat,l]=colRgbToHsl(c.r,c.g,c.b);AN.colH=h;AN.colS=sat;AN.colL=(l>0.98||l<0.02)?0.5:l;}   // white or black: start the wheel at mid lightness so its colors show
+  const act=document.activeElement;
+  const lv=document.getElementById('ec-l');if(act!==lv) lv.value=Math.round(AN.colL*100);
+  document.getElementById('ec-lv').textContent=Math.round(AN.colL*100);
+  const hx=document.getElementById('ec-hex');if(act!==hx) hx.value=colHex(c.r,c.g,c.b);
+  document.getElementById('ec-rgb').textContent=`${Math.round(c.r*255)} · ${Math.round(c.g*255)} · ${Math.round(c.b*255)}`;
+  const on=document.getElementById('ec-on');on.textContent=c.on?'COLOR FILTER ON':'COLOR FILTER OFF';on.classList.toggle('on',c.on);
+  document.getElementById('ec-glass').classList.toggle('on',c.glass);document.getElementById('ec-tint').classList.toggle('on',!c.glass);
+  const dp=document.getElementById('ec-depth');if(act!==dp) dp.value=c.depth;
+  const L=EQ_LANES[masterEq.mode];document.getElementById('ec-targetrow').style.display=L?'':'none';
+  if(L){document.getElementById('ec-targets').innerHTML=[['both','BOTH'],[0,L[0]],[1,L[1]]].map(([v,t])=>`<button data-t="${v}" class="${c.target===v?'on':''}">${t}</button>`).join('');}
+  colDrawWheel();
+}
+function colDrawWheel(){
+  const cv=document.getElementById('ec-wheel');if(!cv) return;const g=cv.getContext('2d'),W=cv.width,R=W/2;
+  const L=Math.round(AN.colL*100);
+  if(AN.wheelL!==L||!AN.wheelImg){
+    const im=g.createImageData(W,W);
+    for(let y=0;y<W;y++)for(let x=0;x<W;x++){const dx=x+.5-R,dy=y+.5-R,rho=Math.hypot(dx,dy)/R,i=(y*W+x)*4;
+      if(rho>1){im.data[i+3]=0;continue;}
+      const h=(Math.atan2(dy,dx)/(2*Math.PI)+1)%1,[r,gg,b]=colHslToRgb(h,rho,AN.colL);
+      im.data[i]=r*255;im.data[i+1]=gg*255;im.data[i+2]=b*255;im.data[i+3]=255;}
+    AN.wheelImg=im;AN.wheelL=L;}
+  g.clearRect(0,0,W,W);g.putImageData(AN.wheelImg,0,0);
+  const ang=(AN.colH||0)*2*Math.PI,rr=(AN.colS||0)*R,mx=R+Math.cos(ang)*rr,my=R+Math.sin(ang)*rr;
+  g.beginPath();g.arc(mx,my,8,0,6.2832);g.lineWidth=2.5;g.strokeStyle='#fff';g.stroke();g.lineWidth=1;g.strokeStyle='#000';g.beginPath();g.arc(mx,my,9.5,0,6.2832);g.stroke();
+}
+function eqColorInit(){
+  const c=()=>masterEq.color;
+  const tray=document.getElementById('ec-tray');if(!tray) return;
+  const TR=[['R',1,0,0],['G',0,1,0],['B',0,0,1],['C',0,1,1],['M',1,0,1],['Y',1,1,0],['W',1,1,1],['K',0,0,0]];
+  tray.innerHTML=TR.map(([n,r,g,b])=>`<span class="ec-chip" data-i="${n}" title="${n==='W'?'White: everything passes (flat)':n==='K'?'Black: everything blocked (a flat drop of DEPTH in glass)':n+(n==='R'||n==='G'||n==='B'?' – a basis filter: '+({R:'bass',G:'mid',B:'treble'})[n]:' – the opposite of '+({C:'red',M:'green',Y:'blue'})[n])}" style="background:rgb(${r*255},${g*255},${b*255})"></span>`).join('');
+  tray.addEventListener('click',e=>{const t=e.target.closest('.ec-chip');if(!t) return;const row=TR.find(x=>x[0]===t.dataset.i);
+    pushHistory();colSetRGB(row[1],row[2],row[3]);eqChanged(false);});
+  const cvs=document.getElementById('ec-wheel');
+  const pick=(ev)=>{const r=cvs.getBoundingClientRect(),dx=ev.clientX-r.left-r.width/2,dy=ev.clientY-r.top-r.height/2,rho=Math.min(1,Math.hypot(dx,dy)/(r.width/2));
+    AN.colH=(Math.atan2(dy,dx)/(2*Math.PI)+1)%1;AN.colS=rho;colFromHSL();eqChanged(false);};
+  cvs.addEventListener('mousedown',e=>{e.preventDefault();beginGesture();pick(e);
+    const mv=ev=>pick(ev),up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);commitGesture();saveState();};
+    window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);});
+  const l=document.getElementById('ec-l');
+  l.addEventListener('input',()=>{beginGesture();AN.colL=l.value/100;colFromHSL();eqChanged(false);});
+  l.addEventListener('change',()=>{commitGesture();saveState();});
+  const hx=document.getElementById('ec-hex');
+  hx.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')hx.blur();else if(e.key==='Escape'){hx.value=colHex(c().r,c().g,c().b);hx.blur();}});
+  hx.addEventListener('blur',()=>{const m=/^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hx.value.trim());if(!m){eqColorPanelSync();return;}
+    let h=m[1];if(h.length===3)h=h.split('').map(x=>x+x).join('');const r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;
+    if(Math.abs(r-c().r)+Math.abs(g-c().g)+Math.abs(b-c().b)<0.004){eqColorPanelSync();return;}
+    pushHistory();colSetRGB(r,g,b);eqChanged(false);});
+  document.getElementById('ec-on').addEventListener('click',()=>{pushHistory();c().on=!c().on;eqChanged(true);});
+  document.getElementById('ec-glass').addEventListener('click',()=>{if(c().glass) return;pushHistory();c().glass=true;eqChanged(false);});
+  document.getElementById('ec-tint').addEventListener('click',()=>{if(!c().glass) return;pushHistory();c().glass=false;eqChanged(false);});
+  const dp=document.getElementById('ec-depth');
+  dp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')dp.blur();else if(e.key==='Escape'){dp.value=c().depth;dp.blur();}});
+  dp.addEventListener('blur',()=>{const x=eqParseNum(dp.value,0,24);if(x!==null&&x!==c().depth){pushHistory();c().depth=x;eqChanged(false);}else eqColorPanelSync();});
+  dp.addEventListener('wheel',e=>{e.preventDefault();beginGesture();c().depth=Math.max(0,Math.min(24,Math.round((c().depth-Math.sign(e.deltaY)*(e.shiftKey?0.5:1))*10)/10));eqChanged(false);clearTimeout(AN.dpT);AN.dpT=setTimeout(()=>{commitGesture();saveState();},500);},{passive:false});
+  document.getElementById('ec-targets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b) return;pushHistory();const v=b.dataset.t;c().target=v==='both'?'both':+v;eqChanged(true);});
+  document.getElementById('eq-view').addEventListener('click',()=>{AN.eqview=AN.eqview==='color'?'bands':'color';anSave();eqSyncUI();});
 }
 function eqColorChips(){
   const el=document.getElementById('eq-col');if(!el) return;
@@ -2920,7 +3083,7 @@ function eqInitUI(){
     e.preventDefault();beginGesture();masterEq.sel=i;b.q=Math.max(EQ_Q_MIN,Math.min(EQ_Q_MAX,b.q*Math.exp(-e.deltaY*0.0018)));eqParams();eqSyncUI();
     clearTimeout(AN.wheelT);AN.wheelT=setTimeout(()=>{commitGesture();saveState();},500);
   },{passive:false});
-  eqSyncUI();
+  eqColorInit();eqSyncUI();
 }
 function lbDrawActive(){ if(AN.tab==='scope') lbDrawScope(); else if(AN.tab==='eq') lbDrawSpecCv(document.getElementById('an-eqc'),true); else lbDrawPanel(); }
 function anSyncUI(){
@@ -2942,7 +3105,7 @@ function lbSpectra(){
     if(AN.tab==='spec'){const nowMs=performance.now();if(nowMs-AN.txtT>200&&LB.specDb){AN.txtT=nowMs;lbPaintBands();}}
   }
 }
-function anSave(){try{localStorage.setItem(AN_KEY,JSON.stringify({open:AN.open,x:AN.x,y:AN.y,w:AN.w,h:AN.h,hold:AN.hold,tab:AN.tab,view:AN.view,ms:AN.ms,gain:AN.gain,rot:AN.rot,colView:AN.colView}));}catch(e){}}
+function anSave(){try{localStorage.setItem(AN_KEY,JSON.stringify({open:AN.open,x:AN.x,y:AN.y,w:AN.w,h:AN.h,hold:AN.hold,tab:AN.tab,view:AN.view,ms:AN.ms,gain:AN.gain,rot:AN.rot,colView:AN.colView,eqview:AN.eqview}));}catch(e){}}
 function anPlace(){
   const p=document.getElementById('an-panel');if(!p) return;
   const vw=window.innerWidth,vh=window.innerHeight;
