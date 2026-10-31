@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 30, 2026 (Phase A step 4 + presets + undo audit + 4b parts 1–3). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 30, 2026 (evening: Color Filter) (Phase A step 4 + presets + undo audit + 4b parts 1–3). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -273,3 +273,11 @@ Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square �
 - **Where it shows:** a swatch chip with hex and match % in the EQ band row (two chips, with M/S or L/R, in split modes); a COLOR button that tints the curve and draws the color's own glass shape as a dashed line; a colored dot before every preset name (the color of that preset in the current mode).
 - **Examples (stereo):** Boards of Canada #ffbf66 (warm: bass and mids kept, highs dimmed), Presence lift #b3a5f7 (blue-violet: treble), De-mud #e9bdff (pink-magenta: mids scooped), Autechre #af8dff.
 - **NEXT (Color EQ phases, agreed Oct 30):** Phase 1 = COLOR mode (color → sound): wheel + lightness, GLASS / TINT, DEPTH, MID/SIDE/BOTH picker, six basis shapes. Phase 2 = 8 color slots with amount and ADD (RGB, light adds) / MULTIPLY (CMY, glass stacks) blending. Realized as a smooth graphic-EQ bank fitted to the mixed curve. Additive here mixes magnitude curves (not literal parallel signal paths, since phases would interfere).
+
+### BUILT Oct 30, 2026: COLOR FILTER (color → sound), Color EQ Phase 1
+- **VIEW: BANDS / COLOR** (footer). COLOR view swaps the band buttons for a wheel (angle = hue, distance = saturation), a LIGHTNESS slider, a HEX box with RGB readout, a tray (R G B C M Y W K), COLOR FILTER on/off, GLASS / TINT, DEPTH (0–24 dB, default 12), and in Mid/Side or Left/Right modes a TARGET picker (BOTH / lane 1 / lane 2). It is a **separate stage after the eight bands**, off by default (old songs unchanged), works with the EQ power button, saved with the song (`masterEq.color`), undoable.
+- **GLASS** target = −DEPTH × (1 − curve): only cuts; white = flat; black = flat drop of DEPTH. **TINT** target = DEPTH × (curve − its average). `curve` = the Color Lab's min(1, r·R + g·G + b·B) on the 60 Hz–16 kHz log axis.
+- **Engine:** a fixed bank of 16 filters (low shelf, 14 bells, high shelf; 80 Hz–12 kHz, ~half an octave apart, bell Q 0.7); gains solved by least squares (3 refinement passes) so the cascade matches the target. Only gains change when the wheel moves, so it glides (no clicks). Switching the stage or the target crossfades like a band toggle. **Accuracy:** worst error 0.28 dB (60 Hz–16 kHz) across test colors in both modes. Live check: red glass, depth 12 → 120 Hz −1.1 dB, 1 kHz −11.0 dB, 9 kHz −12.2 dB, matching the target (−1.0, −10.9, −12) within 0.2 dB; a Side-only target leaves a centered tone untouched.
+- **WEDGED:** bank layout and Q (found by sweeping: Q 2.8 gave 4 dB error, Q 0.7 gave 0.28 dB), DEPTH default and ceiling, the tray's black and white, wheel starts at mid lightness when the color is white.
+- **Display:** in COLOR view the wheel color tints the curve and its glass/tint target is drawn dashed over the real curve. The COLOR VIEW chip still reads the combined EQ (bands + color stage) back into a color.
+- **NEXT (Phase 2):** 8 color slots, each with amount and ADD (RGB) / MULTIPLY (CMY) blending, feeding the same bank.

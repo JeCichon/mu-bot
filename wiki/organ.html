@@ -90,8 +90,13 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .eq-fields input:disabled,.eq-fields select:disabled{opacity:.3;}
 .eq-fields input:focus,.an-foot input:focus{border-color:rgba(201,169,110,.7);}
 .an-foot input{width:46px;text-align:right;}
-#eq-colorpanel{display:flex;gap:14px;align-items:center;padding:6px 10px;border-top:1px solid rgba(201,169,110,.12);}
+#eq-colorpanel{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:6px 10px;border-top:1px solid rgba(201,169,110,.12);}
 #ec-wheel{width:112px;height:112px;border-radius:50%;cursor:crosshair;flex:none;}
+#ec-slots{display:flex;gap:5px;width:100%;flex:none;}
+.ec-slot{flex:1;height:22px;border-radius:2px;border:1px solid rgba(201,169,110,.25);cursor:pointer;font-family:'Cinzel',serif;font-size:9px;display:flex;align-items:center;justify-content:center;color:#0b0a12;position:relative;}
+.ec-slot.off{background:rgba(255,255,255,.04)!important;color:rgba(201,169,110,.5);}
+.ec-slot.sel{border:2px solid #fff;}
+.ec-slot i{position:absolute;top:-1px;right:2px;font-size:7px;font-style:normal;opacity:.8;}
 .ec-side{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;}
 .ec-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:rgba(201,169,110,.7);}
 .ec-row b{font-weight:400;color:rgba(232,208,158,.85);}
@@ -801,18 +806,26 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   <div id="an-sec-eq" class="an-sec">
     <div id="an-eqwrap"><canvas id="an-eqc"></canvas></div>
     <div id="eq-colorpanel" style="display:none">
+      <div id="ec-slots" title="Eight color layers. The first one that is on is the BASE; each layer above it is blended in. Click a slot to select it (and switch it on); the wheel edits the selected slot."></div>
       <canvas id="ec-wheel" width="224" height="224" title="Color wheel: angle = hue, distance from the middle = saturation. Drag to choose; the lightness slider sets dark to light."></canvas>
       <div class="ec-side">
-        <div class="ec-row"><span>LIGHTNESS</span><input type="range" id="ec-l" min="0" max="100" step="1"><b id="ec-lv">50</b></div>
-        <div class="ec-row"><span>HEX</span><input id="ec-hex" maxlength="7"><b id="ec-rgb"></b></div>
-        <div class="ec-row"><span>TRAY</span><span id="ec-tray"></span></div>
+        <div class="ec-row"><span>SLOT <b id="ec-sn">1</b></span><button id="ec-son" title="Switch this layer on or off">ON</button>
+          <span>AMOUNT</span><input type="range" id="ec-amt" min="0" max="100" step="1" title="How much of this layer's effect is used (like layer opacity)"><b id="ec-amtv">100</b>
+          <span id="ec-blendrow"><button id="ec-mul" title="MULTIPLY (CMY, subtractive): the layer is another sheet of colored glass over what is already there; the light must pass through both.">MULTIPLY</button><button id="ec-add" title="ADD (RGB, additive): the layer is another light shone on the same wall; it adds to what is already there, capped at full (white = everything passes).">ADD</button></span>
+          <b id="ec-base" style="display:none">BASE LAYER</b></div>
+        <div class="ec-row"><span>LIGHTNESS</span><input type="range" id="ec-l" min="0" max="100" step="1"><b id="ec-lv">50</b>
+          <span>HEX</span><input id="ec-hex" maxlength="7"><b id="ec-rgb"></b></div>
+        <div class="ec-row"><span>TRAY</span><span id="ec-tray"></span>
+          <button id="ec-qrgb" title="Quick set: slots 1–3 become R (base), G, B, each ADDED. Red + green + blue light = white = everything passes, so the target comes out flat.">RGB LIGHT +</button>
+          <button id="ec-qcmy" title="Quick set: slots 1–3 become C (base), M, Y, each MULTIPLIED. Cyan × magenta × yellow glass = black = almost nothing passes, so the target is a deep cut.">CMY GLASS ×</button>
+          <button id="ec-qclr" title="Back to one white base layer (flat)">CLEAR</button></div>
         <div class="ec-row">
           <button id="ec-on" title="Switch the color filter on or off. It works together with the EQ power button and sits after the eight bands.">COLOR FILTER OFF</button>
-          <button id="ec-glass" title="GLASS: like colored glass it only cuts. White is flat; a color keeps the frequencies it carries (red = bass, green = mid, blue = treble) and dims the rest, down to DEPTH.">GLASS</button>
-          <button id="ec-tint" title="TINT: boosts where the color is strong and cuts where it is weak, around its average, so the overall level stays about the same.">TINT</button>
-          <span>DEPTH</span><input id="ec-depth" title="How many dB the color's curve is worth (0–24)"><span>DB</span>
+          <button id="ec-glass" title="GLASS: like colored glass it only cuts. White is flat; the mix keeps the frequencies it carries (red = bass, green = mid, blue = treble) and dims the rest, down to DEPTH.">GLASS</button>
+          <button id="ec-tint" title="TINT: boosts where the mix is strong and cuts where it is weak, around its average, so the overall level stays about the same.">TINT</button>
+          <span>DEPTH</span><input id="ec-depth" title="How many dB the mix's curve is worth (0–24)"><span>DB</span>
+          <span id="ec-targetrow"><span>TARGET</span><span id="ec-targets"></span></span>
         </div>
-        <div class="ec-row" id="ec-targetrow"><span>TARGET</span><span id="ec-targets"></span></div>
       </div>
     </div>
     <div id="eq-bands"></div>
@@ -2146,18 +2159,29 @@ const EQ_TYPES=[['lc48','LOW CUT 48'],['lc12','LOW CUT 12'],['ls','LOW SHELF'],[
 const EQ_DEF=[['lc12',40,0,0.71],['ls',100,0,0.71],['pk',250,0,1],['pk',800,0,1],['pk',2000,0,1],['pk',5000,0,1],['hs',8000,0,0.71],['hc12',16000,0,0.71]];
 const EQ_GAIN_MAX=15,EQ_Q_MIN=0.1,EQ_Q_MAX=18;
 const EQ_BW8=[0.5098,0.6013,0.9,2.5629];   // the four section Qs of an 8th-order Butterworth filter (a 48 dB/oct cut)
-function eqFresh(){return{on:false,trim:0,scale:1,mode:'st',adapt:false,color:{on:false,r:1,g:1,b:1,glass:true,depth:12,target:'both'},sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q,lane:0}))};}
+function eqFresh(){return{on:false,trim:0,scale:1,mode:'st',adapt:false,color:{on:false,sel:0,glass:true,depth:12,target:'both',slots:colFreshSlots()},sel:0,bands:EQ_DEF.map(([type,f,g,q])=>({on:false,type,f,g,q,lane:0}))};}
 const EQ_LANES={ms:['MID','SIDE'],lr:['LEFT','RIGHT']};   // in Mid/Side and Left/Right modes each band works on lane 0 or lane 1
 let masterEq=eqFresh();
 const eqEg=b=>b.g*(typeof masterEq.scale==='number'?masterEq.scale:1);   // the gain actually heard: the band's gain times the master Scale
 const EQ_ADAPT_K=0.08;   // WEDGED: Adaptive Q adds 8% to Q per dB of gain (15 dB → about 2.2×). Hand-picked, not a published curve.
 const eqHasGain=t=>t==='ls'||t==='pk'||t==='hs';
 const eqHasQ=t=>t!=='ls'&&t!=='hs';
+// Color filter slots: eight color layers. The first active slot is the BASE; slots above it are blended in as ADD (light adds) or MULTIPLY (glass stacks).
+function colFreshSlots(){return Array.from({length:8},(_,i)=>({on:i===0,r:1,g:1,b:1,amount:1,blend:'mul'}));}
+function colNormalize(c,num){
+  const d={on:false,sel:0,glass:true,depth:12,target:'both',slots:colFreshSlots()};
+  if(!c||typeof c!=='object') return d;
+  d.on=!!c.on;d.glass=c.glass!==false;d.depth=num(c.depth,0,24,12);d.target=(c.target===0||c.target===1)?c.target:'both';d.sel=Math.max(0,Math.min(7,c.sel|0));
+  if(Array.isArray(c.slots)) c.slots.slice(0,8).forEach((x,i)=>{if(!x||typeof x!=='object') return;
+    d.slots[i]={on:!!x.on,r:num(x.r,0,1,1),g:num(x.g,0,1,1),b:num(x.b,0,1,1),amount:num(x.amount,0,1,1),blend:x.blend==='add'?'add':'mul'};});
+  else if(typeof c.r==='number') d.slots[0]={on:true,r:num(c.r,0,1,1),g:num(c.g,0,1,1),b:num(c.b,0,1,1),amount:1,blend:'mul'};   // saves from before slots: one color
+  return d;
+}
 function eqNormalize(o){
   const d=eqFresh();if(!o||typeof o!=='object') return d;
   const num=(v,lo,hi,df)=>(typeof v==='number'&&isFinite(v))?Math.max(lo,Math.min(hi,v)):df;
   d.on=!!o.on;d.trim=num(o.trim,-36,12,0);d.scale=num(o.scale,0,2,1);d.mode=(o.mode==='ms'||o.mode==='lr')?o.mode:'st';d.adapt=!!o.adapt;
-  if(o.color&&typeof o.color==='object'){const c=o.color;d.color={on:!!c.on,r:num(c.r,0,1,1),g:num(c.g,0,1,1),b:num(c.b,0,1,1),glass:c.glass!==false,depth:num(c.depth,0,24,12),target:(c.target===0||c.target===1)?c.target:'both'};}d.sel=Math.max(0,Math.min(7,(o.sel|0)));
+  d.color=colNormalize(o.color,num);d.sel=Math.max(0,Math.min(7,(o.sel|0)));
   if(Array.isArray(o.bands)) o.bands.slice(0,8).forEach((b,i)=>{
     if(!b) return;const t=EQ_TYPES.some(x=>x[0]===b.type)?b.type:d.bands[i].type;
     d.bands[i]={on:!!b.on,type:t,f:num(b.f,20,20000,d.bands[i].f),g:num(b.g,-EQ_GAIN_MAX,EQ_GAIN_MAX,0),q:num(b.q,EQ_Q_MIN,EQ_Q_MAX,d.bands[i].q),lane:b.lane===1?1:0};
@@ -2219,14 +2243,23 @@ function cbBasis(sr){
     for(let r=0;r<n;r++)if(r!==c){const f=M[r][c];if(f)for(let j=0;j<2*n;j++)M[r][j]-=f*M[c][j];}}
   CB_CACHE={sr,phi,inv:M.map(r=>r.slice(n))};return CB_CACHE;
 }
-function colTargetDb(c){   // the target curve (dB) at the fit grid
-  const T=CB_G.map(f=>colCurve(colU(f),c.r,c.g,c.b));
+// The slot mix: the first active slot is the base (amount 0 = no effect, 1 = its full glass curve); each later slot is MULTIPLIED in (glass stacks: transmissions multiply)
+// or ADDED (light adds, capped at 1), each scaled by its amount. Wedged: Photoshop-style layer order. Additive mixes magnitude curves (not literal parallel signal paths: phases would interfere).
+function colMixT(c,us){
+  const act=c.slots.filter(x=>x.on);if(!act.length) return us.map(()=>1);
+  return us.map(u=>{let X=1;act.forEach((x,i)=>{const C=colCurve(u,x.r,x.g,x.b);
+    if(i===0) X=1-x.amount*(1-C);else if(x.blend==='add') X=Math.min(1,X+x.amount*C);else X*=1-x.amount*(1-C);});return X;});
+}
+function colTargetDbAt(c,fs){   // the target curve (dB) at the given frequencies
+  const T=colMixT(c,fs.map(f=>colU(f)));
   if(c.glass) return T.map(t=>-c.depth*(1-t));
-  let m=0,n=0;CB_G.forEach((f,j)=>{if(f>=COL_F0&&f<=COL_F1){m+=T[j];n++;}});m/=n;
+  let m=0,n=0;fs.forEach((f,j)=>{if(f>=COL_F0&&f<=COL_F1){m+=T[j];n++;}});m=n?m/n:0.5;
   return T.map(t=>c.depth*(t-m));
 }
+const colTargetDb=c=>colTargetDbAt(c,CB_G);
+const colMixKey=c=>c.slots.map(x=>[x.on?1:0,x.r.toFixed(3),x.g.toFixed(3),x.b.toFixed(3),x.amount.toFixed(3),x.blend].join(',')).join(';')+'|'+(c.glass?1:0)+'|'+c.depth;
 function cbGains(sr){   // 16 gains in dB for the current color (cached)
-  const c=masterEq.color,key=[c.r.toFixed(4),c.g.toFixed(4),c.b.toFixed(4),c.glass?1:0,c.depth,sr].join('|');
+  const c=masterEq.color,key=colMixKey(c)+'|'+sr;
   if(CB_LAST.key===key) return CB_LAST.w;
   const B=cbBasis(sr),tg=colTargetDb(c),w=new Array(CB_N).fill(0);
   for(let it=0;it<3;it++){
@@ -2749,7 +2782,13 @@ function lbDrawEqOverlay(g,padL,padT,pw,ph){
   }
   eqCurve(n,pw,sr,AN.eqc,undefined,cl);
   let cc=AN.colView&&AN.colNow?AN.colNow[lanes?cl:0]:null,ctg=null;
-  if(AN.eqview==='color'){const k=masterEq.color;cc={r:k.r,g:k.g,b:k.b,flat:false,mx:0};ctg=colTargetDb(k);}
+  if(AN.eqview==='color'){const k=masterEq.color,kk=colMixKey(k);
+    if(AN.mixKey!==kk){AN.mixKey=kk;AN.mixFit=eqColorFit(colTargetDbAt(k,Array.from(COL_UF)));}
+    cc=Object.assign({},AN.mixFit,{mx:0,flat:false});ctg=colTargetDb(k);
+    k.slots.forEach((x,i)=>{if(!x.on||k.slots.filter(y=>y.on).length<2) return;   // each layer's own glass shape, thin and dotted
+      g.beginPath();for(let q=0;q<n;q++){const u=colU(lbX2f(q+.5,pw)),E=1-x.amount*(1-colCurve(u,x.r,x.g,x.b)),y=gy(-k.depth*(1-E));q?g.lineTo(padL+q,y):g.moveTo(padL+q,y);}
+      g.setLineDash([1.5,3]);g.strokeStyle=`rgba(${Math.round(x.r*255)},${Math.round(x.g*255)},${Math.round(x.b*255)},${i===k.sel?.95:.55})`;g.lineWidth=i===k.sel?1.6:1;g.stroke();g.setLineDash([]);});
+  }
   g.beginPath();g.moveTo(padL,cy);for(let i=0;i<n;i++)g.lineTo(padL+i,gy(AN.eqc[i]));g.lineTo(padL+n-1,cy);g.closePath();g.fillStyle=cc?`rgba(${Math.round(cc.r*255)},${Math.round(cc.g*255)},${Math.round(cc.b*255)},.30)`:'rgba(240,232,210,.10)';g.fill();
   if(cc&&!cc.flat){g.beginPath();for(let i=0;i<n;i++){const u=colU(lbX2f(i+.5,pw)),y=ctg?gy(ctg[Math.max(0,Math.min(CB_G.length-1,Math.round(109*Math.log(lbX2f(i+.5,pw)/25)/Math.log(760))))]):gy(cc.mx-COL_DEPTH*(1-colCurve(u,cc.r,cc.g,cc.b)));i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.setLineDash([5,4]);g.strokeStyle=`rgb(${Math.round(cc.r*255)},${Math.round(cc.g*255)},${Math.round(cc.b*255)})`;g.lineWidth=1.8;g.stroke();g.setLineDash([]);}
   g.beginPath();for(let i=0;i<n;i++){const y=gy(AN.eqc[i]);i?g.lineTo(padL+i,y):g.moveTo(padL+i,y);}g.strokeStyle='rgba(250,244,226,.95)';g.lineWidth=1.6;g.stroke();
@@ -2798,16 +2837,18 @@ function eqSyncUI(){
   if(typeof eqPresetSync==='function') eqPresetSync();
   if(AN.open&&AN.tab==='eq') lbDrawActive();
 }
-// ── Color panel (wheel, lightness, hex, tray, glass/tint, depth, target) ──
+// ── Color panel (slots, wheel, lightness, hex, tray, glass/tint, depth, target) ──
+const colSel=()=>{const c=masterEq.color;return c.slots[c.sel|0]||c.slots[0];};
 function colHslToRgb(h,sat,l){const a=sat*Math.min(l,1-l),f=n=>{const k=(n+h*12)%12;return l-a*Math.max(-1,Math.min(k-3,9-k,1));};return[f(0),f(8),f(4)];}
 function colRgbToHsl(r,g,b){const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn;let h=0,sat=0;
   if(d>1e-9){sat=d/(1-Math.abs(2*l-1));if(mx===r)h=((g-b)/d+(g<b?6:0))/6;else if(mx===g)h=((b-r)/d+2)/6;else h=((r-g)/d+4)/6;}
   return[h,sat,l];}
 function colSetRGB(r,g,b,keepHue){
-  const c=masterEq.color;c.r=Math.max(0,Math.min(1,r));c.g=Math.max(0,Math.min(1,g));c.b=Math.max(0,Math.min(1,b));
+  const c=colSel();c.r=Math.max(0,Math.min(1,r));c.g=Math.max(0,Math.min(1,g));c.b=Math.max(0,Math.min(1,b));
   const[h,sat,l]=colRgbToHsl(c.r,c.g,c.b);if(!keepHue||(sat>0.02&&l>0.02&&l<0.98)){AN.colH=h;AN.colS=sat;}AN.colL=l;
 }
 function colFromHSL(){const[r,g,b]=colHslToRgb(AN.colH||0,AN.colS||0,AN.colL===undefined?0.5:AN.colL);colSetRGB(r,g,b,true);AN.colL=Math.max(0,Math.min(1,AN.colL));}
+function colLoadSlotHSL(){const c=colSel(),[h,sat,l]=colRgbToHsl(c.r,c.g,c.b);AN.colH=h;AN.colS=sat;AN.colL=(l>0.98||l<0.02)?0.5:l;AN.colSlot=masterEq.color.sel|0;}   // white or black: start the wheel at mid lightness so its colors show
 function eqColorPanelSync(){
   const pn=document.getElementById('eq-colorpanel');if(!pn) return;
   const inColor=AN.eqview==='color';
@@ -2816,13 +2857,23 @@ function eqColorPanelSync(){
   const fl=document.querySelector('#an-sec-eq .eq-fields');if(fl) fl.style.display=inColor?'none':'';
   const vb=document.getElementById('eq-view');if(vb){vb.textContent='VIEW: '+(inColor?'COLOR':'BANDS');vb.classList.toggle('on',inColor);}
   if(!inColor) return;
-  const c=masterEq.color;
-  if(AN.colH===undefined){const[h,sat,l]=colRgbToHsl(c.r,c.g,c.b);AN.colH=h;AN.colS=sat;AN.colL=(l>0.98||l<0.02)?0.5:l;}   // white or black: start the wheel at mid lightness so its colors show
+  const c=masterEq.color,sl=colSel();
+  if(AN.colH===undefined||AN.colSlot!==(c.sel|0)) colLoadSlotHSL();
+  else{const[r,g,b]=colHslToRgb(AN.colH,AN.colS,AN.colL);if(Math.abs(r-sl.r)+Math.abs(g-sl.g)+Math.abs(b-sl.b)>0.02) colLoadSlotHSL();}   // after undo or a tray click the wheel follows the color
   const act=document.activeElement;
+  const firstOn=c.slots.findIndex(x=>x.on);
+  document.getElementById('ec-slots').innerHTML=c.slots.map((x,i)=>`<div class="ec-slot${x.on?'':' off'}${i===c.sel?' sel':''}" data-i="${i}" style="background:${x.on?`rgb(${Math.round(x.r*255)},${Math.round(x.g*255)},${Math.round(x.b*255)})`:''};color:${x.on&&(x.r*.3+x.g*.6+x.b*.1)<.45?'#fff':'#0b0a12'}">${i+1}${x.on?`<i>${i===firstOn?'BASE':x.blend==='add'?'+':'×'}</i>`:''}</div>`).join('');
+  document.getElementById('ec-sn').textContent=(c.sel|0)+1;
+  const son=document.getElementById('ec-son');son.textContent=sl.on?'ON':'OFF';son.classList.toggle('on',sl.on);
+  const am=document.getElementById('ec-amt');if(act!==am) am.value=Math.round(sl.amount*100);
+  document.getElementById('ec-amtv').textContent=Math.round(sl.amount*100);
+  const isBase=(c.sel|0)===firstOn||!sl.on&&firstOn<0;
+  document.getElementById('ec-blendrow').style.display=isBase?'none':'';document.getElementById('ec-base').style.display=isBase?'':'none';
+  document.getElementById('ec-mul').classList.toggle('on',sl.blend==='mul');document.getElementById('ec-add').classList.toggle('on',sl.blend==='add');
   const lv=document.getElementById('ec-l');if(act!==lv) lv.value=Math.round(AN.colL*100);
   document.getElementById('ec-lv').textContent=Math.round(AN.colL*100);
-  const hx=document.getElementById('ec-hex');if(act!==hx) hx.value=colHex(c.r,c.g,c.b);
-  document.getElementById('ec-rgb').textContent=`${Math.round(c.r*255)} · ${Math.round(c.g*255)} · ${Math.round(c.b*255)}`;
+  const hx=document.getElementById('ec-hex');if(act!==hx) hx.value=colHex(sl.r,sl.g,sl.b);
+  document.getElementById('ec-rgb').textContent=`${Math.round(sl.r*255)} · ${Math.round(sl.g*255)} · ${Math.round(sl.b*255)}`;
   const on=document.getElementById('ec-on');on.textContent=c.on?'COLOR FILTER ON':'COLOR FILTER OFF';on.classList.toggle('on',c.on);
   document.getElementById('ec-glass').classList.toggle('on',c.glass);document.getElementById('ec-tint').classList.toggle('on',!c.glass);
   const dp=document.getElementById('ec-depth');if(act!==dp) dp.value=c.depth;
@@ -2845,27 +2896,41 @@ function colDrawWheel(){
   g.beginPath();g.arc(mx,my,8,0,6.2832);g.lineWidth=2.5;g.strokeStyle='#fff';g.stroke();g.lineWidth=1;g.strokeStyle='#000';g.beginPath();g.arc(mx,my,9.5,0,6.2832);g.stroke();
 }
 function eqColorInit(){
-  const c=()=>masterEq.color;
+  const c=()=>masterEq.color,sl=()=>colSel();
   const tray=document.getElementById('ec-tray');if(!tray) return;
   const TR=[['R',1,0,0],['G',0,1,0],['B',0,0,1],['C',0,1,1],['M',1,0,1],['Y',1,1,0],['W',1,1,1],['K',0,0,0]];
   tray.innerHTML=TR.map(([n,r,g,b])=>`<span class="ec-chip" data-i="${n}" title="${n==='W'?'White: everything passes (flat)':n==='K'?'Black: everything blocked (a flat drop of DEPTH in glass)':n+(n==='R'||n==='G'||n==='B'?' – a basis filter: '+({R:'bass',G:'mid',B:'treble'})[n]:' – the opposite of '+({C:'red',M:'green',Y:'blue'})[n])}" style="background:rgb(${r*255},${g*255},${b*255})"></span>`).join('');
   tray.addEventListener('click',e=>{const t=e.target.closest('.ec-chip');if(!t) return;const row=TR.find(x=>x[0]===t.dataset.i);
-    pushHistory();colSetRGB(row[1],row[2],row[3]);eqChanged(false);});
+    pushHistory();sl().on=true;colSetRGB(row[1],row[2],row[3]);eqChanged(false);});
+  document.getElementById('ec-slots').addEventListener('click',e=>{const t=e.target.closest('.ec-slot');if(!t) return;const i=+t.dataset.i;
+    if(!c().slots[i].on){pushHistory();c().slots[i].on=true;}
+    c().sel=i;colLoadSlotHSL();eqChanged(false);});
+  document.getElementById('ec-son').addEventListener('click',()=>{pushHistory();sl().on=!sl().on;eqChanged(false);});
+  const am=document.getElementById('ec-amt');
+  am.addEventListener('input',()=>{beginGesture();sl().amount=am.value/100;eqChanged(false);});
+  am.addEventListener('change',()=>{commitGesture();saveState();});
+  document.getElementById('ec-mul').addEventListener('click',()=>{if(sl().blend==='mul') return;pushHistory();sl().blend='mul';eqChanged(false);});
+  document.getElementById('ec-add').addEventListener('click',()=>{if(sl().blend==='add') return;pushHistory();sl().blend='add';eqChanged(false);});
+  const quick=(list)=>{pushHistory();const k=c();k.slots=colFreshSlots();k.slots.forEach(x=>x.on=false);
+    list.forEach(([r,g,b,bl],i)=>{k.slots[i]={on:true,r,g,b,amount:1,blend:bl};});k.sel=0;colLoadSlotHSL();eqChanged(false);};
+  document.getElementById('ec-qrgb').addEventListener('click',()=>quick([[1,0,0,'mul'],[0,1,0,'add'],[0,0,1,'add']]));
+  document.getElementById('ec-qcmy').addEventListener('click',()=>quick([[0,1,1,'mul'],[1,0,1,'mul'],[1,1,0,'mul']]));
+  document.getElementById('ec-qclr').addEventListener('click',()=>{pushHistory();c().slots=colFreshSlots();c().sel=0;colLoadSlotHSL();eqChanged(false);});
   const cvs=document.getElementById('ec-wheel');
   const pick=(ev)=>{const r=cvs.getBoundingClientRect(),dx=ev.clientX-r.left-r.width/2,dy=ev.clientY-r.top-r.height/2,rho=Math.min(1,Math.hypot(dx,dy)/(r.width/2));
-    AN.colH=(Math.atan2(dy,dx)/(2*Math.PI)+1)%1;AN.colS=rho;colFromHSL();eqChanged(false);};
+    sl().on=true;AN.colH=(Math.atan2(dy,dx)/(2*Math.PI)+1)%1;AN.colS=rho;colFromHSL();eqChanged(false);};
   cvs.addEventListener('mousedown',e=>{e.preventDefault();beginGesture();pick(e);
     const mv=ev=>pick(ev),up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);commitGesture();saveState();};
     window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);});
   const l=document.getElementById('ec-l');
-  l.addEventListener('input',()=>{beginGesture();AN.colL=l.value/100;colFromHSL();eqChanged(false);});
+  l.addEventListener('input',()=>{beginGesture();sl().on=true;AN.colL=l.value/100;colFromHSL();eqChanged(false);});
   l.addEventListener('change',()=>{commitGesture();saveState();});
   const hx=document.getElementById('ec-hex');
-  hx.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')hx.blur();else if(e.key==='Escape'){hx.value=colHex(c().r,c().g,c().b);hx.blur();}});
+  hx.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')hx.blur();else if(e.key==='Escape'){hx.value=colHex(sl().r,sl().g,sl().b);hx.blur();}});
   hx.addEventListener('blur',()=>{const m=/^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hx.value.trim());if(!m){eqColorPanelSync();return;}
     let h=m[1];if(h.length===3)h=h.split('').map(x=>x+x).join('');const r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;
-    if(Math.abs(r-c().r)+Math.abs(g-c().g)+Math.abs(b-c().b)<0.004){eqColorPanelSync();return;}
-    pushHistory();colSetRGB(r,g,b);eqChanged(false);});
+    if(Math.abs(r-sl().r)+Math.abs(g-sl().g)+Math.abs(b-sl().b)<0.004){eqColorPanelSync();return;}
+    pushHistory();sl().on=true;colSetRGB(r,g,b);eqChanged(false);});
   document.getElementById('ec-on').addEventListener('click',()=>{pushHistory();c().on=!c().on;eqChanged(true);});
   document.getElementById('ec-glass').addEventListener('click',()=>{if(c().glass) return;pushHistory();c().glass=true;eqChanged(false);});
   document.getElementById('ec-tint').addEventListener('click',()=>{if(!c().glass) return;pushHistory();c().glass=false;eqChanged(false);});
@@ -2874,7 +2939,7 @@ function eqColorInit(){
   dp.addEventListener('blur',()=>{const x=eqParseNum(dp.value,0,24);if(x!==null&&x!==c().depth){pushHistory();c().depth=x;eqChanged(false);}else eqColorPanelSync();});
   dp.addEventListener('wheel',e=>{e.preventDefault();beginGesture();c().depth=Math.max(0,Math.min(24,Math.round((c().depth-Math.sign(e.deltaY)*(e.shiftKey?0.5:1))*10)/10));eqChanged(false);clearTimeout(AN.dpT);AN.dpT=setTimeout(()=>{commitGesture();saveState();},500);},{passive:false});
   document.getElementById('ec-targets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b) return;pushHistory();const v=b.dataset.t;c().target=v==='both'?'both':+v;eqChanged(true);});
-  document.getElementById('eq-view').addEventListener('click',()=>{AN.eqview=AN.eqview==='color'?'bands':'color';anSave();eqSyncUI();});
+  document.getElementById('eq-view').addEventListener('click',()=>{AN.eqview=AN.eqview==='color'?'bands':'color';if(AN.eqview==='color'&&AN.h<560){AN.h=560;anPlace();}anSave();eqSyncUI();});
 }
 function eqColorChips(){
   const el=document.getElementById('eq-col');if(!el) return;
