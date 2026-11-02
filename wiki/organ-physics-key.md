@@ -1,5 +1,5 @@
 # Trickno · Organ — Physics Key
-*Vocabulary and functions. The chain from card to sound. Last settled: Oct 30, 2026 (evening: Color Filter) (Phase A step 4 + presets + undo audit + 4b parts 1–3). This is the only copy.*
+*Vocabulary and functions. The chain from card to sound. Last settled: Oct 31, 2026 (Color EQ phase 2: slots) (Phase A step 4 + presets + undo audit + 4b parts 1–3). This is the only copy.*
 
 Status tags used throughout: **BUILT** (in organ.html) · **READING** (built as a readout; does not change the sound) · **AGREED** (decided, not built) · **PARKED** (later, on purpose) · **OPEN** (undecided) · **WEDGED** (hand-picked mapping, not derived from an equation).
 
@@ -281,3 +281,12 @@ Suit waveforms: Wands triangle · Cups sine · Swords sawtooth · Disks square �
 - **WEDGED:** bank layout and Q (found by sweeping: Q 2.8 gave 4 dB error, Q 0.7 gave 0.28 dB), DEPTH default and ceiling, the tray's black and white, wheel starts at mid lightness when the color is white.
 - **Display:** in COLOR view the wheel color tints the curve and its glass/tint target is drawn dashed over the real curve. The COLOR VIEW chip still reads the combined EQ (bands + color stage) back into a color.
 - **NEXT (Phase 2):** 8 color slots, each with amount and ADD (RGB) / MULTIPLY (CMY) blending, feeding the same bank.
+
+### BUILT Oct 31, 2026: COLOR FILTER Phase 2 (8 color slots, ADD and MULTIPLY)
+- **Eight color slots** (a row of chips on top of the COLOR view). Click a slot to select it (and switch it on); the wheel, lightness, hex and tray edit the selected slot. Each slot has **AMOUNT** (0–100%, like layer opacity), an on/off, and a **blend** (MULTIPLY or ADD). The first slot that is on is the **BASE**; the others are blended into it in order, bottom to top (like image layers).
+- **The mix** (per frequency u on the 60 Hz–16 kHz axis, C = the slot's Color Lab curve): BASE X = 1 − amount·(1 − C). MULTIPLY: X ← X · (1 − amount·(1 − C)) (glass stacks: transmissions multiply, in dB they add, the same law as EQ bands in series). ADD: X ← min(1, X + amount·C) (light adds, capped at 1). The result X goes through GLASS (−DEPTH·(1 − X)) or TINT (DEPTH·(X − average)) exactly as in Phase 1 and feeds the same 16-filter bank. Old single-color saves load as slot 1.
+- **Quick sets (the lesson buttons):** RGB LIGHT + = R (base), G add, B add → X ≈ 1 everywhere → the target is flat (white light = everything passes); measured −0.0 dB at 1 kHz, −0.8 and −0.65 dB at 120 Hz and 9 kHz. CMY GLASS × = C (base), M, Y multiplied → X ≈ 0.2 or less → a deep cut; measured −11.7, −9.8 and −12.1 dB at 120 Hz, 1 kHz and 9 kHz (depth 12). CLEAR = one white base.
+- **Honest limit (WEDGED idea):** additive here mixes magnitude curves into one target. Real parallel filter paths would interfere through their phases, so this is the Lab's picture of light, not literal parallel wiring.
+- **Display:** with COLOR VIEW on, each active layer's own glass shape is drawn dotted (selected one brighter) under the dashed mix target; the curve tint is the single best-fit color of the whole mix. The analyzer window grows to at least 560 px tall when you first enter COLOR view.
+- **Checked:** slot-mix math, fit error across mixed stacks 0.28 dB worst, undo/redo, save/reload, legacy single-color save; with the color stage off, the EQ renders identically to the previous version.
+- **NEXT:** let Justin explore. Candidate follow-ups (not started): per-channel Effects Lab placement of the EQ/color stage (his Oct 31 note: the color filter fits channels well), a color-of-the-whole-mix readout in the transport bar, saving a slot stack as a preset.

@@ -349,10 +349,22 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .tl-rep.tl-rep-ghost:hover{opacity:0.7;}
 .tl-rep-num{font-family:'Cinzel',serif;font-size:8px;color:rgba(255,255,255,.5);}
 .tl-rep-name{font-family:'Cinzel',serif;font-size:10px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* B0: loop-section bar, ghost playhead */
+#tl-loopbar{height:14px;position:relative;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(201,169,110,.08);cursor:crosshair;flex-shrink:0;touch-action:none;}
+#tl-ruler{touch-action:none;user-select:none;}
+.tl-loop-region{position:absolute;top:0;height:100%;background:rgba(140,200,255,.16);border:1px solid rgba(140,200,255,.35);box-sizing:border-box;cursor:grab;}
+.tl-loop-region.on{background:rgba(140,200,255,.38);border-color:rgba(170,220,255,.95);box-shadow:0 0 6px rgba(140,200,255,.45);}
+.tl-loop-h{position:absolute;top:0;width:7px;height:100%;cursor:ew-resize;background:rgba(170,220,255,.55);}
+.tl-loop-h.l{left:-1px;}.tl-loop-h.r{right:-1px;}
+#tl-ghost{position:absolute;top:0;left:0;width:2px;display:none;pointer-events:none;z-index:19;}
+#tl-ghost .gh-head{width:14px;height:12px;background:rgba(255,255,220,.45);clip-path:polygon(50% 100%,0 0,100% 0);margin-left:-6px;}
+#tl-ghost .gh-line{width:0;height:98px;border-left:2px dashed rgba(255,255,200,.55);margin-left:-1px;}
+#tl-ghost .gh-lbl{position:absolute;top:-14px;left:8px;font:9px Cinzel,serif;color:rgba(255,255,220,.9);background:rgba(0,0,0,.7);padding:1px 4px;border-radius:3px;white-space:nowrap;}
+#tl-loop-btn.on{color:#aadcff;border-color:rgba(170,220,255,.8);box-shadow:0 0 6px rgba(140,200,255,.4);}
 /* Playhead */
 #tl-playhead{position:absolute;top:0;left:0;width:2px;pointer-events:none;z-index:20;transform:translateX(0);}
 #tl-playhead-head{width:14px;height:12px;background:rgba(255,255,220,.95);clip-path:polygon(50% 100%,0 0,100% 0);margin-left:-6px;filter:drop-shadow(0 0 3px rgba(255,255,180,.8));}
-#tl-playhead-line{width:2px;height:84px;background:rgba(255,255,200,.75);margin-left:-1px;box-shadow:0 0 4px rgba(255,255,180,.5);}
+#tl-playhead-line{width:2px;height:98px;background:rgba(255,255,200,.75);margin-left:-1px;box-shadow:0 0 4px rgba(255,255,180,.5);}
 /* Clip stats popup */
 #clip-stats-popup{position:fixed;z-index:310;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.35);border-radius:8px;box-shadow:0 16px 48px rgba(0,0,0,.95);display:none;min-width:240px;max-width:90vw;overflow:hidden;}
 #clip-stats-popup.show{display:block;}
@@ -872,6 +884,7 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
       <button id="tl-zoom-in" class="tb">+</button>
     </div>
     <button id="tl-time-mode" class="tb" title="Toggle steps / clock time">STEPS</button>
+    <button id="tl-loop-btn" class="tb" title="Loop the marked section (drag on the thin bar under the ruler to mark one)">⟲ SECTION</button>
     <div id="tl-snap-group">
       <button id="tl-snap-btn" class="tb tl-snap-off" title="Snap resize to step grid">⊡ SNAP</button>
       <select id="tl-snap-steps" class="tl-snap-sel" title="Snap resolution">
@@ -891,11 +904,13 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   <div id="tl-scroll-wrap">
     <div id="tl-inner">
       <div id="tl-ruler"></div>
+      <div id="tl-loopbar" title="Drag to set a loop section · drag edges to resize · double-click to clear"></div>
       <div id="tl-track">
         <div id="tl-clips"></div>
         <div id="tl-insert-indicator"></div>
         <div id="tl-resize-tip"></div>
       </div>
+      <div id="tl-ghost"><div class="gh-head"></div><div class="gh-line"></div><div class="gh-lbl"></div></div>
       <div id="tl-playhead">
         <div id="tl-playhead-head"></div>
         <div id="tl-playhead-line"></div>
@@ -1451,7 +1466,7 @@ function requireAuth(){
   return true;
 }
 function currentSongPayload(){
-  return{bpm,step_count:patterns[activePatternIndex].stepCount,tracks:{channels,patterns,multiOctave:songMultiOctave,arrangementClips,playMode,songLoop,patternCounter,channelGroups,masterEq},updated_at:new Date().toISOString()};
+  return{bpm,step_count:patterns[activePatternIndex].stepCount,tracks:{channels,patterns,multiOctave:songMultiOctave,arrangementClips,playMode,songLoop,loopSection:loopSec,patternCounter,channelGroups,masterEq},updated_at:new Date().toISOString()};
 }
 
 // Every song the signed-in user owns, grouped into families (version
@@ -1579,7 +1594,7 @@ function applyLoadedSong(row){
   if(Array.isArray(row.tracks)){
     const migrated=migrateFlatTracks(row.tracks,row.step_count||16);
     channels=migrated.channels;patterns=migrated.patterns;
-    songMultiOctave=false;arrangementClips=[];playMode='pattern';songLoop=true;
+    songMultiOctave=false;arrangementClips=[];playMode='pattern';songLoop=true;loopSec={on:false,start:0,end:0};
   } else if(row.tracks&&row.tracks.channels&&row.tracks.patterns){
     channels=row.tracks.channels;patterns=row.tracks.patterns;
     songMultiOctave=row.tracks.multiOctave||false;
@@ -1588,13 +1603,13 @@ function applyLoadedSong(row){
     else if(row.tracks.orderList) arrangementClips=migrateOrderListToClips(row.tracks.orderList,patterns);
     else arrangementClips=[];
     playMode=row.tracks.playMode||'pattern';
-    songLoop=row.tracks.songLoop!==undefined?row.tracks.songLoop:true;
+    songLoop=row.tracks.songLoop!==undefined?row.tracks.songLoop:true;loopSec=loopNormalize(row.tracks.loopSection);
     patternCounter=row.tracks.patternCounter||0;
     channelGroups=row.tracks.channelGroups||[];
     masterEq=eqNormalize(row.tracks.masterEq);
   } else {
     channels=[];patterns=[newPattern('Pattern 1',16,[])];
-    songMultiOctave=false;arrangementClips=[];playMode='pattern';songLoop=true;
+    songMultiOctave=false;arrangementClips=[];playMode='pattern';songLoop=true;loopSec={on:false,start:0,end:0};
   }
   eqAfterLoad();
   backfillPatternColors(patterns);
@@ -1911,7 +1926,7 @@ function clearForNewSong(){
   patterns=[newPattern('Pattern 1',16,channels)];
   activePatternIndex=0;
   currentSongId=null;currentSongName='';currentSongFamilyId=null;currentSongVersion=1;
-  songMultiOctave=true;arrangementClips=[];channelGroups=[];playMode='pattern';songLoop=true;patternCounter=0;
+  songMultiOctave=true;arrangementClips=[];channelGroups=[];playMode='pattern';songLoop=true;loopSec={on:false,start:0,end:0};patternCounter=0;
   masterEq=eqFresh();eqAfterLoad();
   updateOctaveModeBtn();updateSongNameDisplay();
   document.getElementById('play-mode-btn').textContent='◈ PATTERN';
@@ -3911,6 +3926,8 @@ let patternSwitchMode='queue'; // 'queue' = wait for loop end; 'instant' = switc
 let arrangementClips=[];
 let playMode='pattern';
 let songLoop=true;
+let loopSec={on:false,start:0,end:0}; // B0 loop section (steps). end>start means a region exists. Default OFF.
+let loopWrapTime=0;
 let timelinePos=0;
 let timelineVisualPos=0;
 let lastStepFiredTime=0;
@@ -4429,7 +4446,7 @@ let undoStack=[],redoStack=[];
 const MAX_HISTORY=60;
 let pendingGesture=null; // for slider/color-drag gestures (begin...commit)
 
-function snapshotState(){return JSON.stringify({bpm,channels,patterns,activePatternIndex,arrangementClips:JSON.parse(JSON.stringify(arrangementClips)),channelGroups:JSON.parse(JSON.stringify(channelGroups)),songMultiOctave,masterEq});}
+function snapshotState(){return JSON.stringify({bpm,channels,patterns,activePatternIndex,arrangementClips:JSON.parse(JSON.stringify(arrangementClips)),channelGroups:JSON.parse(JSON.stringify(channelGroups)),songMultiOctave,masterEq,loopSec});}
 function restoreSnapshot(json){
   const d=JSON.parse(json);
   bpm=d.bpm;channels=d.channels;patterns=d.patterns;activePatternIndex=d.activePatternIndex||0;
@@ -4437,6 +4454,7 @@ function restoreSnapshot(json){
   if(d.channelGroups) channelGroups=d.channelGroups; else channelGroups=[];
   if(d.songMultiOctave!==undefined){songMultiOctave=d.songMultiOctave;updateOctaveModeBtn();}
   masterEq=eqNormalize(d.masterEq);eqAfterLoad();
+  loopSec=loopNormalize(d.loopSec);
   selectedClips.clear();selectedChannels.clear();
   document.getElementById('bpm-val').textContent=bpm;
   syncStepPresetUI();
@@ -4764,6 +4782,8 @@ function startPlay(){
   if(playMode==='song'&&arrangementClips.length>0){
     // Start from timelinePos (stop-in-place) — don't reset unless at end
     if(timelinePos>=getTotalTimelineSteps()) timelinePos=0;
+    loopWrapTime=0;
+    if(loopSec.on&&loopSec.end>loopSec.start){timelinePos=loopSec.start;timelineVisualPos=timelinePos;} // looping: start at the loop's beginning
     const ci=getClipAtStep(timelinePos);
     if(ci){activePatternIndex=ci.clip.patternIndex;}
     lastStepFiredTime=a.currentTime;
@@ -4777,7 +4797,7 @@ function startPlay(){
 }
 function stopPlay(){
   playing=false;clearTimeout(schedTimer);cancelAnimationFrame(rafHandle);stepQueue.length=0;
-  pendingPatternIndex=null;needsRender=false;needsStop=false;songPlayStartAudioTime=0;
+  pendingPatternIndex=null;needsRender=false;needsStop=false;songPlayStartAudioTime=0;loopWrapTime=0;
   document.querySelectorAll('.step-cell.ph,.step-cell.flash,.drum-cell.ph,.drum-cell.flash').forEach(el=>el.classList.remove('ph','flash'));
   document.getElementById('play-btn').classList.remove('playing');document.getElementById('play-btn').textContent='▶ Play';
   activeNotes=[];
@@ -4799,6 +4819,9 @@ function scheduler(){
   while(nextNoteTime<a.currentTime+SCHEDULE_AHEAD_S){
     if(playMode==='song'&&arrangementClips.length>0){
       const total=getTotalTimelineSteps();
+      if(loopSec.on&&loopSec.end>loopSec.start&&timelinePos===loopSec.end){
+        timelinePos=loopSec.start;loopWrapTime=nextNoteTime; // B0: jump back at the section's end
+      }
       if(timelinePos>=total){
         if(songLoop){ timelinePos=0; }
         else{ needsStop=true;needsRender=true;break; }
@@ -4859,7 +4882,8 @@ function rafLoop(){
     // This automatically handles loops — when timelinePos resets to 0 and
     // nextNoteTime advances, the computation gives ≈ 0, then grows smoothly.
     const stepDur=60/bpm/4;
-    const rawPos=timelinePos-(nextNoteTime-now)/stepDur;
+    let rawPos=timelinePos-(nextNoteTime-now)/stepDur;
+    if(loopWrapTime&&now<loopWrapTime) rawPos=loopSec.end-(loopWrapTime-now)/stepDur; // still finishing the last loop step
     const total=getTotalTimelineSteps();
     timelineVisualPos=total>0?Math.max(0,Math.min(total,rawPos)):Math.max(0,rawPos);
     const phEl=document.getElementById('tl-playhead');
@@ -6202,6 +6226,127 @@ document.addEventListener('keydown',e=>{
 });
 
 // ── Timeline render ──────────────────────────────────────────────────────
+
+// ── B0: playhead seek / drag / loop section ─────────────────────────────
+function loopNormalize(l){
+  if(!l||typeof l!=='object') return {on:false,start:0,end:0};
+  const st=Math.max(0,Math.floor(+l.start)||0),en=Math.max(0,Math.floor(+l.end)||0);
+  return en>st?{on:!!l.on,start:st,end:en}:{on:false,start:0,end:0};
+}
+function tlXToStep(clientX){
+  // #tl-inner already scrolls with the wrap, so its own left edge already contains the scroll offset
+  const r=document.getElementById('tl-inner').getBoundingClientRect();
+  return (clientX-r.left)/tlPxPerStep;
+}
+function tlSeek(step){
+  if(playing&&playMode!=='song') return;
+  const total=getTotalTimelineSteps();
+  step=Math.max(0,Math.min(total,Math.round(step)));
+  timelinePos=step;timelineVisualPos=step;
+  const ci=getClipAtStep(Math.min(step,Math.max(0,total-1)));
+  if(ci) activePatternIndex=ci.clip.patternIndex;
+  const ph=document.getElementById('tl-playhead');
+  if(ph) ph.style.transform=`translateX(${step*tlPxPerStep}px)`;
+  if(playing){
+    // Notes already queued (<0.1 s) finish; the new position starts right after them.
+    stepQueue.length=0;loopWrapTime=0;lastScheduledPatternIndex=-1;needsRender=true;
+  } else {
+    renderPatternBar();renderTimeline();render();
+  }
+}
+function tlShowGhost(step){
+  const g=document.getElementById('tl-ghost');if(!g) return;
+  g.style.display='block';g.style.transform=`translateX(${step*tlPxPerStep}px)`;
+  g.querySelector('.gh-lbl').textContent=tlTimeMode==='clock'?stepsToClockStr(step,bpm):'step '+step;
+}
+function tlHideGhost(){const g=document.getElementById('tl-ghost');if(g) g.style.display='none';}
+function tlEdgeScroll(e){
+  const w=document.getElementById('tl-scroll-wrap');if(!w) return;
+  const r=w.getBoundingClientRect();
+  if(e.clientX>r.right-30) w.scrollLeft+=14; else if(e.clientX<r.left+30) w.scrollLeft-=14;
+}
+function tlDrawLoop(){
+  const bar=document.getElementById('tl-loopbar');if(!bar) return;
+  bar.innerHTML='';
+  const btn=document.getElementById('tl-loop-btn');
+  if(btn) btn.classList.toggle('on',!!(loopSec.on&&loopSec.end>loopSec.start));
+  if(loopSec.end<=loopSec.start) return;
+  const r=document.createElement('div');r.className='tl-loop-region'+(loopSec.on?' on':'');
+  r.style.left=(loopSec.start*tlPxPerStep)+'px';r.style.width=((loopSec.end-loopSec.start)*tlPxPerStep)+'px';
+  r.dataset.h='m';
+  ['l','r'].forEach(k=>{const h=document.createElement('div');h.className='tl-loop-h '+k;h.dataset.h=k;r.appendChild(h);});
+  bar.appendChild(r);
+}
+(function tlPointerInit(){
+  const ruler=document.getElementById('tl-ruler'),bar=document.getElementById('tl-loopbar');
+  if(!ruler||!bar) return;
+  // Ruler: press, drag (ghost follows), release to jump
+  let dragging=false,gStep=0;
+  const clampStep=v=>Math.max(0,Math.min(getTotalTimelineSteps(),Math.round(v)));
+  ruler.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    dragging=true;ruler.setPointerCapture(e.pointerId);
+    gStep=clampStep(tlXToStep(e.clientX));tlShowGhost(gStep);e.preventDefault();
+  });
+  ruler.addEventListener('pointermove',e=>{
+    if(!dragging) return;
+    tlEdgeScroll(e);gStep=clampStep(tlXToStep(e.clientX));tlShowGhost(gStep);
+  });
+  const endRuler=(e,commit)=>{
+    if(!dragging) return;dragging=false;tlHideGhost();
+    if(commit) tlSeek(gStep);
+  };
+  ruler.addEventListener('pointerup',e=>endRuler(e,true));
+  ruler.addEventListener('pointercancel',e=>endRuler(e,false));
+  // Loop bar: drag out a region, move it, resize edges
+  let mode=null,anchor=0,orig=null,lastDown=0;
+  bar.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    const total=getTotalTimelineSteps();if(total<=0) return;
+    const nowT=performance.now(),dbl=nowT-lastDown<350;lastDown=nowT;
+    if(dbl){ // double-press clears the section
+      beginGesture();loopSec={on:false,start:0,end:0};tlDrawLoop();commitGesture();saveState();mode=null;e.preventDefault();return;
+    }
+    beginGesture();
+    bar.setPointerCapture(e.pointerId);
+    const st=Math.max(0,Math.min(total,Math.round(tlXToStep(e.clientX))));
+    const h=e.target.dataset?e.target.dataset.h:null;
+    orig={start:loopSec.start,end:loopSec.end};
+    if(h==='l'||h==='r'||h==='m'){mode=h;anchor=st;}
+    else{mode='new';anchor=st;loopSec={on:true,start:st,end:st};}
+    e.preventDefault();
+  });
+  bar.addEventListener('pointermove',e=>{
+    if(!mode) return;
+    tlEdgeScroll(e);
+    const total=getTotalTimelineSteps();
+    const st=Math.max(0,Math.min(total,Math.round(tlXToStep(e.clientX))));
+    if(mode==='new'){loopSec.start=Math.min(anchor,st);loopSec.end=Math.max(anchor,st);}
+    else if(mode==='l'){loopSec.start=Math.min(st,orig.end-1);loopSec.end=orig.end;}
+    else if(mode==='r'){loopSec.start=orig.start;loopSec.end=Math.max(st,orig.start+1);}
+    else if(mode==='m'){
+      const len=orig.end-orig.start;let ns=orig.start+(st-anchor);
+      ns=Math.max(0,Math.min(total-len,ns));loopSec.start=ns;loopSec.end=ns+len;
+    }
+    tlDrawLoop();
+  });
+  const endBar=()=>{
+    if(!mode) return;mode=null;
+    if(loopSec.end<=loopSec.start) loopSec={on:false,start:0,end:0}; // a bare click makes no region
+    tlDrawLoop();commitGesture();saveState();
+  };
+  bar.addEventListener('pointerup',endBar);
+  bar.addEventListener('pointercancel',endBar);
+  document.getElementById('tl-loop-btn').addEventListener('click',()=>{
+    if(loopSec.end<=loopSec.start){
+      // no region yet: mark the first 16 steps (or the whole song if shorter) so there is something to see
+      const total=getTotalTimelineSteps();if(total<=0) return;
+      beginGesture();loopSec={on:true,start:0,end:Math.min(16,total)};
+    } else { beginGesture();loopSec.on=!loopSec.on; }
+    tlDrawLoop();commitGesture();saveState();
+  });
+})();
+
 function renderTimeline(){
   const clipsEl=document.getElementById('tl-clips');
   const rulerEl=document.getElementById('tl-ruler');
@@ -6335,17 +6480,7 @@ function renderTimeline(){
   const ph=document.getElementById('tl-playhead');
   if(ph) ph.style.transform=`translateX(${timelineVisualPos*tlPxPerStep}px)`;
 
-  // Ruler click to seek
-  rulerEl.onclick=e=>{
-    if(playing) return;
-    const rect=rulerEl.getBoundingClientRect();
-    const x=e.clientX-rect.left+(document.getElementById('tl-scroll-wrap')?.scrollLeft||0);
-    const step=Math.max(0,Math.min(getTotalTimelineSteps(),Math.floor(x/tlPxPerStep)));
-    timelinePos=step;timelineVisualPos=step;
-    const ci2=getClipAtStep(timelinePos);
-    if(ci2){activePatternIndex=ci2.clip.patternIndex;}
-    renderPatternBar();renderTimeline();render();
-  };
+  tlDrawLoop();
 
   // Add chips
   if(addChipsEl){
@@ -8031,7 +8166,7 @@ function updateAddTrackButton(){
 // ════════════════════════════════════════════════════════
 const SAVE_KEY='trico_seq_v11';
 function saveState(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify({bpm,channels,patterns,activePatternIndex,currentSongId,currentSongName,currentSongFamilyId,currentSongVersion,songMultiOctave,arrangementClips,playMode,songLoop,patternCounter,channelGroups,masterEq}));}catch(e){}
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({bpm,channels,patterns,activePatternIndex,currentSongId,currentSongName,currentSongFamilyId,currentSongVersion,songMultiOctave,arrangementClips,playMode,songLoop,loopSec,patternCounter,channelGroups,masterEq}));}catch(e){}
 }
 function loadState(){
   try{
@@ -8048,7 +8183,7 @@ function loadState(){
       else arrangementClips=[];
       channelGroups=d.channelGroups||[];
       masterEq=eqNormalize(d.masterEq);
-      playMode=d.playMode||'pattern';songLoop=d.songLoop!==undefined?d.songLoop:true;
+      playMode=d.playMode||'pattern';songLoop=d.songLoop!==undefined?d.songLoop:true;loopSec=loopNormalize(d.loopSec);
       patternCounter=d.patternCounter||0;
       if(!patterns.length){channels=[];patterns=[newPattern('Pattern 1',16,[])];activePatternIndex=0;}
       document.getElementById('bpm-val').textContent=bpm;
@@ -8060,7 +8195,7 @@ function loadState(){
     const d=JSON.parse(legacyRaw);bpm=d.bpm||120;
     const migrated=migrateFlatTracks(d.tracks||[],d.stepCount||16);
     channels=migrated.channels;patterns=migrated.patterns;activePatternIndex=0;
-    songMultiOctave=false;arrangementClips=[];playMode='pattern';songLoop=true;
+    songMultiOctave=false;arrangementClips=[];playMode='pattern';songLoop=true;loopSec={on:false,start:0,end:0};
     backfillPatternColors(patterns);
     document.getElementById('bpm-val').textContent=bpm;
     syncStepPresetUI();updateSongNameDisplay();updateOctaveModeBtn();
@@ -8078,7 +8213,7 @@ async function init(){
     channels=[newChannel(),newChannel(),newChannel(),newChannel()];
     patterns=[newPattern('Pattern 1',16,channels)];
     activePatternIndex=0;songMultiOctave=true;
-    arrangementClips=[];playMode='pattern';songLoop=true;patternCounter=0;
+    arrangementClips=[];playMode='pattern';songLoop=true;loopSec={on:false,start:0,end:0};patternCounter=0;
   }
   updateOctaveModeBtn();
   // Restore play-mode UI from loaded state
