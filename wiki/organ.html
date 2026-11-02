@@ -647,8 +647,9 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .inst-opt-label{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.15em;color:var(--gold);}
 
 /* CARD PICKER PANEL */
-#card-picker{position:fixed;bottom:0;left:0;right:0;z-index:100;background:linear-gradient(to top,#08061a,#120e20);border-top:1px solid rgba(201,169,110,.28);padding:10px 14px 14px;transform:translateY(100%);transition:transform .22s ease;max-height:190px;}
-#card-picker.show{transform:translateY(0);}
+#card-picker{display:none;position:static;background:linear-gradient(to top,#08061a,#120e20);border-top:1px solid rgba(201,169,110,.28);padding:8px 10px 10px;max-height:190px;width:0;min-width:100%;box-sizing:border-box;}
+#card-picker.show{display:block;}
+.channel-right-wrap #card-picker{border-top:1px solid rgba(201,169,110,.22);margin-top:2px;}
 #cp-head{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap;}
 #cp-vol-wrap{display:flex;align-items:center;gap:6px;margin-left:auto;}
 #cp-vol{width:80px;accent-color:var(--gold);cursor:pointer;}
@@ -6982,6 +6983,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     grid.appendChild(isDrum?buildDrumCell(channel,ci,si):buildMelodyCell(channel,ci,si));
   }
   rightWrap.appendChild(grid);
+  if(pickerTi===ci&&cpEl.classList.contains('show')) rightWrap.appendChild(cpEl); // piano sits under this channel's cards
   if(fxOpen){
     const fxPanel=buildEffectsPanel(channel,ci);
     if(fxPanel) rightWrap.appendChild(fxPanel);
@@ -7779,10 +7781,14 @@ function openCardPicker(ti,si){
     cpCards.appendChild(chip);
   });
   cpEl.classList.add('show');
+  render(); // rebuilds the rows; the row for this channel takes the piano under its cards
   const sel=cpCards.querySelector('.sel');
-  if(sel) setTimeout(()=>sel.scrollIntoView({behavior:'smooth',inline:'center'}),50);
+  if(sel) setTimeout(()=>sel.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}),50);
 }
-function closeCardPicker(){stopPreview();cpEl.classList.remove('show');pickerTi=null;pickerSi=null;}
+function closeCardPicker(){
+  stopPreview();cpEl.classList.remove('show');pickerTi=null;pickerSi=null;
+  if(cpEl.parentNode!==document.body) document.body.appendChild(cpEl); // park it out of the rows
+}
 document.getElementById('cp-close').addEventListener('click',closeCardPicker);
 document.getElementById('cp-vol').addEventListener('input',e=>{
   pianoVol=parseFloat(e.target.value);
