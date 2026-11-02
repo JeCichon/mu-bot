@@ -651,7 +651,10 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 #card-picker.show{display:block;}
 .channel-right-wrap #card-picker{border-top:1px solid rgba(201,169,110,.22);margin-top:2px;}
 #cp-head{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap;}
-#cp-vol-wrap{display:flex;align-items:center;gap:6px;margin-left:auto;}
+#cp-vol-wrap{display:flex;align-items:center;gap:6px;}
+#cp-fx{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.12em;background:transparent;border:1px solid var(--border);color:rgba(201,169,110,.5);padding:3px 9px;cursor:pointer;border-radius:2px;}
+#cp-fx.on{color:#1a1206;background:var(--gold);border-color:var(--gold);}
+.step-cell.picker-sel{outline:2px solid rgba(255,200,80,.95);outline-offset:1px;box-shadow:0 0 10px rgba(255,200,80,.45);}
 #cp-vol{width:80px;accent-color:var(--gold);cursor:pointer;}
 #cp-suit-lbl{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;color:var(--gold);}
 #cp-step-lbl{font-size:10px;color:rgba(201,169,110,.4);}
@@ -1041,12 +1044,13 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   <div id="cp-head">
     <span id="cp-suit-lbl">—</span>
     <span id="cp-step-lbl"></span>
-    <button id="cp-clear">✕ Clear step</button>
+    <button id="cp-fx" title="Preview with this channel's effects (envelope, physics) instead of the plain tone. Stays on in every piano.">FX</button>
     <div id="cp-vol-wrap">
       <span class="ctl-lbl">PREVIEW VOL</span>
       <input type="range" id="cp-vol" min="0" max="1" step="0.05" value="0.5"/>
     </div>
     <button id="cp-close">Close</button>
+    <button id="cp-clear">✕ Clear step</button>
   </div>
   <div id="cp-cards"></div>
 </div>
@@ -2149,6 +2153,7 @@ document.addEventListener('mousedown',e=>{
 // ════════════════════════════════════════════════════════
 let audioCtx=null,previewOsc=null,previewGain=null;
 let pianoVol=0.5;
+let pianoFx=false; // preview piano: play through the channel's effects (shared by every piano, default off)
 let exportCtx=null; // set during OfflineAudioContext rendering; getCtx() returns it when set
 function getCtx(){
   if(exportCtx) return exportCtx;
@@ -3906,6 +3911,14 @@ function scheduleDrumNote(slotIdx,t,vol=0.8,pan=0,channel=null){
   }
 }
 
+function previewCardFx(n,channel,step,octShift){
+  // One-shot note built exactly like a played note, so the envelope and RGB particle controls apply.
+  const a=getCtx();stopPreview();
+  const pd=patterns[activePatternIndex];
+  const col=getEffectiveColor(channel,n,step,pd.stepCount);
+  const dur=Math.max(0.25,((60/bpm)/4)*NOTE_FACTOR);
+  scheduleCardNote(n,a.currentTime+0.01,dur,(channel.vol||0.8)*pianoVol*2,octShift,col,channel.pan||0,null,channel);
+}
 function stopPreview(){
   if(previewGain){const a=getCtx();
     previewGain.gain.cancelScheduledValues(a.currentTime);previewGain.gain.setValueAtTime(previewGain.gain.value,a.currentTime);
@@ -7041,6 +7054,7 @@ function buildMelodyCell(channel,ci,si){
   }
   // Apply selection state at build time (survives render() calls)
   if(stepSelection.ci===ci&&stepSelection.steps.has(si)) el.classList.add('step-selected');
+  if(pickerTi===ci&&pickerSi===si&&cpEl.classList.contains('show')) el.classList.add('picker-sel'); // the step the piano is editing
 
   el.addEventListener('click',e=>{
     if(e.ctrlKey||e.metaKey){e.preventDefault();e.stopPropagation();toggleStepSel(ci,si);return;}
@@ -7048,6 +7062,7 @@ function buildMelodyCell(channel,ci,si){
     // Normal click: clear selection, then open picker
     if(stepSelection.steps.size>0){clearStepSel();}
     if(!channel.suit){openInstPicker(ci,{clientX:100,clientY:200});return;}
+    if(pickerTi===ci&&pickerSi===si&&cpEl.classList.contains('show')){closeCardPicker();render();return;} // click the same step again to close
     openCardPicker(ci,si);
   });
   el.addEventListener('contextmenu',e=>{e.preventDefault();openStepCtxMenu(ci,si,e,'melody');});
@@ -7770,13 +7785,13 @@ function openCardPicker(ti,si){
     const nm=document.createElement('div');nm.className='cp-card-name';nm.style.color=fg;nm.textContent=card.name;
     const wd=document.createElement('div');wd.className='cp-card-words';wd.style.color=fg;wd.textContent=`${card.adj}·${card.noun}`;
     chip.appendChild(nm);chip.appendChild(wd);
-    chip.addEventListener('mouseenter',()=>previewCard(card.n,col,chanOct));
+    chip.addEventListener('mouseenter',()=>{ if(pianoFx) previewCardFx(card.n,channel,pickerSi,chanOct); else previewCard(card.n,col,chanOct); });
     chip.addEventListener('mouseleave',()=>stopPreview());
     chip.addEventListener('click',()=>{
       pushHistory();
       pd.steps[pickerSi]=card.n;
       closeCardPicker();render();saveState();
-      previewCard(card.n,col,chanOct);setTimeout(stopPreview,300);
+      if(pianoFx) previewCardFx(card.n,channel,si,chanOct); else {previewCard(card.n,col,chanOct);setTimeout(stopPreview,300);}
     });
     cpCards.appendChild(chip);
   });
@@ -7789,7 +7804,8 @@ function closeCardPicker(){
   stopPreview();cpEl.classList.remove('show');pickerTi=null;pickerSi=null;
   if(cpEl.parentNode!==document.body) document.body.appendChild(cpEl); // park it out of the rows
 }
-document.getElementById('cp-close').addEventListener('click',closeCardPicker);
+document.getElementById('cp-close').addEventListener('click',()=>{closeCardPicker();render();});
+document.getElementById('cp-fx').addEventListener('click',e=>{pianoFx=!pianoFx;e.currentTarget.classList.toggle('on',pianoFx);});
 document.getElementById('cp-vol').addEventListener('input',e=>{
   pianoVol=parseFloat(e.target.value);
   // If a preview is currently playing, update its gain immediately
