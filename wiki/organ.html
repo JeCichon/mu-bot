@@ -4783,7 +4783,7 @@ function startPlay(){
     // Start from timelinePos (stop-in-place) — don't reset unless at end
     if(timelinePos>=getTotalTimelineSteps()) timelinePos=0;
     loopWrapTime=0;
-    if(loopSec.on&&loopSec.end>loopSec.start){timelinePos=loopSec.start;timelineVisualPos=timelinePos;} // looping: start at the loop's beginning
+    if(loopSec.on&&loopSec.end>loopSec.start&&(timelinePos<loopSec.start||timelinePos>=loopSec.end)){timelinePos=loopSec.start;timelineVisualPos=timelinePos;} // looping: outside the section -> start at its beginning; inside -> start where placed
     const ci=getClipAtStep(timelinePos);
     if(ci){activePatternIndex=ci.clip.patternIndex;}
     lastStepFiredTime=a.currentTime;
