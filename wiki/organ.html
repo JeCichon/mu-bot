@@ -349,6 +349,23 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .tl-rep.tl-rep-ghost:hover{opacity:0.7;}
 .tl-rep-num{font-family:'Cinzel',serif;font-size:8px;color:rgba(255,255,255,.5);}
 .tl-rep-name{font-family:'Cinzel',serif;font-size:10px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* B1b: pattern drag + picker */
+.pattern-chip.pc-drop-before{box-shadow:-3px 0 0 var(--gold);}
+.pattern-chip.pc-drop-after{box-shadow:3px 0 0 var(--gold);}
+.pattern-chip.pc-dragging{opacity:.45;}
+.tl-clip.tl-drop-replace{outline:2px dashed rgba(255,170,90,.95);outline-offset:-2px;filter:brightness(1.5);}
+.tl-rep-name.tl-name-pick{cursor:pointer;}
+.tl-rep-name.tl-name-pick:hover{text-decoration:underline;}
+#pat-picker{position:fixed;z-index:400;display:none;width:230px;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.4);border-radius:6px;box-shadow:0 14px 40px rgba(0,0,0,.9);padding:6px;}
+#pat-picker.show{display:block;}
+#pat-picker input{width:100%;box-sizing:border-box;background:rgba(0,0,0,.5);border:1px solid rgba(201,169,110,.3);color:var(--gold);font-family:'Cinzel',serif;font-size:11px;padding:5px 7px;border-radius:3px;outline:none;}
+#pat-picker .pp-list{max-height:220px;overflow-y:auto;margin-top:5px;}
+#pat-picker .pp-item{display:flex;gap:7px;align-items:center;padding:4px 6px;border-radius:3px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;color:rgba(201,169,110,.8);}
+#pat-picker .pp-item.hi{background:rgba(201,169,110,.18);color:var(--gold);}
+#pat-picker .pp-item.cur{border-left:2px solid var(--gold);}
+#pat-picker .pp-num{opacity:.5;min-width:18px;}
+#pat-picker .pp-sub{margin-left:auto;opacity:.4;font-size:8px;}
+#pat-picker .pp-none{padding:6px;font-size:9px;opacity:.4;font-family:'Cinzel',serif;color:var(--gold);}
 /* B0: loop-section bar, ghost playhead */
 #tl-loopbar{height:14px;position:relative;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(201,169,110,.08);cursor:crosshair;flex-shrink:0;touch-action:none;}
 #tl-ruler{touch-action:none;user-select:none;}
@@ -899,10 +916,6 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
         <option value="8">÷8</option>
         <option value="16">÷16</option>
       </select>
-    </div>
-    <div id="tl-add-row">
-      <span class="ctl-lbl">ADD →</span>
-      <div id="tl-add-chips"></div>
     </div>
   </div>
   <div id="tl-scroll-wrap">
@@ -6134,7 +6147,7 @@ function updateClipDrag(e){
   const clipsEl=document.getElementById('tl-clips');
   const wrap=document.getElementById('tl-scroll-wrap');
   const rect=clipsEl.getBoundingClientRect();
-  const mouseX=e.clientX-rect.left+(wrap?wrap.scrollLeft:0);
+  const mouseX=e.clientX-rect.left; // #tl-clips already sits inside the scrolled area
   const{insertBefore,indicatorX}=getInsertPos(mouseX);
   tlDrag.insertBefore=insertBefore;
   const ind=document.getElementById('tl-insert-indicator');
@@ -6361,10 +6374,120 @@ function tlDrawLoop(){
   });
 })();
 
+
+// ── B1b: drop a pattern on the timeline (insert between clips, or replace the clip under the pointer) ──
+let tlDrop=null; // {mode:'insert'|'replace', idx}
+function tlClearDropMarks(){
+  tlDrop=null;
+  document.querySelectorAll('.tl-clip.tl-drop-replace').forEach(el=>el.classList.remove('tl-drop-replace'));
+  const ind=document.getElementById('tl-insert-indicator');if(ind) ind.style.display='none';
+}
+function tlDropTarget(clientX){
+  const clipsEl=document.getElementById('tl-clips');
+  const x=clientX-clipsEl.getBoundingClientRect().left;
+  let x0=0;
+  for(let i=0;i<arrangementClips.length;i++){
+    const w=clipTotalLen(arrangementClips[i])*tlPxPerStep,x1=x0+w;
+    if(x<x1){
+      const t=w>0?(x-x0)/w:0;
+      if(t<0.25) return{mode:'insert',idx:i,x:x0};
+      if(t>0.75) return{mode:'insert',idx:i+1,x:x1};
+      return{mode:'replace',idx:i,x:x0};
+    }
+    x0=x1;
+  }
+  return{mode:'insert',idx:arrangementClips.length,x:x0};
+}
+function replaceClipPattern(ci,pi){
+  const clip=arrangementClips[ci];if(!clip||clip.patternIndex===pi||!patterns[pi]) return;
+  pushHistory();
+  clip.patternIndex=pi;clip.trimStart=0;clip.trimEnd=patterns[pi].stepCount; // old trims belong to the old pattern
+  selectedClips.clear();selectedClips.add(ci);
+  closeClipStats();
+  if(!playing){activePatternIndex=pi;}
+  renderPatternBar();renderTimeline();render();saveState();
+}
+(function tlDropInit(){
+  const track=document.getElementById('tl-track');if(!track) return;
+  track.addEventListener('dragover',e=>{
+    if(!dragPat) return;e.preventDefault();e.dataTransfer.dropEffect='copy';
+    tlEdgeScroll(e);
+    const t=tlDropTarget(e.clientX);tlDrop=t;
+    document.querySelectorAll('.tl-clip.tl-drop-replace').forEach(el=>el.classList.remove('tl-drop-replace'));
+    const ind=document.getElementById('tl-insert-indicator');
+    if(t.mode==='replace'){
+      const el=document.querySelector(`.tl-clip[data-clip-idx="${t.idx}"]`);if(el) el.classList.add('tl-drop-replace');
+      if(ind) ind.style.display='none';
+    } else if(ind){ind.style.display='block';ind.style.left=t.x+'px';}
+  });
+  track.addEventListener('dragleave',e=>{if(!track.contains(e.relatedTarget)) tlClearDropMarks();});
+  track.addEventListener('drop',e=>{
+    if(!dragPat) return;e.preventDefault();
+    const t=tlDrop||tlDropTarget(e.clientX),from=dragPat.idx;
+    dragPat=null;tlClearDropMarks();pcClearMarks();
+    if(!patterns[from]) return;
+    if(t.mode==='replace'){replaceClipPattern(t.idx,from);return;}
+    pushHistory();
+    arrangementClips.splice(t.idx,0,newClip(from));
+    selectedClips.clear();selectedClips.add(t.idx);
+    renderTimeline();saveState();
+  });
+})();
+
+// ── B1b: type-to-filter pattern picker ──
+const patPickerEl=(()=>{
+  const d=document.createElement('div');d.id='pat-picker';
+  d.innerHTML='<input type="text" placeholder="type a number or name…" autocomplete="off" spellcheck="false"><div class="pp-list"></div>';
+  document.body.appendChild(d);return d;
+})();
+let patPickerState=null;
+function openPatternPicker(anchor,currentIdx,onPick){
+  const input=patPickerEl.querySelector('input'),list=patPickerEl.querySelector('.pp-list');
+  patPickerState={hi:0,items:[],onPick};
+  function label(i){const pt=patterns[i];return String(pt.number||i+1).padStart(2,'0')+' '+pt.name;}
+  function rebuild(){
+    const q=input.value.trim().toLowerCase();
+    let items=patterns.map((_,i)=>i).filter(i=>!q||label(i).toLowerCase().includes(q));
+    // matches that start with the query (by name or number) come first
+    const score=i=>{const pt=patterns[i];const nm=pt.name.toLowerCase(),nu=String(pt.number||i+1);return(q&&(nm.startsWith(q)||nu===q||nu.startsWith(q)))?0:1;};
+    items.sort((a,b)=>score(a)-score(b)||a-b);
+    patPickerState.items=items;patPickerState.hi=Math.min(patPickerState.hi,Math.max(0,items.length-1));
+    list.innerHTML='';
+    if(!items.length){const n=document.createElement('div');n.className='pp-none';n.textContent='no pattern matches';list.appendChild(n);return;}
+    items.forEach((i,k)=>{
+      const pt=patterns[i];const it=document.createElement('div');
+      it.className='pp-item'+(k===patPickerState.hi?' hi':'')+(i===currentIdx?' cur':'');
+      it.style.borderLeftColor=i===currentIdx?'':'transparent';
+      it.innerHTML='<span class="pp-num"></span><span class="pp-name"></span><span class="pp-sub"></span>';
+      it.querySelector('.pp-num').textContent=String(pt.number||i+1).padStart(2,'0');
+      it.querySelector('.pp-name').textContent=pt.name;
+      it.querySelector('.pp-sub').textContent=pt.stepCount+' steps';
+      it.addEventListener('mousedown',ev=>{ev.preventDefault();choose(i);});
+      it.addEventListener('mouseenter',()=>{patPickerState.hi=k;list.querySelectorAll('.pp-item').forEach((el,j)=>el.classList.toggle('hi',j===k));});
+      list.appendChild(it);
+    });
+    const hi=list.querySelector('.hi');if(hi) hi.scrollIntoView({block:'nearest'});
+  }
+  function choose(i){const f=patPickerState&&patPickerState.onPick;closePatternPicker();if(f) f(i);}
+  input.value='';input.oninput=()=>{patPickerState.hi=0;rebuild();};
+  input.onkeydown=e=>{
+    const n=patPickerState.items.length;
+    if(e.key==='ArrowDown'){e.preventDefault();patPickerState.hi=Math.min(n-1,patPickerState.hi+1);rebuild();}
+    else if(e.key==='ArrowUp'){e.preventDefault();patPickerState.hi=Math.max(0,patPickerState.hi-1);rebuild();}
+    else if(e.key==='Enter'){e.preventDefault();if(n) choose(patPickerState.items[patPickerState.hi]);}
+    else if(e.key==='Escape'){e.preventDefault();closePatternPicker();}
+  };
+  const r=anchor.getBoundingClientRect?anchor.getBoundingClientRect():anchor;
+  patPickerEl.style.left=Math.max(4,Math.min(r.left,window.innerWidth-240))+'px';
+  patPickerEl.style.top=Math.max(4,Math.min((r.bottom!==undefined?r.bottom:r.top)+4,window.innerHeight-300))+'px';
+  patPickerEl.classList.add('show');rebuild();input.focus();
+}
+function closePatternPicker(){patPickerEl.classList.remove('show');patPickerState=null;}
+document.addEventListener('mousedown',e=>{if(patPickerEl.classList.contains('show')&&!patPickerEl.contains(e.target)) closePatternPicker();});
+
 function renderTimeline(){
   const clipsEl=document.getElementById('tl-clips');
   const rulerEl=document.getElementById('tl-ruler');
-  const addChipsEl=document.getElementById('tl-add-chips');
   if(!clipsEl||!rulerEl) return;
 
   const total=Math.max(getTotalTimelineSteps(),64);
@@ -6392,7 +6515,7 @@ function renderTimeline(){
   if(arrangementClips.length===0){
     const empty=document.createElement('div');
     empty.style.cssText='font-family:Cinzel,serif;font-size:10px;color:rgba(201,169,110,.3);padding:14px 20px;font-style:italic;';
-    empty.textContent='No clips — click a pattern below to add it';
+    empty.textContent='No clips — drag a pattern here from the Pattern bar';
     clipsEl.appendChild(empty);
   }
   arrangementClips.forEach((clip,ci)=>{
@@ -6445,6 +6568,13 @@ function renderTimeline(){
         numEl.textContent=pat?String(pat.number||ci+1).padStart(2,'0'):'??';
         const nameEl=document.createElement('div');nameEl.className='tl-rep-name';
         nameEl.style.color=border;nameEl.textContent=pat?pat.name:'[deleted]';
+        nameEl.classList.add('tl-name-pick');nameEl.title='Click to swap this clip\'s pattern';
+        nameEl.addEventListener('click',e=>{
+          e.stopPropagation();
+          if(!selectedClips.has(ci)||selectedClips.size>1){selectedClips.clear();selectedClips.add(ci);renderTimeline();}
+          const el=document.querySelector(`.tl-clip[data-clip-idx="${ci}"] .tl-rep-name`)||nameEl;
+          openPatternPicker(el,clip.patternIndex,pi=>replaceClipPattern(ci,pi));
+        });
         rep.appendChild(numEl);rep.appendChild(nameEl);
       }
       rep.addEventListener('click',e=>{
@@ -6496,17 +6626,7 @@ function renderTimeline(){
 
   tlDrawLoop();
 
-  // Add chips
-  if(addChipsEl){
-    addChipsEl.innerHTML='';
-    patterns.forEach((pat,idx)=>{
-      const chip=document.createElement('button');chip.className='tl-add-chip tb';
-      chip.textContent=(pat.number?String(pat.number).padStart(2,'0')+' ':'')+pat.name;
-      chip.style.borderColor=patternBorderCss(pat);
-      chip.addEventListener('click',()=>addClip(idx));
-      addChipsEl.appendChild(chip);
-    });
-  }
+  
 }
 
 // ── Timeline context menu: copy/paste/break/remove ───────────────────────
@@ -6530,6 +6650,7 @@ function openTlCtxMenu(e,clipIdx,repIdx){
       addOpt('Paste Before',()=>pasteClips(clipIdx));
       addOpt('Paste After',()=>pasteClips(clipIdx+1));
     }
+    addOpt('Replace pattern…',()=>openPatternPicker({left:e.clientX,bottom:e.clientY},arrangementClips[clipIdx]?arrangementClips[clipIdx].patternIndex:-1,pi=>replaceClipPattern(clipIdx,pi)));
     addSep();
     if(repIdx!=null&&repIdx>0){
       addOpt('Break Apart from Loop',()=>breakApartClip(clipIdx,repIdx));
@@ -6720,6 +6841,23 @@ document.getElementById('stop-btn').addEventListener('click',()=>{
   else{stopClickTimer=setTimeout(()=>{stopClickTimer=null;},350);}
 });
 
+let dragPat=null; // {idx} while a pattern chip is being dragged
+function pcClearMarks(){document.querySelectorAll('.pattern-chip.pc-drop-before,.pattern-chip.pc-drop-after').forEach(el=>el.classList.remove('pc-drop-before','pc-drop-after'));}
+function movePattern(from,insertAt){
+  // insertAt is a slot in the CURRENT order (0..n). Moves the pattern and re-points everything that remembers a pattern by position.
+  const n=patterns.length;
+  let to=insertAt>from?insertAt-1:insertAt;
+  if(from===to||from<0||from>=n) return;
+  pushHistory();
+  const order=patterns.map((_,i)=>i);order.splice(from,1);order.splice(to,0,from); // order[newIdx]=oldIdx
+  const map=new Array(n);order.forEach((oldI,newI)=>map[oldI]=newI);
+  patterns=order.map(o=>patterns[o]);
+  arrangementClips.forEach(c=>{if(map[c.patternIndex]!==undefined) c.patternIndex=map[c.patternIndex];});
+  activePatternIndex=map[activePatternIndex];
+  if(pendingPatternIndex!==null&&pendingPatternIndex!==undefined) pendingPatternIndex=map[pendingPatternIndex];
+  lastScheduledPatternIndex=-1;
+  render();saveState();
+}
 function renderPatternBar(){
   const container=document.getElementById('pattern-chips');
   container.innerHTML='';
@@ -6747,6 +6885,25 @@ function renderPatternBar(){
     chip.appendChild(numRow);chip.appendChild(subEl);
     chip.addEventListener('click',()=>switchPattern(idx));
     chip.addEventListener('dblclick',e=>{e.stopPropagation();e.preventDefault();startRenamePattern(idx,nameEl);});
+    // B1b: drag to re-arrange, or drag onto the timeline
+    chip.draggable=true;
+    chip.addEventListener('dragstart',e=>{
+      dragPat={idx};chip.classList.add('pc-dragging');
+      try{e.dataTransfer.setData('text/plain','pattern:'+idx);e.dataTransfer.effectAllowed='copyMove';}catch(_){}
+    });
+    chip.addEventListener('dragend',()=>{dragPat=null;chip.classList.remove('pc-dragging');pcClearMarks();tlClearDropMarks();});
+    chip.addEventListener('dragover',e=>{
+      if(!dragPat) return;e.preventDefault();e.dataTransfer.dropEffect='move';
+      const r=chip.getBoundingClientRect();const after=e.clientX>r.left+r.width/2;
+      pcClearMarks();chip.classList.add(after?'pc-drop-after':'pc-drop-before');
+      chip._pcAfter=after;
+    });
+    chip.addEventListener('dragleave',()=>{chip.classList.remove('pc-drop-before','pc-drop-after');});
+    chip.addEventListener('drop',e=>{
+      if(!dragPat) return;e.preventDefault();e.stopPropagation();
+      const from=dragPat.idx;const at=idx+(chip._pcAfter?1:0);
+      dragPat=null;pcClearMarks();movePattern(from,at);
+    });
     chip.addEventListener('contextmenu',e=>{e.preventDefault();openPatternCtxMenu(idx,e);});
     container.appendChild(chip);
   });
