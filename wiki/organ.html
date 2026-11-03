@@ -549,6 +549,17 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 #gp-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
 #gp-row input[type=color]{width:36px;height:32px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;padding:0;}
 #gp-preview{flex:1;height:22px;border-radius:4px;min-width:40px;}
+#gp-stops{margin:2px 0 10px;}
+.gp-stops-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
+.gp-stops-hint{font-size:8px;color:rgba(201,169,110,.3);font-family:Georgia,serif;font-style:italic;}
+#gp-stops-bar{position:relative;height:30px;border-radius:4px;border:1px solid var(--border);cursor:copy;background-color:#05030c;}
+.gp-stop{position:absolute;top:-4px;width:14px;height:38px;margin-left:-7px;border-radius:4px;border:2px solid rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.8);cursor:ew-resize;box-sizing:border-box;}
+.gp-stop.end{cursor:pointer;}
+.gp-stop.sel{border-color:var(--gold);box-shadow:0 0 0 1px #000,0 0 10px rgba(201,169,110,.8);z-index:3;}
+#gp-stops-row,#gp-mix-row{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
+#gp-stop-pos{width:52px;background:#000;border:1px solid var(--border);color:var(--gold);padding:2px 4px;border-radius:3px;font-size:11px;}
+#gp-stop-alpha{width:90px;accent-color:var(--gold);}
+#gp-mix{background:#000;border:1px solid var(--border);color:var(--gold);padding:3px 6px;border-radius:3px;font-size:11px;font-family:inherit;}
 #gp-swap{width:28px;height:28px;border:1px solid var(--border);background:rgba(0,0,0,.4);color:var(--gold);cursor:pointer;border-radius:3px;font-size:15px;line-height:1;flex-shrink:0;transition:all .15s;}
 #gp-swap:hover{border-color:var(--gold);background:var(--gf);}
 .gp-point{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:3px;border-radius:5px;transition:background .15s;}
@@ -1142,6 +1153,18 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
     </div>
     <button id="gp-swap" title="Swap colors">&#8644;</button>
   </div>
+  <div id="gp-stops">
+    <div class="gp-stops-head"><span class="gp-label">STOPS</span><span class="gp-stops-hint">click the bar to add · drag to move · double-click to remove</span></div>
+    <div id="gp-stops-bar"></div>
+    <div id="gp-stops-row">
+      <label class="gp-label">POS</label><input type="number" id="gp-stop-pos" min="0" max="100" step="1"><span class="gp-label">%</span>
+      <label class="gp-label" style="margin-left:6px">STOP OPACITY</label><input type="range" id="gp-stop-alpha" min="0" max="100" value="100"><span id="gp-stop-alpha-val" class="gp-label">100%</span>
+      <button id="gp-stop-del" class="tb" title="Remove this stop">✕</button>
+    </div>
+    <div id="gp-mix-row"><span class="gp-label">MIX</span>
+      <select id="gp-mix"><option value="rgb">RGB blend</option><option value="hue">Hue path</option><option value="hue2">Hue path (long way)</option><option value="pig">Pigment (Spectral)</option></select>
+    </div>
+  </div>
 <div id="gp-color-ctx" class="gp-color-ctx"></div>
 
   <div id="gp-controls-row">
@@ -1186,6 +1209,32 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
   </div>
 </div>
 
+<script>
+/*! Spectral.js v3.0.0 (pigment colour mixing) — https://github.com/rvanwijnen/spectral.js
+MIT License
+
+Copyright (c) 2025 Ronald van Wijnen
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"function"==typeof define&&define.amd?define(["exports"],e):e((t=t||self).spectral={})}(this,(function(t){class e{constructor(...t){1===t.length&&("string"==typeof t[0]&&(this.sRGB=G(t[0]).slice(0,3),this.lRGB=l(this.sRGB),this.R=R(this.lRGB),this.XYZ=g(this.R)),Array.isArray(t[0])&&(38===t[0].length?(this.R=t[0],this.XYZ=g(this.R),this.lRGB=u(this.XYZ),this.sRGB=o(this.lRGB)):(this.sRGB=t[0],this.lRGB=l(this.sRGB),this.R=R(this.lRGB),this.XYZ=g(this.R))))}get OKLab(){return this._OKLab??=c(this.XYZ)}get OKLCh(){return this._OKLCh??=M(this.OKLab)}get KS(){return this._KS??=this.R.map((t=>i(t)))}get luminance(){return this._luminance??=Math.max(Number.EPSILON,this.XYZ[1])}get tintingStrength(){return this._tintingStrength??=1}set tintingStrength(t){this._tintingStrength=t}inGamut=({epsilon:t=0}={})=>r(this.lRGB,t);toGamut=({method:t="map"}={})=>{switch(t.toLowerCase()){case"clip":return new e(this.sRGB.map((t=>B.clamp(t,0,255))));case"map":return a(this);default:throw new TypeError(`Unknown method: '${t}'`)}};toString=({format:t="hex",method:e="map"}={})=>{let r;if(this.inGamut())r=this.sRGB;else switch(e.toLowerCase()){case"clip":r=this.sRGB.map((t=>B.clamp(t,0,255)));break;case"map":r=a(this).sRGB;break;default:throw new TypeError(`Unknown method: '${e}'`)}switch(t.toLowerCase()){case"hex":return`#${r.map((t=>t.toString(16).padStart(2,"0"))).join("").toUpperCase()}`;case"rgb":return`rgb(${r.join(", ")})`;default:throw new TypeError(`Unknown format: '${t}'`)}}}const r=(t,{epsilon:e=0}={})=>t.every((t=>t>=-e&&t<=1+e)),n=(t,e)=>{let[r,n,a]=t,[i,s,h]=e;return((r-i)**2+(n-s)**2+(a-h)**2)**.5},a=(t,{jnd:a=.03,e:i=1e-4}={})=>{let s=t.OKLCh[0];if(s>=1)return new e([255,255,255]);if(s<=0)return new e([0,0,0]);if(r(t.lRGB))return t;let h=t.OKLCh[2],l=0,c=t.OKLCh[1],M=!0,g=t.lRGB,R=m(g.map((t=>B.clamp(t)))),G=n(R,m(g));if(G<a)return new e(o(u(p(R))));for(;c-l>i;){const t=(l+c)/2;let e=f([s,t,h]),o=p(e);if(g=u(o),M&&r(g))l=t;else if(R=m(g.map((t=>B.clamp(t)))),G=n(R,e),G<a){if(a-G<i)break;M=!1,l=t}else c=t}return new e(o(u(p(R))))},i=t=>(1-t)**2/(2*t),s=t=>1+t-(t**2+2*t)**.5,h=(...t)=>{let r=new Array(38);for(let e=0;e<38;e++){let n=0,a=0;for(let[r,i]of t){let t=i**2*r.tintingStrength**2*r.luminance;a+=t,n+=r.KS[e]*t}r[e]=s(n/a)}return new e(r)},l=t=>t.map((t=>(t=>t>.04045?((t+.055)/1.055)**2.4:t/12.92)(t/255))),o=t=>t.map((t=>Math.round(255*(t=>t>.0031308?1.055*t**(1/2.4)-.055:12.92*t)(t)))),u=t=>B.mulMatVec(w.XYZ_RGB,t),m=t=>c((t=>B.mulMatVec(w.RGB_XYZ,t))(t)),c=t=>{let e=B.mulMatVec(w.XYZ_LMS,t).map((t=>Math.cbrt(t)));return B.mulMatVec(w.LMS_LAB,e)},p=t=>{let e=B.mulMatVec(w.LAB_LMS,t).map((t=>t**3));return B.mulMatVec(w.LMS_XYZ,e)},M=t=>{let[e,r,n]=t;const a=(r*r+n*n)**.5,i=180*Math.atan2(n,r)/Math.PI;return[e,a,i>=0?i:i+360]},f=t=>{let[e,r,n]=t;return[e,r*Math.cos(n*Math.PI/180),r*Math.sin(n*Math.PI/180)]},g=t=>B.mulMatVec(d.CMF,t),R=t=>{let e=Math.min(...t);t=[t[0]-e,t[1]-e,t[2]-e];let r=Math.min(t[1],t[2]),n=Math.min(t[0],t[2]),a=Math.min(t[0],t[1]),i=Math.max(0,Math.min(t[0]-t[2],t[0]-t[1])),s=Math.max(0,Math.min(t[1]-t[2],t[1]-t[0])),h=Math.max(0,Math.min(t[2]-t[1],t[2]-t[0]));const l=new Array(38);for(let t=0;t<38;t++)l[t]=Math.max(Number.EPSILON,e*L.W[t]+r*L.C[t]+n*L.M[t]+a*L.Y[t]+i*L.R[t]+s*L.G[t]+h*L.B[t]);return l},B={lerp:(t,e,r)=>t+(e-t)*r,clamp:(t,e=0,r=1)=>Math.min(Math.max(t,e),r),dot:(t,e)=>t.reduce(((t,r,n)=>t+r*e[n]),0),mulMatVec:(t,e)=>t.map((t=>B.dot(t,e)))},G=t=>"#"===t[0]?(t=4===t.length?t.replace(/./g,(t=>t+t)).slice(1):t.slice(1),[parseInt(t.substring(0,2),16),parseInt(t.substring(2,4),16),parseInt(t.substring(4,6),16),8===t.length?parseInt(t.substring(6,8),16)/255:1]):t.startsWith("rgb")?t.slice(t.indexOf("(")+1,-1).split(",").map(((t,e)=>e<3&&t.includes("%")?Math.round(2.55*parseFloat(t)):parseFloat(t))):NaN,L=Object.freeze({W:[1.00116072718764,1.00116065159728,1.00116031922747,1.00115867270789,1.00115259844552,1.00113252528998,1.00108500663327,1.00099687889453,1.00086525152274,1.0006962900094,1.00050496114888,1.00030808187992,1.00011966602013,.999952765968407,.999821836899297,.999738609557593,.999709551639612,.999731930210627,.999799436346195,.999900330316671,1.00002040652611,1.00014478793658,1.00025997903412,1.00035579697089,1.00042753780269,1.00047623344888,1.00050720967508,1.00052519156373,1.00053509606896,1.00054022097482,1.00054272816784,1.00054389569087,1.00054448212151,1.00054476959992,1.00054489887762,1.00054496254689,1.00054498927058,1.000544996993],C:[.970585001322962,.970592498143425,.970625348729891,.970786806119017,.971368673228248,.973163230621252,.976740223158765,.981587605491377,.986280265652949,.989949147689134,.99249270153842,.994145680405256,.995183975033212,.995756750110818,.99591281828671,.995606157834528,.994597600961854,.99221571549237,.986236452783249,.967943337264541,.891285004244943,.536202477862053,.154108119001878,.0574575093228929,.0315349873107007,.0222633920086335,.0182022841492439,.016299055973264,.0153656239334613,.0149111568733976,.0146954339898235,.0145964146717719,.0145470156699655,.0145228771899495,.0145120341118965,.0145066940939832,.0145044507314479,.0145038009464639],M:[.990673557319988,.990671524961979,.990662582353421,.990618107644795,.99045148087871,.989871081400204,.98828660875964,.984290692797504,.973934905625306,.941817838460145,.817390326195156,.432472805065729,.13845397825887,.0537347216940033,.0292174996673231,.021313651750859,.0201349530181136,.0241323096280662,.0372236145223627,.0760506552706601,.205375471942399,.541268903460439,.815841685086486,.912817704123976,.946339830166962,.959927696331991,.966260595230312,.969325970058424,.970854536721399,.971605066528128,.971962769757392,.972127272274509,.972209417745812,.972249577678424,.972267621998742,.97227650946215,.972280243306874,.97228132482656],Y:[.0210523371789306,.0210564627517414,.0210746178695038,.0211649058448753,.0215027957272504,.0226738799041561,.0258235649693629,.0334879385639851,.0519069663740307,.100749014833473,.239129899706847,.534804312272748,.79780757864303,.911449894067384,.953797963004507,.971241615465429,.979303123807588,.983380119507575,.985461246567755,.986435046976605,.986738250670141,.986617882445032,.986277776758643,.985860592444056,.98547492767621,.985176934765558,.984971574014181,.984846303415712,.984775351811199,.984738066625265,.984719648311765,.984711023391939,.984706683300676,.984704554393091,.98470359630937,.984703124077552,.98470292561509,.984702868122795],R:[.0315605737777207,.0315520718330149,.0315148215513658,.0313318044982702,.0306729857725527,.0286480476989607,.0246450407045709,.0192960753663651,.0142066612220556,.0102942608878609,.0076191460521811,.005898041083542,.0048233247781713,.0042298748350633,.0040599171299341,.0043533695594676,.0053434425970201,.0076917201010463,.0135969795736536,.0316975442661115,.107861196355249,.463812603168704,.847055405272011,.943185409393918,.968862150696558,.978030667473603,.982043643854306,.983923623718707,.984845484154382,.985294275814596,.985507295219825,.985605071539837,.985653849933578,.985677685033883,.985688391806122,.985693664690031,.985695879848205,.985696521463762],G:[.0095560747554212,.0095581580120851,.0095673245444588,.0096129126297349,.0097837090401843,.010378622705871,.0120026452378567,.0160977721473922,.026706190223168,.0595555440185881,.186039826532826,.570579820116159,.861467768400292,.945879089767658,.970465486474305,.97841363028445,.979589031411224,.975533536908632,.962288755397813,.92312157451312,.793434018943111,.459270135902429,.185574103666303,.0881774959955372,.05436302287667,.0406288447060719,.034221520431697,.0311185790956966,.0295708898336134,.0288108739348928,.0284486271324597,.0282820301724731,.0281988376490237,.0281581655342037,.0281398910216386,.0281308901665811,.0281271086805816,.0281260133612096],B:[.979404752502014,.97940070684313,.979382903470261,.979294364945594,.97896301460857,.977814466694043,.974724321133836,.967198482343973,.949079657530575,.900850128940977,.76315044546224,.465922171649319,.201263280451005,.0877524413419623,.0457176793291679,.0284706050521843,.020527176756985,.0165302792310211,.0145135107212858,.0136003508637687,.0133604258769571,.013548894314568,.0139594356366992,.014443425575357,.0148854440621406,.0152254296999746,.0154592848180209,.0156018026485961,.0156824871281936,.0157248764360615,.0157458108784121,.0157556123350225,.0157605443964911,.0157629637515278,.0157640525629106,.015764589232951,.0157648147772649,.0157648801149616]}),d=Object.freeze({CMF:[[646919989576e-16,.0002194098998132,.0011205743509343,.0037666134117111,.011880553603799,.0232864424191771,.0345594181969747,.0372237901162006,.0324183761091486,.021233205609381,.0104909907685421,.0032958375797931,.0005070351633801,.0009486742057141,.0062737180998318,.0168646241897775,.028689649025981,.0426748124691731,.0562547481311377,.0694703972677158,.0830531516998291,.0861260963002257,.0904661376847769,.0850038650591277,.0709066691074488,.0506288916373645,.035473961885264,.0214682102597065,.0125164567619117,.0068045816390165,.0034645657946526,.0014976097506959,.000769700480928,.0004073680581315,.0001690104031614,952245150365e-16,490309872958e-16,199961492222e-16],[1844289444e-15,62053235865e-16,310096046799e-16,.0001047483849269,.0003536405299538,.0009514714056444,.0022822631748318,.004207329043473,.0066887983719014,.0098883960193565,.0152494514496311,.0214183109449723,.0334229301575068,.0513100134918512,.070402083939949,.0878387072603517,.0942490536184085,.0979566702718931,.0941521856862608,.0867810237486753,.0788565338632013,.0635267026203555,.05374141675682,.042646064357412,.0316173492792708,.020885205921391,.0138601101360152,.0081026402038399,.004630102258803,.0024913800051319,.0012593033677378,.000541646522168,.0002779528920067,.0001471080673854,610327472927e-16,343873229523e-16,177059860053e-16,7220974913e-15],[.000305017147638,.0010368066663574,.0053131363323992,.0179543925899536,.0570775815345485,.113651618936287,.17335872618355,.196206575558657,.186082370706296,.139950475383207,.0891745294268649,.0478962113517075,.0281456253957952,.0161376622950514,.0077591019215214,.0042961483736618,.0020055092122156,.0008614711098802,.0003690387177652,.0001914287288574,.0001495555858975,923109285104e-16,681349182337e-16,288263655696e-16,157671820553e-16,39406041027e-16,1584012587e-15,0,0,0,0,0,0,0,0,0,0,0]]}),w=Object.freeze({RGB_XYZ:[[.41239079926595934,.357584339383878,.1804807884018343],[.21263900587151027,.715168678767756,.07219231536073371],[.01933081871559182,.11919477979462598,.9505321522496607]],XYZ_RGB:[[3.2409699419045226,-1.537383177570094,-.4986107602930034],[-.9692436362808796,1.8759675015077202,.04155505740717559],[.05563007969699366,-.20397695888897652,1.0569715142428786]],XYZ_LMS:[[.819022437996703,.3619062600528904,-.1288737815209879],[.0329836539323885,.9292868615863434,.0361446663506424],[.0481771893596242,.2642395317527308,.6335478284694309]],LMS_XYZ:[[1.2268798758459243,-.5578149944602171,.2813910456659647],[-.0405757452148008,1.112286803280317,-.0717110580655164],[-.0763729366746601,-.4214933324022432,1.5869240198367816]],LMS_LAB:[[.210454268309314,.7936177747023054,-.0040720430116193],[1.9779985324311684,-2.42859224204858,.450593709617411],[.0259040424655478,.7827717124575296,-.8086757549230774]],LAB_LMS:[[1,.3963377773761749,.2158037573099136],[1,-.1055613458156586,-.0638541728258133],[1,-.0894841775298119,-1.2914855480194092]]});t.Color=e,t.mix=h,t.palette=(t,e,r)=>{let n=new Array(r);for(let a=0;a<r;a++)n[a]=h([t,r-1-a],[e,a]);return n},t.gradient=(t,...e)=>{let r=null,n=null;for(const[a,i]of e)i<=t&&(!r||i>r[1])&&(r=[a,i]),i>=t&&(!n||i<n[1])&&(n=[a,i]);if(!r)return n[0];if(!n)return r[0];if(r[1]===n[1])return r[0];const a=(t-r[1])/(n[1]-r[1]);return h([r[0],1-a],[n[0],a])}}));
+</script>
 <script>
 // ════════════════════════════════════════════════════════
 // CARD DATA
@@ -3536,6 +3585,70 @@ function setGroupSoloAll(gi,soloed){
   render();saveState();
 }
 
+
+// ── Gradient stops (G1) ─────────────────────────────────────────────────
+// A gradient is {on,start,end,blend,opacity} (legacy) plus, once edited with stops:
+//   stops:[{p:0..1, c:'#rrggbb', a:0..100}, ...] sorted by p (first p=0, last p=1) and mix:'rgb'|'hue'|'hue2'|'pig'.
+// stops is the truth when present; start/end mirror the first/last stop so older readers still work.
+function gradEnsure(g){
+  if(!g) return g;
+  if(!Array.isArray(g.stops)||g.stops.length<2) g.stops=[{p:0,c:g.start,a:100},{p:1,c:g.end,a:100}];
+  if(!g.mix) g.mix='rgb';
+  return g;
+}
+function gradSyncEnds(g){if(g&&Array.isArray(g.stops)&&g.stops.length>=2){g.start=g.stops[0].c;g.end=g.stops[g.stops.length-1].c;}}
+function gradStopsOf(g){
+  if(g&&Array.isArray(g.stops)&&g.stops.length>=2){
+    let ok=true;for(let i=1;i<g.stops.length;i++) if(!(g.stops[i].p>=g.stops[i-1].p)){ok=false;break;}
+    if(ok) return g.stops;
+  }
+  return [{p:0,c:g.start,a:100},{p:1,c:g.end,a:100}];
+}
+function gmRgb2Hsl(c){const r=c.r/255,g=c.g/255,b=c.b/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;let h=0,s=0;if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;}return[h,s,l];}
+function gmHsl2Rgb(h,s,l){const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;let r,g,b;[r,g,b]=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];return{r:(r+m)*255,g:(g+m)*255,b:(b+m)*255};}
+const _pigCache=new Map();
+function gmPigment(ca,cb,u){
+  if(typeof spectral==='undefined') return null;
+  const key=ca.r+','+ca.g+','+ca.b+'|'+cb.r+','+cb.g+','+cb.b+'|'+Math.round(u*1000);
+  let v=_pigCache.get(key);if(v) return v;
+  try{
+    const hx=c=>'#'+[c.r,c.g,c.b].map(x=>x.toString(16).padStart(2,'0')).join('');
+    v=hexToRgb(String(spectral.mix([new spectral.Color(hx(ca)),1-u],[new spectral.Color(hx(cb)),u])));
+  }catch(e){return null;}
+  if(_pigCache.size>4000) _pigCache.clear();
+  _pigCache.set(key,v);return v;
+}
+// Mix two colours {r,g,b} at u (0..1) with a mode. Returns rounded {r,g,b}.
+function gradMixColors(ca,cb,u,mode){
+  if(u<=0) return{r:ca.r,g:ca.g,b:ca.b};
+  if(u>=1) return{r:cb.r,g:cb.g,b:cb.b};
+  if(mode==='hue'||mode==='hue2'){
+    const[h1,s1,l1]=gmRgb2Hsl(ca),[h2,s2,l2]=gmRgb2Hsl(cb);
+    let d=h2-h1;if(d>180)d-=360;if(d<-180)d+=360;if(mode==='hue2') d=d>0?d-360:d+360;
+    const o=gmHsl2Rgb(((h1+d*u)%360+360)%360,s1+(s2-s1)*u,l1+(l2-l1)*u);
+    return{r:Math.round(o.r),g:Math.round(o.g),b:Math.round(o.b)};
+  }
+  if(mode==='pig'){const v=gmPigment(ca,cb,u);if(v) return{r:v.r,g:v.g,b:v.b};}
+  return{r:Math.round(ca.r+(cb.r-ca.r)*u),g:Math.round(ca.g+(cb.g-ca.g)*u),b:Math.round(ca.b+(cb.b-ca.b)*u)};
+}
+// Sample a gradient at t (0..1) → {r,g,b,a} with a in 0..1 (per-stop opacity, blended linearly).
+function gradAt(g,t){
+  const S=gradStopsOf(g);
+  t=Math.max(0,Math.min(1,t));
+  let i=0;while(i<S.length-2&&t>S[i+1].p) i++;
+  const A=S[i],B=S[i+1],span=B.p-A.p;
+  const u=span>0?Math.max(0,Math.min(1,(t-A.p)/span)):0;
+  const c=gradMixColors(hexToRgb(A.c),hexToRgb(B.c),u,g.mix||'rgb');
+  const aa=(A.a===undefined?100:A.a),bb=(B.a===undefined?100:B.a);
+  return{r:c.r,g:c.g,b:c.b,a:(aa+(bb-aa)*u)/100};
+}
+function gradCss(g,n=24){
+  if(!g) return 'transparent';
+  const parts=[];
+  for(let k=0;k<=n;k++){const t=k/n,c=gradAt(g,t);parts.push(`rgba(${c.r},${c.g},${c.b},${c.a.toFixed(3)}) ${(t*100).toFixed(1)}%`);}
+  return `linear-gradient(to right,${parts.join(',')})`;
+}
+
 function getEffectiveColor(track,n,si=null,stepCount=null){
   const base=cardColor(n);
   // Step 1: channel gradient (existing)
@@ -3545,9 +3658,8 @@ function getEffectiveColor(track,n,si=null,stepCount=null){
     const suitCards=BASE_CARDS.filter(c=>c.suit===card.suit);
     const ci2=suitCards.findIndex(c=>c.n===n);
     const t=suitCards.length>1?ci2/(suitCards.length-1):0;
-    const sc=hexToRgb(track.grad.start),ec=hexToRgb(track.grad.end);
-    const gr={r:Math.round(sc.r+(ec.r-sc.r)*t),g:Math.round(sc.g+(ec.g-sc.g)*t),b:Math.round(sc.b+(ec.b-sc.b)*t)};
-    const op=track.grad.opacity/100,blend=track.grad.blend;
+    const gr=gradAt(track.grad,t);
+    const op=track.grad.opacity/100*gr.a,blend=track.grad.blend;
     col={
       r:Math.max(0,Math.min(255,blendChannel(base.r,gr.r,blend,op))),
       g:Math.max(0,Math.min(255,blendChannel(base.g,gr.g,blend,op))),
@@ -3559,9 +3671,8 @@ function getEffectiveColor(track,n,si=null,stepCount=null){
     const group=getChannelGroup(track);
     if(group&&group.grad.on){
       const t=stepCount>1?si/(stepCount-1):0;
-      const gs=hexToRgb(group.grad.start),ge=hexToRgb(group.grad.end);
-      const gr2={r:Math.round(gs.r+(ge.r-gs.r)*t),g:Math.round(gs.g+(ge.g-gs.g)*t),b:Math.round(gs.b+(ge.b-gs.b)*t)};
-      const op2=group.grad.opacity/100,blend2=group.grad.blend;
+      const gr2=gradAt(group.grad,t);
+      const op2=group.grad.opacity/100*gr2.a,blend2=group.grad.blend;
       col={
         r:Math.max(0,Math.min(255,blendChannel(col.r,gr2.r,blend2,op2))),
         g:Math.max(0,Math.min(255,blendChannel(col.g,gr2.g,blend2,op2))),
@@ -4207,6 +4318,15 @@ let channelGroups=[];      // [{id,name,collapsed,channelIds,grad:{on,start,end,
 let selectedChannels=new Set(); // channel indices currently selected for grouping
 // Active gradient object — shared by channel and group gradient popup
 let activeGradObj=null;    // reference to the grad being edited (channel or group)
+// Which colour the popup is editing: 'start' | 'end' | 's<k>' (an inner stop by index)
+function gpGrad(){return activeGradObj||(gradTi!==null&&gradTi>=0?channels[gradTi]?.grad:null)||null;}
+function gpTargetIndex(g,target){
+  const n=gradEnsure(g).stops.length;
+  if(target==='start') return 0;if(target==='end') return n-1;
+  const k=parseInt(String(target).slice(1));return Math.max(0,Math.min(n-1,isNaN(k)?0:k));
+}
+function gpColorOf(target){const g=gpGrad();if(!g) return null;return gradEnsure(g).stops[gpTargetIndex(g,target)].c;}
+function gpSetColorOf(target,hex){const g=gpGrad();if(!g) return;gradEnsure(g).stops[gpTargetIndex(g,target)].c=hex;gradSyncEnds(g);}
 function startGroupDrag(gi,e){
   e.preventDefault();
   const group=channelGroups[gi];if(!group) return;
@@ -4334,7 +4454,7 @@ function openChannelCtxMenu(ci,e,inGroup=false,gi=-1){
 // ── Gradient color clipboard helpers ────────────────────────────────────
 function copyGradColor(target){
   if(gradTi===null) return;
-  const hex=(activeGradObj||channels[gradTi]?.grad)?.[target];if(!hex) return;
+  const hex=gpColorOf(target);if(!hex) return;
   const{r,g,b}=hexToRgb(hex);
   gradColorClipboard={r,g,b};
 }
@@ -4349,13 +4469,14 @@ const gpColorCtx=document.getElementById('gp-color-ctx');
 function copyFullGradient(){
   if(gradTi===null) return;
   const g=activeGradObj||channels[gradTi]?.grad;if(!g) return;
-  gradFullClipboard={start:g.start,end:g.end,blend:g.blend,opacity:g.opacity};
+  gradFullClipboard={start:g.start,end:g.end,blend:g.blend,opacity:g.opacity,stops:gradEnsure(g).stops.map(x=>({...x})),mix:g.mix||'rgb'};
 }
 function pasteFullGradient(){
   if(gradTi===null||!gradFullClipboard) return;
   pushHistory();
   const g=activeGradObj||channels[gradTi]?.grad;if(!g) return;
   g.start=gradFullClipboard.start;g.end=gradFullClipboard.end;
+  g.stops=gradFullClipboard.stops?gradFullClipboard.stops.map(x=>({...x})):null;g.mix=gradFullClipboard.mix||'rgb';gradEnsure(g);gradSyncEnds(g);
   g.blend=gradFullClipboard.blend;g.opacity=gradFullClipboard.opacity;
   // Sync the blend select and opacity controls
   const blendEl=document.getElementById('gp-blend');
@@ -5085,7 +5206,7 @@ function buildGroupHeader(group,gi){
   const gradBtn=document.createElement('div');gradBtn.className='group-grad-btn';
   gradBtn.title='Group gradient — sweeps A→B across steps in all member channels';
   const g=group.grad;
-  gradBtn.style.background=g.on?`linear-gradient(to right,${g.start},${g.end})`:'rgba(201,169,110,.18)';
+  gradBtn.style.background=g.on?gradCss(g,12):'rgba(201,169,110,.18)';
   gradBtn.style.border=g.on?`1px solid ${g.start}`:'1px solid rgba(201,169,110,.3)';
   gradBtn.addEventListener('click',e=>openGroupGradPopup(gi,e));
   // Mute/Solo
@@ -6780,6 +6901,7 @@ function openGroupGradPopup(gi,e){
   activeGradObj=group.grad;
   gpSoundTarget='start';
   document.querySelectorAll('.gp-point').forEach(p=>p.classList.toggle('active',p.dataset.target==='start'));
+  gpSelStop=null;
   const gp=document.getElementById('grad-popup');
   const title=document.getElementById('gp-title');
   if(title) title.textContent=group.name.toUpperCase()+' · GROUP GRADIENT';
@@ -6791,8 +6913,8 @@ function openGroupGradPopup(gi,e){
   document.getElementById('gp-opacity-val').textContent=(group.grad.opacity??100)+'%';
   document.getElementById('gp-start').value=group.grad.start;
   document.getElementById('gp-end').value=group.grad.end;
-  document.getElementById('gp-preview').style.background=`linear-gradient(to right,${group.grad.start},${group.grad.end})`;
-  refreshSoundMapping();
+  gpRefreshUI();
+  gpSelect(null);
   const rect=e?e.currentTarget?.getBoundingClientRect():null;
   if(rect){gp.style.top=(rect.bottom+6)+'px';gp.style.left=Math.max(10,rect.left)+'px';}
   gp.classList.add('show');
@@ -7067,7 +7189,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     const gradBtn=document.createElement('button');
     gradBtn.className='grad-btn'+(channel.grad&&channel.grad.on?' on':'');
     gradBtn.title='Gradient';
-    if(channel.grad) gradBtn.style.background=`linear-gradient(to right, ${channel.grad.start}, ${channel.grad.end})`;
+    if(channel.grad) gradBtn.style.background=gradCss(channel.grad,12);
     gradBtn.addEventListener('click',e=>{e.stopPropagation();openGradPopup(ci,e);});
     octRow.appendChild(gradBtn);
 
@@ -7121,8 +7243,8 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     const strip=document.createElement('div');strip.className='group-indent-strip';
     const grp=getChannelGroup(channel);
     if(grp&&grp.grad.on){
-      const gs=hexToRgb(grp.grad.start),ge=hexToRgb(grp.grad.end);
-      const mr=Math.round((gs.r+ge.r)/2),mg=Math.round((gs.g+ge.g)/2),mb2=Math.round((gs.b+ge.b)/2);
+      const gm=gradAt(grp.grad,0.5);
+      const mr=gm.r,mg=gm.g,mb2=gm.b;
       strip.style.background=`rgba(${mr},${mg},${mb2},0.25)`;
     } else if(channel.suit){
       strip.style.background=SUIT_TINTS[channel.suit]||'rgba(201,169,110,.1)';
@@ -7350,13 +7472,14 @@ function openGradPopup(ti,e){
   document.getElementById('gp-toggle').classList.toggle('on',g.on);
   document.getElementById('gp-start').value=g.start;
   document.getElementById('gp-end').value=g.end;
-  document.getElementById('gp-preview').style.background=`linear-gradient(to right, ${g.start}, ${g.end})`;
+  gpRefreshUI();
   document.getElementById('gp-blend').value=g.blend;
   document.getElementById('gp-opacity').value=g.opacity;
   document.getElementById('gp-opacity-val').textContent=g.opacity+'%';
 
   gpSoundTarget='start';
   document.querySelectorAll('.gp-point').forEach(p=>p.classList.toggle('active',p.dataset.target==='start'));
+  gpSelStop=null;gpSelect(null);
 
   gradPopup.classList.add('show');
   const popW=gradPopup.offsetWidth,popH=gradPopup.offsetHeight;
@@ -7378,8 +7501,8 @@ document.getElementById('gp-toggle').addEventListener('click',()=>{
 document.getElementById('gp-start').addEventListener('input',e=>{
   if(gradTi===null) return;
   beginGesture();
-  if(activeGradObj) activeGradObj.start=e.target.value; else channels[gradTi].grad.start=e.target.value;
-  document.getElementById('gp-preview').style.background=`linear-gradient(to right, ${channels[gradTi].grad.start}, ${channels[gradTi].grad.end})`;
+  gpSetColorOf('start',e.target.value);
+  gpRefreshUI();
   render();saveState();
   if(gpSoundTarget==='start') refreshSoundMapping();
 });
@@ -7387,8 +7510,8 @@ document.getElementById('gp-start').addEventListener('change',commitGesture);
 document.getElementById('gp-end').addEventListener('input',e=>{
   if(gradTi===null) return;
   beginGesture();
-  if(activeGradObj) activeGradObj.end=e.target.value; else channels[gradTi].grad.end=e.target.value;
-  document.getElementById('gp-preview').style.background=`linear-gradient(to right, ${channels[gradTi].grad.start}, ${channels[gradTi].grad.end})`;
+  gpSetColorOf('end',e.target.value);
+  gpRefreshUI();
   render();saveState();
   if(gpSoundTarget==='end') refreshSoundMapping();
 });
@@ -7397,10 +7520,10 @@ document.getElementById('gp-swap').addEventListener('click',()=>{
   if(gradTi===null) return;
   pushHistory();
   const g=activeGradObj||channels[gradTi]?.grad;if(!g) return;
-  [g.start,g.end]=[g.end,g.start];
+  gradEnsure(g);g.stops.reverse();g.stops.forEach(st=>st.p=1-st.p);gradSyncEnds(g);gpSelStop=null;gpSelect(null);
   document.getElementById('gp-start').value=g.start;
   document.getElementById('gp-end').value=g.end;
-  document.getElementById('gp-preview').style.background=`linear-gradient(to right, ${g.start}, ${g.end})`;
+  gpRefreshUI();
   render();saveState();
   refreshSoundMapping();
 });
@@ -7425,6 +7548,97 @@ document.getElementById('gp-opacity').addEventListener('change',commitGesture);
 document.addEventListener('mousedown',e=>{
   if(gradPopup.classList.contains('show')&&!gradPopup.contains(e.target)&&!e.target.classList.contains('grad-btn')) closeGradPopup();
 });
+
+
+// ── Gradient popup: stops bar (G1) ──
+let gpSelStop=null;
+function gpSelect(stop){
+  const g=gpGrad();if(!g) return;
+  gradEnsure(g);
+  let k=stop?g.stops.indexOf(stop):0;if(k<0) k=0;
+  gpSelStop=g.stops[k];
+  const n=g.stops.length;
+  gpSoundTarget=k===0?'start':k===n-1?'end':'s'+k;
+  document.querySelectorAll('.gp-point').forEach(p=>p.classList.toggle('active',p.dataset.target===gpSoundTarget));
+  gpRefreshUI();refreshSoundMapping();
+}
+function gpRefreshUI(){
+  const g=gpGrad();if(!g) return;
+  gradEnsure(g);gradSyncEnds(g);
+  const css=gradCss(g);
+  const pv=document.getElementById('gp-preview');if(pv) pv.style.background=css;
+  const bar=document.getElementById('gp-stops-bar');if(!bar) return;
+  bar.style.backgroundImage=css;
+  bar.querySelectorAll('.gp-stop').forEach(e=>e.remove());
+  const n=g.stops.length;
+  g.stops.forEach((st,k)=>{
+    const h=document.createElement('div');h.className='gp-stop'+((k===0||k===n-1)?' end':'')+(st===gpSelStop?' sel':'');
+    h.style.left=(st.p*100)+'%';h.style.background=st.c;h.style.opacity=(0.4+0.6*(st.a===undefined?100:st.a)/100).toFixed(2);
+    h.dataset.k=k;bar.appendChild(h);
+  });
+  const sel=gpSelStop&&g.stops.indexOf(gpSelStop)>=0?gpSelStop:g.stops[0];
+  const k=g.stops.indexOf(sel);const inner=k>0&&k<n-1;
+  const pos=document.getElementById('gp-stop-pos');pos.value=Math.round(sel.p*100);pos.disabled=!inner;
+  const al=document.getElementById('gp-stop-alpha');al.value=sel.a===undefined?100:sel.a;
+  document.getElementById('gp-stop-alpha-val').textContent=al.value+'%';
+  document.getElementById('gp-stop-del').disabled=!inner;
+  document.getElementById('gp-mix').value=g.mix||'rgb';
+  const se=document.getElementById('gp-start'),ee=document.getElementById('gp-end');if(se) se.value=g.start;if(ee) ee.value=g.end;
+}
+(function gpStopsInit(){
+  const bar=document.getElementById('gp-stops-bar');if(!bar) return;
+  let drag=null;
+  bar.addEventListener('pointerdown',e=>{
+    const g=gpGrad();if(!g||e.button!==0) return;gradEnsure(g);
+    const hit=e.target.closest('.gp-stop');
+    if(hit){
+      const st=g.stops[parseInt(hit.dataset.k)];
+      gpSelect(st);
+      const k=g.stops.indexOf(st);
+      if(k>0&&k<g.stops.length-1){beginGesture();drag={st};bar.setPointerCapture(e.pointerId);}
+      e.preventDefault();return;
+    }
+    // empty bar: add a stop here, starting from the colour already there
+    const r=bar.getBoundingClientRect();
+    const p=Math.max(0.01,Math.min(0.99,(e.clientX-r.left)/r.width));
+    pushHistory();
+    const c=gradAt(g,p);
+    const st={p,c:'#'+[c.r,c.g,c.b].map(v=>v.toString(16).padStart(2,'0')).join(''),a:Math.round(c.a*100)};
+    g.stops.push(st);g.stops.sort((a,b)=>a.p-b.p);
+    gpSelect(st);render();saveState();e.preventDefault();
+  });
+  bar.addEventListener('pointermove',e=>{
+    if(!drag) return;const g=gpGrad();if(!g) return;
+    const r=bar.getBoundingClientRect();
+    const k=g.stops.indexOf(drag.st);if(k<=0||k>=g.stops.length-1) return;
+    const lo=g.stops[k-1].p+0.005,hi=g.stops[k+1].p-0.005;
+    drag.st.p=Math.max(lo,Math.min(hi,(e.clientX-r.left)/r.width));
+    gpRefreshUI();render();
+  });
+  const end=()=>{if(drag){drag=null;commitGesture();saveState();}};
+  bar.addEventListener('pointerup',end);bar.addEventListener('pointercancel',end);
+  bar.addEventListener('dblclick',e=>{
+    const g=gpGrad();const hit=e.target.closest('.gp-stop');if(!g||!hit) return;
+    gpDeleteStop(g.stops[parseInt(hit.dataset.k)]);
+  });
+  document.getElementById('gp-stop-del').addEventListener('click',()=>{const g=gpGrad();if(g&&gpSelStop) gpDeleteStop(gpSelStop);});
+  document.getElementById('gp-stop-pos').addEventListener('change',e=>{
+    const g=gpGrad();if(!g||!gpSelStop) return;const k=g.stops.indexOf(gpSelStop);if(k<=0||k>=g.stops.length-1) return;
+    pushHistory();const lo=g.stops[k-1].p+0.005,hi=g.stops[k+1].p-0.005;
+    gpSelStop.p=Math.max(lo,Math.min(hi,(parseFloat(e.target.value)||0)/100));gpRefreshUI();render();saveState();
+  });
+  const al=document.getElementById('gp-stop-alpha');
+  al.addEventListener('input',e=>{const g=gpGrad();if(!g||!gpSelStop) return;beginGesture();gpSelStop.a=parseInt(e.target.value);gpRefreshUI();render();saveState();});
+  al.addEventListener('change',commitGesture);
+  document.getElementById('gp-mix').addEventListener('change',e=>{
+    const g=gpGrad();if(!g) return;pushHistory();g.mix=e.target.value;gpRefreshUI();render();saveState();
+  });
+})();
+function gpDeleteStop(st){
+  const g=gpGrad();if(!g) return;const k=g.stops.indexOf(st);
+  if(k<=0||k>=g.stops.length-1) return;
+  pushHistory();g.stops.splice(k,1);gpSelStop=null;gpSelect(g.stops[Math.max(0,k-1)]);render();saveState();
+}
 
 // ════════════════════════════════════════════════════════
 // GRADIENT POPUP — SOUND MAPPING (Frequency / CMYK / ADSR)
@@ -7478,7 +7692,7 @@ function drawGpWheel(){
   ctx.clearRect(0,0,size,size);
   ctx.drawImage(gpWheelBgCanvas,0,0);
   if(gradTi===null) return;
-  const hex=(activeGradObj||channels[gradTi]?.grad)?.[gpSoundTarget];if(!hex) return;
+  const hex=gpColorOf(gpSoundTarget);if(!hex) return;
   const{r,g,b}=hexToRgb(hex);
   const h=rgbToHue(r,g,b);
   const l=rgbLightness(r,g,b);
@@ -7539,7 +7753,7 @@ gpWheelEl.addEventListener('touchend',()=>{
 document.getElementById('gp-wheel-sat').addEventListener('input',e=>{
   if(gradTi===null||gpSoundSyncing) return;
   beginGesture();
-  const hex=(activeGradObj||channels[gradTi]?.grad)?.[gpSoundTarget];if(!hex) return;
+  const hex=gpColorOf(gpSoundTarget);if(!hex) return;
   const{r,g,b}=hexToRgb(hex);
   const h=rgbToHue(r,g,b);
   const hh=h<0?0:h;
@@ -7552,7 +7766,7 @@ document.getElementById('gp-wheel-sat').addEventListener('change',commitGesture)
 function refreshSoundMapping(){
   if(gradTi===null) return;
   gpSoundSyncing=true;
-  const hex=(activeGradObj||channels[gradTi]?.grad)?.[gpSoundTarget];if(!hex) return;
+  const hex=gpColorOf(gpSoundTarget);if(!hex) return;
   const{r,g,b}=hexToRgb(hex);
 
   gpWheelSat=rgbToHSLSaturation(r,g,b);
@@ -7599,19 +7813,19 @@ function applySoundColor(newRgb){
   if(gradTi===null||gpSoundSyncing) return;
   const clamp=v=>Math.max(0,Math.min(255,Math.round(v)));
   const hex='#'+[clamp(newRgb.r),clamp(newRgb.g),clamp(newRgb.b)].map(v=>v.toString(16).padStart(2,'0')).join('');
-  (activeGradObj||channels[gradTi]?.grad)&&((activeGradObj||channels[gradTi].grad)[gpSoundTarget]=hex);
-  document.getElementById('gp-'+gpSoundTarget).value=hex;
-  const g=activeGradObj||channels[gradTi]?.grad;if(!g) return;
-  document.getElementById('gp-preview').style.background=`linear-gradient(to right, ${g.start}, ${g.end})`;
+  gpSetColorOf(gpSoundTarget,hex);
+  const gpEl=document.getElementById('gp-'+gpSoundTarget);if(gpEl) gpEl.value=hex;
+  const g=gpGrad();if(!g) return;
+  gpRefreshUI();
   render();saveState();
   refreshSoundMapping();
 }
 
 document.querySelectorAll('.gp-point').forEach(pt=>{
   pt.addEventListener('click',e=>{
-    gpSoundTarget=pt.dataset.target;
-    document.querySelectorAll('.gp-point').forEach(p=>p.classList.toggle('active',p===pt));
-    refreshSoundMapping();
+    const gg=gpGrad();
+    if(gg){gradEnsure(gg);gpSelect(pt.dataset.target==='end'?gg.stops[gg.stops.length-1]:gg.stops[0]);}
+    else{gpSoundTarget=pt.dataset.target;document.querySelectorAll('.gp-point').forEach(p=>p.classList.toggle('active',p===pt));refreshSoundMapping();}
   });
 });
 
@@ -7619,7 +7833,7 @@ document.querySelectorAll('.gp-point').forEach(pt=>{
 // saturation/lightness (so a pastel stays pastel, just at a new pitch).
 function setFrequency(targetHz,commit){
   if(gradTi===null||gpSoundSyncing) return;
-  const cur=hexToRgb((activeGradObj||channels[gradTi]?.grad)?.[gpSoundTarget]||'#888888');
+  const cur=hexToRgb(gpColorOf(gpSoundTarget)||'#888888');
   const s=rgbToHSLSaturation(cur.r,cur.g,cur.b);
   if(songMultiOctave){
     // Multi-octave: pitch class comes from hue, octave comes from lightness.
