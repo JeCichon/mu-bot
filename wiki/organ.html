@@ -3722,13 +3722,14 @@ function getEffectiveColor(track,n,si=null,stepCount=null){
   // Step 2: group gradient — sweeps A→B across the step index in the pattern
   if(si!==null&&stepCount!=null&&stepCount>0){
     const group=getChannelGroup(track);
-    const sg=group?group.grad:(track&&track.stepGrad);   // grouped: the group's ribbon · ungrouped: the channel's own ribbon (G2)
-    if(sg&&sg.on){
-      const t=stepCount>1?si/(stepCount-1):0;
-      const gr2=gradAt(sg,t);
-      const op2=sg.opacity/100*gr2.a,blend2=sg.blend;
-      col=blendRGB(col,gr2,blend2,op2);
-    }
+    // ribbons (G2): the channel's own first, then its group's on top
+    const t=stepCount>1?si/(stepCount-1):0;
+    [track&&track.stepGrad,group&&group.grad].forEach(sg=>{
+      if(sg&&sg.on){
+        const gr2=gradAt(sg,t);
+        col=blendRGB(col,gr2,sg.blend,sg.opacity/100*gr2.a);
+      }
+    });
   }
   return col;
 }
@@ -7243,7 +7244,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     if(channel.grad) gradBtn.style.background=gradCss(channel.grad,12);
     gradBtn.addEventListener('click',e=>{e.stopPropagation();openGradPopup(ci,e);});
     octRow.appendChild(gradBtn);
-    if(!inGroup){
+    {
       const ribBtn=document.createElement('button');
       ribBtn.className='rib-btn'+(channel.ribbonOpen?' on':'');ribBtn.textContent='▬▬';
       ribBtn.title='Step ribbon — a colour sweep across the steps of this channel';
@@ -7333,7 +7334,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     grid.appendChild(isDrum?buildDrumCell(channel,ci,si):buildMelodyCell(channel,ci,si));
   }
   rightWrap.appendChild(grid);
-  if(!inGroup&&!isDrum&&channel.suit&&channel.ribbonOpen){
+  if(!isDrum&&channel.suit&&channel.ribbonOpen){
     if(!channel.stepGrad) channel.stepGrad=defaultGrad(channel.suit);
     const rs=buildRibbon(channel.stepGrad,'c'+ci,(SUIT_INFO[channel.suit]?SUIT_INFO[channel.suit].label.toUpperCase():'CHANNEL')+' · STEP RIBBON');
     rs.classList.add('rib-strip');rightWrap.appendChild(rs);
