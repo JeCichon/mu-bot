@@ -98,8 +98,8 @@ const PITCH_CLASSES=[
 const CHROMATIC_NOTES_MULTI=(()=>{
   const notes=[];
   for(let oct=2;oct<=6;oct++){
-    PITCH_CLASSES.forEach(pc=>{
-      notes.push({note:pc.note,octave:oct,freq:pc.freq4*Math.pow(2,oct-4)});
+    PITCH_CLASSES.forEach((pc,pi)=>{
+      notes.push({note:pc.note,octave:oct+(pi>=7?1:0),freq:pc.freq4*Math.pow(2,oct-4)});
     });
   }
   // Add F7 as the top cap (= F5 × 4)
