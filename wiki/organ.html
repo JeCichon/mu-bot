@@ -708,6 +708,8 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 #cp-close{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.15em;background:transparent;border:1px solid var(--border);color:rgba(201,169,110,.5);padding:4px 10px;cursor:pointer;border-radius:2px;}
 #cp-close:hover{color:var(--gold);}
 #cp-cards{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px;}
+.cp-lane{display:flex;flex-direction:column;min-width:max-content;}
+.cp-row{display:flex;gap:5px;}
 #cp-cards::-webkit-scrollbar{height:3px;}
 #cp-cards::-webkit-scrollbar-thumb{background:rgba(201,169,110,.2);}
 .cp-card{width:56px;min-width:56px;height:74px;border-radius:5px;border:2px solid rgba(255,255,255,.1);cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;padding:4px;transition:transform .08s,border-color .1s,box-shadow .1s;flex-shrink:0;overflow:hidden;}
@@ -6120,6 +6122,8 @@ function buildEffectsPanel(channel,ci){
 }
 
 function render(){
+  const _cpS=document.getElementById('cp-cards'),_cpX=_cpS?_cpS.scrollLeft:0;
+  if(typeof pickerTi!=='undefined'&&pickerTi!==null&&cpEl.classList.contains('show')) fillCardPicker();
   renderPatternBar();
   renderTimeline();
   updatePatternHeader();
@@ -6161,6 +6165,7 @@ function render(){
     }
   });
   updateAddTrackButton();
+  if(_cpS&&_cpX) _cpS.scrollLeft=_cpX; // the piano keeps its place while the rows are rebuilt
 }
 
 // ════════════════════════════════════════════════════════
@@ -7710,7 +7715,7 @@ function gpDeleteStop(st){
 // that step. Stops sit on slot centres (position p = slot/(steps−1)); Alt-drag slides freely.
 // It edits the same {stops,mix,blend,opacity} gradient as the popup — the popup opens for colour, mix and opacity.
 function ribSlotX(si){const sw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sw'))||42;return 10+si*(sw+3)+Math.floor(si/4)*7+sw/2;}
-function ribPx(p,n){const f=Math.max(0,Math.min(1,p))*(n-1),a=Math.floor(f),b=Math.min(n-1,a+1);return ribSlotX(a)+(ribSlotX(b)-ribSlotX(a))*(f-a);}
+function ribPx(p,n,X){X=X||ribSlotX;const f=Math.max(0,Math.min(1,p))*(n-1),a=Math.floor(f),b=Math.min(n-1,a+1);return X(a)+(X(b)-X(a))*(f-a);}
 function ribOpenPopup(g,title,el,stop,cx){
   gradTi=-1000;activeGradObj=g;gpSoundTarget='start';
   document.querySelectorAll('.gp-point').forEach(q=>q.classList.toggle('active',q.dataset.target==='start'));
@@ -7738,30 +7743,33 @@ function ribOpenPopup(g,title,el,stop,cx){
   refreshSoundMapping();
 }
 let ribLast=null; // double-press detection (render() replaces the nodes, so dblclick can't be trusted)
-function buildRibbon(g,key,title){
+function buildRibbon(g,key,title,opts){
+  opts=opts||{};
   gradEnsure(g);
-  const n=Math.max(2,patterns[activePatternIndex].stepCount);
+  const n=Math.max(2,opts.n||patterns[activePatternIndex].stepCount);
+  const X=opts.slotX||ribSlotX,unit=opts.unit||'Step';
   const rib=document.createElement('div');rib.className='rib'+(g.on?'':' off');rib.dataset.rib=key;
+  if(opts.css) rib.style.cssText=opts.css;
   for(let si=0;si<n;si++){
-    if(si>0&&si%4===0){const gap=document.createElement('div');gap.className='rib-gap';rib.appendChild(gap);}
-    const sl=document.createElement('div');sl.className='rib-slot';
+    if(!opts.noBeat&&si>0&&si%4===0){const gap=document.createElement('div');gap.className='rib-gap';rib.appendChild(gap);}
+    const sl=document.createElement('div');sl.className='rib-slot';if(opts.slotW) sl.style.cssText=`width:${opts.slotW}px;min-width:${opts.slotW}px`;
     const c=gradAt(g,si/(n-1));
     const base=g.on?`rgb(${c.r},${c.g},${c.b})`:'transparent';
     sl.style.background=base;sl.style.opacity=g.on?(0.35+0.65*Math.max(c.a,0)).toFixed(2):'1';
-    sl.title=`Step ${si+1}`+(g.on?` · rgb(${c.r},${c.g},${c.b})`:' · ribbon is off — click to start one');
+    sl.title=(opts.labels?opts.labels[si]:`${unit} ${si+1}`)+(g.on?` · rgb(${c.r},${c.g},${c.b})`:' · ribbon is off — click to start one');
     rib.appendChild(sl);
   }
   const S=g.stops,last=S.length-1,popOpen=document.getElementById('grad-popup').classList.contains('show')&&activeGradObj===g;
   S.forEach((st,k)=>{
     const h=document.createElement('div');h.className='rib-stop'+((k===0||k===last)?' end':'')+(popOpen&&st===gpSelStop?' sel':'');
-    h.style.left=ribPx(st.p,n)+'px';h.style.background=st.c;
+    h.style.left=ribPx(st.p,n,X)+'px';h.style.background=st.c;
     h.style.opacity=(0.4+0.6*(st.a===undefined?100:st.a)/100).toFixed(2);
     h.dataset.k=k;h.title=(k===0||k===last)?'End stop — click to edit colour':'Drag to move (Alt = slide freely) · double-click to delete';
     rib.appendChild(h);
   });
   const slotAt=(clientX)=>{
     const r=rib.getBoundingClientRect();let best=0,bd=1e9;
-    for(let i=0;i<n;i++){const d=Math.abs(r.left+ribSlotX(i)-clientX);if(d<bd){bd=d;best=i;}}
+    for(let i=0;i<n;i++){const d=Math.abs(r.left+X(i)-clientX);if(d<bd){bd=d;best=i;}}
     return best;
   };
   const hexOf=c=>'#'+[c.r,c.g,c.b].map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -7782,11 +7790,11 @@ function buildRibbon(g,key,title){
           const lo=g.stops[kk-1].p+0.005,hi=g.stops[kk+1].p-0.005;
           let p;
           if(ev.altKey){ // free: pixel → fraction along the slot line
-            let a=0;for(let i=0;i<n-1;i++){if(r.left+ribSlotX(i+1)<ev.clientX) a=i+1;}
-            a=Math.min(a,n-2);const x0=r.left+ribSlotX(a),x1=r.left+ribSlotX(a+1);
+            let a=0;for(let i=0;i<n-1;i++){if(r.left+X(i+1)<ev.clientX) a=i+1;}
+            a=Math.min(a,n-2);const x0=r.left+X(a),x1=r.left+X(a+1);
             p=(a+Math.max(0,Math.min(1,(ev.clientX-x0)/(x1-x0))))/(n-1);
           } else {
-            let bi=0,bd=1e9;for(let i=0;i<n;i++){const d=Math.abs(r.left+ribSlotX(i)-ev.clientX);if(d<bd){bd=d;bi=i;}}
+            let bi=0,bd=1e9;for(let i=0;i<n;i++){const d=Math.abs(r.left+X(i)-ev.clientX);if(d<bd){bd=d;bi=i;}}
             const iLo=Math.ceil(lo*(n-1)-1e-9),iHi=Math.floor(hi*(n-1)+1e-9);
             if(iLo>iHi) return;
             p=Math.max(iLo,Math.min(iHi,bi))/(n-1);
@@ -8343,8 +8351,19 @@ let pickerTi=null,pickerSi=null;
 
 function openCardPicker(ti,si){
   pickerTi=ti;pickerSi=si;
-  const channel=channels[ti];const info=SUIT_INFO[channel.suit];
+  fillCardPicker();
+  cpEl.classList.add('show');
+  render(); // rebuilds the rows; the row for this channel takes the piano under its cards
+  const sel=document.querySelector('#cp-cards .sel');
+  if(sel) setTimeout(()=>sel.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}),50);
+}
+// (Re)build the piano: a ribbon lane over the chips (the channel's card-axis gradient, G3) and the chips themselves,
+// each coloured as it will look at THIS step (card colour → card-axis gradient → channel ribbon → group ribbon).
+function fillCardPicker(){
+  const ti=pickerTi,si=pickerSi;if(ti===null||si===null) return;
+  const channel=channels[ti];if(!channel) return;const info=SUIT_INFO[channel.suit];
   const pd=patterns[activePatternIndex].channelData[ti];
+  const sc=patterns[activePatternIndex].stepCount;
   const chanOct=channel.octave||0; // channel-level octave shift for preview
   document.getElementById('cp-suit-lbl').textContent=`${info.pip} ${info.label}`;
   document.getElementById('cp-suit-lbl').style.color=info.color;
@@ -8353,8 +8372,14 @@ function openCardPicker(ti,si){
   clearBtn.style.display=(pd.steps[si]!==null&&pd.steps[si]!==undefined)?'block':'none';
   const cpCards=document.getElementById('cp-cards');cpCards.innerHTML='';
   const currentN=pd.steps[si];
-  BASE_CARDS.filter(c=>c.suit===channel.suit).forEach(card=>{
-    const col=getEffectiveColor(channel,card.n);
+  const suitCards=BASE_CARDS.filter(c=>c.suit===channel.suit);
+  const lane=document.createElement('div');lane.className='cp-lane';
+  if(!channel.grad) channel.grad=defaultGrad(channel.suit);
+  lane.appendChild(buildRibbon(channel.grad,'p'+ti,`${info.label.toUpperCase()} · CARD RIBBON`,
+    {n:suitCards.length,slotX:i=>i*61+28,slotW:56,noBeat:true,unit:'Card',labels:suitCards.map(c=>c.name),css:'gap:5px;padding:3px 0;'}));
+  const row=document.createElement('div');row.className='cp-row';
+  suitCards.forEach(card=>{
+    const col=getEffectiveColor(channel,card.n,si,sc);
     const fg=`rgb(${255-col.r},${255-col.g},${255-col.b})`;
     const chip=document.createElement('div');
     chip.className='cp-card'+(card.n===currentN?' sel':'');
@@ -8371,12 +8396,9 @@ function openCardPicker(ti,si){
       closeCardPicker();render();saveState();
       if(pianoFx) previewCardFx(card.n,channel,si,chanOct); else {previewCard(card.n,col,chanOct);setTimeout(stopPreview,300);}
     });
-    cpCards.appendChild(chip);
+    row.appendChild(chip);
   });
-  cpEl.classList.add('show');
-  render(); // rebuilds the rows; the row for this channel takes the piano under its cards
-  const sel=cpCards.querySelector('.sel');
-  if(sel) setTimeout(()=>sel.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}),50);
+  lane.appendChild(row);cpCards.appendChild(lane);
 }
 function closeCardPicker(){
   stopPreview();cpEl.classList.remove('show');pickerTi=null;pickerSi=null;

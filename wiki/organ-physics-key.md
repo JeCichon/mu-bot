@@ -325,6 +325,14 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Popup placement: opens below the ribbon, above it if there is no room, otherwise beside the click so the ribbon stays reachable.
 - Next: G3 (ribbon over the piano for the card axis, step-aware chips), G4 (per-pattern overrides).
 
+
+### BUILT Nov 5, 2026: G3 piano ribbon + step-aware chips
+- **Card ribbon over the piano:** the card picker now has a ribbon lane above the chips, one slot per card in the suit, centred over each chip. It edits the channel's existing card-axis gradient (`channel.grad`, t = card index/(cards−1)) with the same click-to-add / drag-to-snap (Alt = free) / double-press-delete / popup behaviour as G2. The header swatch and the piano stay in sync.
+- **Chips are step-aware:** each chip shows the colour that card will have at the step being edited — card colour → card-axis gradient → channel ribbon → group ribbon, sampled at that step (t = step/(steps−1)). What you see on the chip is what you hear when it lands. Preview already used the step; now the picture matches.
+- The piano rebuilds live while a ribbon is edited and keeps its horizontal scroll position.
+- `buildRibbon` is now generic (`opts`: n, slotX, slotW, labels…), ready for G4.
+- Next: G4 per-pattern ribbon overrides (replace the channel/group ribbon in that pattern; inherit by default; duplicates copy).
+
 ### BUILT Nov 3, 2026: colour-picker round 2 (Hue/Color blends, Stepped mix, one-octave chooser)
 - **Hue and Color blend modes** (gradient popup): non-separable blends using the W3C compositing definitions (`Lum=0.3R+0.59G+0.11B`; **Hue** = SetLum(SetSat(blend, Sat(base)), Lum(base)); **Color** = SetLum(blend, Lum(base))). Verified against an independent reference. Not added to the ΔtRTVI/ADSR blend menu: that menu blends four plain numbers (attack, decay, sustain, release), and hue/colour have no meaning for a number. The existing four (Normal/Multiply/Screen/Overlay) stay. Old songs are untouched (blend path verified identical on 1,872 cases).
 - **Stepped mix** (5th MIX option): no mixing; a stop's colour AND opacity hold until the next stop's position, then jump (the wall sits exactly at the next stop; a snapped stop will change colour on its own slot).
