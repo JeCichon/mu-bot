@@ -477,6 +477,10 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .rib-btn:hover{border-color:var(--gold);}
 .rib-btn.on{border-color:rgba(255,255,255,.6);color:#fff;box-shadow:0 0 6px rgba(255,255,255,.25);}
 .rib-strip{border-top:1px solid rgba(201,169,110,.08);}
+.rib.ovr{box-shadow:inset 0 -2px 0 rgba(201,169,110,.55);}
+.rib-pat{margin-left:10px;height:16px;padding:0 7px;border-radius:8px;border:1px solid var(--border);background:rgba(201,169,110,.06);color:rgba(201,169,110,.6);font-size:8px;letter-spacing:.06em;cursor:pointer;white-space:nowrap;align-self:center;font-family:inherit;}
+.rib-pat:hover{border-color:var(--gold);color:var(--gold);}
+.rib-pat.on{background:rgba(201,169,110,.22);border-color:var(--gold);color:#f0dcb0;}
 /* Indented member channels */
 .track-row.in-group .track-header{border-left:3px solid rgba(201,169,110,.5);padding-left:6px;}
 #ch-insert-indicator{position:absolute;left:0;right:0;height:3px;background:linear-gradient(to right,var(--gold),rgba(201,169,110,.25));display:none;z-index:50;pointer-events:none;border-radius:2px;box-shadow:0 0 8px rgba(201,169,110,.55);}
@@ -3708,7 +3712,13 @@ function gradCss(g,n=24){
   return `linear-gradient(to right,${parts.join(',')})`;
 }
 
-function getEffectiveColor(track,n,si=null,stepCount=null){
+// G4 · a pattern may carry its own ribbon for a channel or a group (pat.ribbons['ch:<id>'] / ['gr:<id>']); it REPLACES the shared one in that pattern.
+function ribbonOf(pat,kind,obj){
+  if(!obj) return null;
+  const o=pat&&pat.ribbons&&pat.ribbons[(kind==='ch'?'ch:':'gr:')+obj.id];
+  return o||(kind==='ch'?obj.stepGrad:obj.grad);
+}
+function getEffectiveColor(track,n,si=null,stepCount=null,pat=null){
   const base=cardColor(n);
   // Step 1: channel gradient (existing)
   let col=base;
@@ -3726,7 +3736,8 @@ function getEffectiveColor(track,n,si=null,stepCount=null){
     const group=getChannelGroup(track);
     // ribbons (G2): the channel's own first, then its group's on top
     const t=stepCount>1?si/(stepCount-1):0;
-    [track&&track.stepGrad,group&&group.grad].forEach(sg=>{
+    pat=pat||patterns[activePatternIndex];
+    [ribbonOf(pat,'ch',track),ribbonOf(pat,'gr',group)].forEach(sg=>{
       if(sg&&sg.on){
         const gr2=gradAt(sg,t);
         col=blendRGB(col,gr2,sg.blend,sg.opacity/100*gr2.a);
@@ -5137,7 +5148,7 @@ function fireStep(step,t,clipBpm=null){
       if(n!==null&&n!==undefined){
         const octShift=(ch.octave||0)+((pd.stepOctaves&&pd.stepOctaves[step])||0);
         const vel=(pd.stepVelocities&&pd.stepVelocities[step]!==undefined)?pd.stepVelocities[step]:100;
-        const eff=getEffectiveColor(ch,n,step,pat.stepCount);
+        const eff=getEffectiveColor(ch,n,step,pat.stepCount,pat);
         scheduleCardNote(n,t,dur,ch.vol*(vel/127),octShift,eff,pan,clipBpm,ch);
       }
     }
@@ -5272,7 +5283,8 @@ function buildGroupHeader(group,gi){
   delBtn.addEventListener('click',()=>showConfirm(`Ungroup "${group.name}"?`,'Ungroup',()=>disbandGroup(gi)));
   ghdr.append(gHandle,colBtn,nameEl,gradBtn,mb,sb,delBtn);
   const stepsFill=document.createElement('div');stepsFill.className='group-header-steps';
-  stepsFill.appendChild(buildRibbon(group.grad,'g'+gi,group.name.toUpperCase()+' · GROUP RIBBON'));
+  {const pat=patterns[activePatternIndex],og=pat&&pat.ribbons&&pat.ribbons['gr:'+group.id];
+    stepsFill.appendChild(buildRibbon(og||group.grad,'g'+gi,group.name.toUpperCase()+' · GROUP RIBBON',{ovr:{on:!!og,toggle:()=>ribToggleOverride('gr',group)}}));}
   row.append(ghdr,stepsFill);
   return row;
 }
@@ -5534,7 +5546,7 @@ function fxGraphCards(channel,ci){
   if(pd&&pd.steps){
     pd.steps.forEach((n,si)=>{
       if(n===null||n===undefined) return;
-      const col=getEffectiveColor(channel,n,si,pat.stepCount);
+      const col=getEffectiveColor(channel,n,si,pat.stepCount,pat);
       const vel=(pd.stepVelocities&&pd.stepVelocities[si]!==undefined)?pd.stepVelocities[si]:100;
       const vol=channel.vol*(vel/127);
       const cd=BASE_CARDS.find(c=>c.n===n), suit=cd?cd.suit:channel.suit;
@@ -5643,7 +5655,7 @@ function fxReadoutCards(channel,ci){
     pd.steps.forEach((n,si)=>{
       if(n===null||n===undefined) return;
       const card=BASE_CARDS.find(c=>c.n===n); if(!card) return;
-      const col=getEffectiveColor(channel,n,si,pat.stepCount);
+      const col=getEffectiveColor(channel,n,si,pat.stepCount,pat);
       const key=n+':'+col.r+','+col.g+','+col.b;
       if(seen.has(key)) return;
       const vel=(pd.stepVelocities&&pd.stepVelocities[si]!==undefined)?pd.stepVelocities[si]:100;
@@ -7277,6 +7289,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     patterns.forEach(pat=>{
       const clonedData=JSON.parse(JSON.stringify(pat.channelData[ci]));
       pat.channelData.splice(ci+1,0,clonedData);
+      if(pat.ribbons&&pat.ribbons['ch:'+channel.id]) pat.ribbons['ch:'+cloneCh.id]=JSON.parse(JSON.stringify(pat.ribbons['ch:'+channel.id]));
     });
     render();saveState();
   });
@@ -7341,7 +7354,8 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
   rightWrap.appendChild(grid);
   if(!isDrum&&channel.suit&&channel.ribbonOpen){
     if(!channel.stepGrad) channel.stepGrad=defaultGrad(channel.suit);
-    const rs=buildRibbon(channel.stepGrad,'c'+ci,(SUIT_INFO[channel.suit]?SUIT_INFO[channel.suit].label.toUpperCase():'CHANNEL')+' · STEP RIBBON');
+    const _pat=patterns[activePatternIndex],oc=_pat&&_pat.ribbons&&_pat.ribbons['ch:'+channel.id];
+    const rs=buildRibbon(oc||channel.stepGrad,'c'+ci,(SUIT_INFO[channel.suit]?SUIT_INFO[channel.suit].label.toUpperCase():'CHANNEL')+' · STEP RIBBON',{ovr:{on:!!oc,toggle:()=>ribToggleOverride('ch',channel)}});
     rs.classList.add('rib-strip');rightWrap.appendChild(rs);
   }
   if(pickerTi===ci&&cpEl.classList.contains('show')) rightWrap.appendChild(cpEl); // piano sits under this channel's cards
@@ -7742,6 +7756,16 @@ function ribOpenPopup(g,title,el,stop,cx){
   gp.style.left=x+'px';gp.style.top=y+'px';
   refreshSoundMapping();
 }
+function ribToggleOverride(kind,obj){
+  const pat=patterns[activePatternIndex];if(!pat||!obj) return;
+  const key=(kind==='ch'?'ch:':'gr:')+obj.id;
+  pushHistory();
+  if(!pat.ribbons) pat.ribbons={};
+  if(pat.ribbons[key]) delete pat.ribbons[key];
+  else pat.ribbons[key]=JSON.parse(JSON.stringify(gradEnsure(kind==='ch'?obj.stepGrad:obj.grad)));
+  if(!Object.keys(pat.ribbons).length) delete pat.ribbons;
+  render();saveState();
+}
 let ribLast=null; // double-press detection (render() replaces the nodes, so dblclick can't be trusted)
 function buildRibbon(g,key,title,opts){
   opts=opts||{};
@@ -7750,6 +7774,7 @@ function buildRibbon(g,key,title,opts){
   const X=opts.slotX||ribSlotX,unit=opts.unit||'Step';
   const rib=document.createElement('div');rib.className='rib'+(g.on?'':' off');rib.dataset.rib=key;
   if(opts.css) rib.style.cssText=opts.css;
+  if(opts.ovr&&opts.ovr.on) rib.classList.add('ovr');
   for(let si=0;si<n;si++){
     if(!opts.noBeat&&si>0&&si%4===0){const gap=document.createElement('div');gap.className='rib-gap';rib.appendChild(gap);}
     const sl=document.createElement('div');sl.className='rib-slot';if(opts.slotW) sl.style.cssText=`width:${opts.slotW}px;min-width:${opts.slotW}px`;
@@ -7758,6 +7783,14 @@ function buildRibbon(g,key,title,opts){
     sl.style.background=base;sl.style.opacity=g.on?(0.35+0.65*Math.max(c.a,0)).toFixed(2):'1';
     sl.title=(opts.labels?opts.labels[si]:`${unit} ${si+1}`)+(g.on?` · rgb(${c.r},${c.g},${c.b})`:' · ribbon is off — click to start one');
     rib.appendChild(sl);
+  }
+  if(opts.ovr){
+    const pb=document.createElement('button');pb.className='rib-pat'+(opts.ovr.on?' on':'');
+    pb.textContent=opts.ovr.on?'THIS PATTERN · ↺ shared':'this pattern only';
+    pb.title=opts.ovr.on?'This pattern has its own ribbon. Click to go back to the shared one (the pattern copy is removed).':'Make a private copy of this ribbon for the open pattern. Edits then affect only this pattern.';
+    pb.addEventListener('pointerdown',e=>e.stopPropagation());
+    pb.addEventListener('click',e=>{e.stopPropagation();closeGradPopup();opts.ovr.toggle();});
+    rib.appendChild(pb);
   }
   const S=g.stops,last=S.length-1,popOpen=document.getElementById('grad-popup').classList.contains('show')&&activeGradObj===g;
   S.forEach((st,k)=>{
