@@ -475,6 +475,15 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .rib.off .rib-stop{opacity:.45!important;}
 .rib-btn{width:22px;height:14px;border-radius:2px;border:1px solid var(--border);cursor:pointer;margin-top:3px;margin-left:3px;padding:0;background:rgba(201,169,110,.08);color:rgba(201,169,110,.7);font-size:9px;line-height:1;}
 .rib-btn:hover{border-color:var(--gold);}
+/* N1 · note row: the pitch each step will actually play */
+.note-btn{width:18px;height:14px;border-radius:2px;border:1px solid var(--border);cursor:pointer;margin-top:3px;margin-left:3px;padding:0;background:rgba(201,169,110,.08);color:rgba(201,169,110,.7);font-size:10px;line-height:1;}
+.note-btn:hover{border-color:var(--gold);}
+.note-btn.on{border-color:rgba(255,255,255,.6);color:#fff;box-shadow:0 0 6px rgba(255,255,255,.25);}
+.note-lane{display:flex;gap:3px;padding:4px 10px 0;align-items:flex-end;}
+.note-lane .nl{width:var(--sw);min-width:var(--sw);flex-shrink:0;text-align:center;line-height:1.05;min-height:21px;}
+.note-lane .nl-n{display:block;font-size:11px;font-weight:600;color:var(--gold);letter-spacing:.02em;}
+.note-lane .nl-c{display:block;font-size:8px;color:rgba(201,169,110,.6);}
+.note-lane .nl.off .nl-n{color:rgba(201,169,110,.28);font-weight:400;}
 .rib-btn.on{border-color:rgba(255,255,255,.6);color:#fff;box-shadow:0 0 6px rgba(255,255,255,.25);}
 .rib-strip{border-top:1px solid rgba(201,169,110,.08);}
 .rib.ovr{box-shadow:inset 0 -2px 0 rgba(201,169,110,.55);}
@@ -7267,6 +7276,11 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
       ribBtn.title='Step ribbon — a colour sweep across the steps of this channel';
       ribBtn.addEventListener('click',e=>{e.stopPropagation();pushHistory();channel.ribbonOpen=!channel.ribbonOpen;render();saveState();});
       octRow.appendChild(ribBtn);
+      const noteBtn=document.createElement('button');
+      noteBtn.className='note-btn'+(channel.notesOpen?' on':'');noteBtn.textContent='♪';
+      noteBtn.title='Note row — shows the note (and how many cents off it is) that each step will really play';
+      noteBtn.addEventListener('click',e=>{e.stopPropagation();channel.notesOpen=!channel.notesOpen;render();saveState();});
+      octRow.appendChild(noteBtn);
     }
 
     inf.appendChild(octRow);
@@ -7351,6 +7365,7 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
     if(si>0&&si%4===0){const gap=document.createElement('div');gap.className='beat-gap';grid.appendChild(gap);}
     grid.appendChild(isDrum?buildDrumCell(channel,ci,si):buildMelodyCell(channel,ci,si));
   }
+  if(!isDrum&&channel.suit&&channel.notesOpen) rightWrap.appendChild(buildNoteLane(channel,ci));
   rightWrap.appendChild(grid);
   if(!isDrum&&channel.suit&&channel.ribbonOpen){
     if(!channel.stepGrad) channel.stepGrad=defaultGrad(channel.suit);
@@ -7723,6 +7738,41 @@ function gpDeleteStop(st){
   pushHistory();g.stops.splice(k,1);gpSelStop=null;gpSelect(g.stops[Math.max(0,k-1)]);render();saveState();
 }
 
+
+
+// ── N1 · Note row ─────────────────────────────────────────────────────────
+// For every step with a card: the pitch it will really play (card colour → gradients → ribbons → octave shifts →
+// any RGB-particle pitch detune), as the nearest standard note plus how many cents it sits from it. Microtonal is fine —
+// this only reports. A = 440 Hz, equal temperament, the same labels as everywhere else (octave number steps up at C).
+const NOTE_NAMES_12=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function stepPitchInfo(ch,ci,pat,si){
+  const pd=pat&&pat.channelData&&pat.channelData[ci];if(!pd||!pd.steps) return null;
+  const n=pd.steps[si];if(n===null||n===undefined) return null;
+  const card=BASE_CARDS.find(c=>c.n===n);if(!card) return null;
+  const col=getEffectiveColor(ch,n,si,pat.stepCount,pat);
+  let pm=1;try{const sh=noteShape(col,1,ch,{suit:card.suit});pm=(sh&&sh.pitchMul)||1;}catch(e){}
+  const f=activeRgbToFreq(col.r,col.g,col.b)*Math.pow(2,(ch.octave||0)+((pd.stepOctaves&&pd.stepOctaves[si])||0))*pm;
+  const m=69+12*Math.log2(f/440),mi=Math.round(m);
+  return{f,name:NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1),cents:(m-mi)*100};
+}
+function buildNoteLane(ch,ci){
+  const pat=patterns[activePatternIndex];
+  const lane=document.createElement('div');lane.className='note-lane';
+  for(let si=0;si<pat.stepCount;si++){
+    if(si>0&&si%4===0){const gap=document.createElement('div');gap.className='beat-gap';lane.appendChild(gap);}
+    const cell=document.createElement('div');cell.className='nl';
+    const info=stepPitchInfo(ch,ci,pat,si);
+    if(info){
+      const c=Math.round(info.cents);
+      cell.innerHTML=`<span class="nl-n">${info.name}</span><span class="nl-c">${c>0?'+':c<0?'−':''}${Math.abs(c)}¢</span>`;
+      cell.title=`${info.name} ${c>0?'+':c<0?'−':'±'}${Math.abs(info.cents).toFixed(1)}¢ · ${info.f.toFixed(2)} Hz`;
+    } else {
+      cell.classList.add('off');cell.innerHTML='<span class="nl-n">·</span><span class="nl-c">&nbsp;</span>';
+    }
+    lane.appendChild(cell);
+  }
+  return lane;
+}
 
 // ── G2 · Step ribbon ─────────────────────────────────────────────────────
 // A strip with one slot per step, drawn right over the card slots. Each slot shows the colour the ribbon hands
