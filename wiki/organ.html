@@ -521,6 +521,12 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 /* ── GRADIENT POPUP ─────────────────────────────── */
 #grad-popup{position:fixed;z-index:300;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.3);border-radius:8px;padding:14px;box-shadow:0 20px 60px rgba(0,0,0,.95);display:none;width:440px;max-width:96vw;max-height:90vh;overflow-y:auto;}
 #grad-popup.show{display:block;}
+/* movable colour editor: grab the bar, FLOAT/PINNED like the pattern menu */
+#gp-drag-bar{position:sticky;top:-14px;z-index:5;margin:-14px -14px 10px;height:26px;display:flex;align-items:center;gap:6px;padding:0 8px;background:#1a1530;border-bottom:1px solid rgba(201,169,110,.12);border-radius:8px 8px 0 0;cursor:grab;user-select:none;touch-action:none;}
+#gp-drag-bar:active{cursor:grabbing;}
+#gp-drag-bar .csp-drag-dots{font-size:8px;color:rgba(201,169,110,.35);letter-spacing:3px;flex:1;}
+#gp-pin-btn{font-size:7.5px;padding:2px 6px;letter-spacing:.07em;}
+#gp-pin-btn.pinned{border-color:rgba(201,169,110,.6);color:var(--gold);background:var(--gf);}
 #gp-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 #gp-title{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.18em;color:var(--gold);flex:1;}
 .gp-toggle{width:30px;height:16px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid var(--border);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
@@ -1119,6 +1125,11 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 <div id="step-ctx-menu"></div>
 
 <div id="grad-popup">
+  <div id="gp-drag-bar">
+    <span class="csp-drag-dots">⠿⠿⠿</span>
+    <button id="gp-pin-btn" class="tb" title="Pin in place — the editor stays where you put it, even when you open another ribbon or click elsewhere">⊙ FLOAT</button>
+    <button id="gp-close" class="tb" title="Close">✕</button>
+  </div>
   <div id="gp-head">
     <span id="gp-title">GRADIENT</span>
     <div class="gp-toggle" id="gp-toggle"><div class="gp-knob"></div></div>
@@ -1689,6 +1700,7 @@ function backfillPatternColors(pats){
   patternCounter=maxNum;
 }
 function applyLoadedSong(row){
+  try{closeGradPopup();}catch(_){}   // (before the editor exists at start-up there is nothing to close)
   pushHistory();
   masterEq=eqFresh();   // a song without a master EQ gets none (off)
   bpm=row.bpm||120;
@@ -4669,6 +4681,7 @@ let pendingGesture=null; // for slider/color-drag gestures (begin...commit)
 
 function snapshotState(){return JSON.stringify({bpm,channels,patterns,activePatternIndex,arrangementClips:JSON.parse(JSON.stringify(arrangementClips)),channelGroups:JSON.parse(JSON.stringify(channelGroups)),songMultiOctave,masterEq,loopSec});}
 function restoreSnapshot(json){
+  try{closeGradPopup();}catch(_){}   // (before the editor exists at start-up there is nothing to close)   // the editor points at objects the snapshot replaces
   const d=JSON.parse(json);
   bpm=d.bpm;channels=d.channels;patterns=d.patterns;activePatternIndex=d.activePatternIndex||0;
   if(d.arrangementClips) arrangementClips=d.arrangementClips;
@@ -6994,8 +7007,8 @@ function openGroupGradPopup(gi,e){
   gpRefreshUI();
   gpSelect(null);
   const rect=e?e.currentTarget?.getBoundingClientRect():null;
-  if(rect){gp.style.top=(rect.bottom+6)+'px';gp.style.left=Math.max(10,rect.left)+'px';}
   gp.classList.add('show');
+  if(rect) gpPlace(Math.max(10,rect.left),rect.bottom+6);
 }
 // Check if grad popup is in group mode
 function isGroupGradMode(){return typeof gradTi==='number'&&gradTi<0;}
@@ -7580,13 +7593,44 @@ function openGradPopup(ti,e){
   gpSelStop=null;gpSelect(null);
 
   gradPopup.classList.add('show');
-  const popW=gradPopup.offsetWidth,popH=gradPopup.offsetHeight;
-  const x=Math.max(8,Math.min(e.clientX,window.innerWidth-popW-8));
-  const y=Math.max(8,Math.min(e.clientY+8,window.innerHeight-popH-8));
-  gradPopup.style.left=x+'px';gradPopup.style.top=y+'px';
+  gpPlace(e.clientX,e.clientY+8);
   refreshSoundMapping();
 }
 function closeGradPopup(){gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
+// ── movable colour editor ─────────────────────────────────────────────────
+// Floating (default): opens where you clicked and closes when you click elsewhere.
+// Pinned (press FLOAT, or just drag the bar): stays where you parked it — opening another ribbon, gradient or stop reuses that spot,
+// and clicking elsewhere does not close it. ✕ closes it and returns it to floating.
+let gpPinned=false,gpDrag=null;
+function gpClampPos(x,y){
+  const w=gradPopup.offsetWidth||440,h=gradPopup.offsetHeight||520;
+  return[Math.max(0,Math.min(window.innerWidth-Math.min(w,window.innerWidth),x)),Math.max(0,Math.min(window.innerHeight-Math.min(h,window.innerHeight),y))];
+}
+function gpPlace(x,y){
+  const keep=gpPinned&&gradPopup.dataset.placed==='1';
+  const cur=keep?[parseFloat(gradPopup.style.left)||0,parseFloat(gradPopup.style.top)||0]:[x,y];
+  const [cx,cy]=gpClampPos(cur[0],cur[1]);
+  gradPopup.style.left=cx+'px';gradPopup.style.top=cy+'px';gradPopup.dataset.placed='1';
+}
+function gpSetPinned(v){
+  gpPinned=v;const b=document.getElementById('gp-pin-btn');
+  b.textContent=v?'⊕ PINNED':'⊙ FLOAT';b.classList.toggle('pinned',v);
+}
+document.getElementById('gp-pin-btn').addEventListener('click',()=>gpSetPinned(!gpPinned));
+document.getElementById('gp-close').addEventListener('click',()=>{closeGradPopup();gpSetPinned(false);});
+document.getElementById('gp-drag-bar').addEventListener('pointerdown',e=>{
+  if(e.target.closest('button')||e.button!==0) return;
+  e.preventDefault();
+  const r=gradPopup.getBoundingClientRect();
+  gpDrag={x:e.clientX,y:e.clientY,left:r.left,top:r.top};
+  const mv=ev=>{
+    const [nx,ny]=gpClampPos(gpDrag.left+(ev.clientX-gpDrag.x),gpDrag.top+(ev.clientY-gpDrag.y));
+    gradPopup.style.left=nx+'px';gradPopup.style.top=ny+'px';
+    if(!gpPinned) gpSetPinned(true);       // moving it parks it, like the pattern menu
+  };
+  const up=()=>{gpDrag=null;document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);};
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+});
 
 document.getElementById('gp-toggle').addEventListener('click',()=>{
   if(gradTi===null) return;
@@ -7644,7 +7688,7 @@ document.getElementById('gp-opacity').addEventListener('input',e=>{
 });
 document.getElementById('gp-opacity').addEventListener('change',commitGesture);
 document.addEventListener('mousedown',e=>{
-  if(gradPopup.classList.contains('show')&&!gradPopup.contains(e.target)&&!e.target.classList.contains('grad-btn')&&!e.target.closest('.rib')) closeGradPopup();
+  if(gradPopup.classList.contains('show')&&!gpPinned&&!gradPopup.contains(e.target)&&!e.target.classList.contains('grad-btn')&&!e.target.closest('.rib')) closeGradPopup();
 });
 
 
@@ -7803,7 +7847,7 @@ function ribOpenPopup(g,title,el,stop,cx){
     y=Math.max(8,window.innerHeight-ph-8);
     const mid=cx??r.left;x=(mid+30+pw<=window.innerWidth-8)?mid+30:Math.max(8,mid-30-pw);
   }
-  gp.style.left=x+'px';gp.style.top=y+'px';
+  gpPlace(x,y);
   refreshSoundMapping();
 }
 function ribToggleOverride(kind,obj){

@@ -358,6 +358,11 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - **Plan (Justin, Nov 9):** notes live as **colour marks on the ribbon**; the note row tells you when you've left a defined note. Phase 2 (parked until he's lived with the row): click a step's label and type a note (e.g. F#4) → writes an exact-colour stop on this pattern's override ribbon and drops a card there, so the mark can still be dragged by hand. Phase 3 (also parked): paste-a-list box for a whole pattern (`E5 E5 _ E5 …`, one token per step). The Super Mario theme stays out; he can enter his own transcriptions that way.
 - Songs unchanged (display only; `channel.notesOpen` flag, default off).
 
+
+### BUILT Nov 10, 2026: movable colour editor
+- The gradient/colour popup now has a **grab bar** (⠿⠿⠿) with **FLOAT / PINNED** and **✕**, modelled on the pattern-settings menu. Floating (default): opens next to where you clicked and closes when you click elsewhere. **Pinned** (press FLOAT, or simply drag the bar — moving it pins it): it stays where you parked it; opening another ribbon, gradient swatch or stop **reuses that spot and just retargets** (title changes), and clicking elsewhere does **not** close it. ✕ closes and returns to floating. Position is clamped to the window.
+- Undo/redo and loading a song close the editor (it points at objects those replace). Old behaviour is unchanged unless you pin.
+
 ### BUILT Nov 3, 2026: colour-picker round 2 (Hue/Color blends, Stepped mix, one-octave chooser)
 - **Hue and Color blend modes** (gradient popup): non-separable blends using the W3C compositing definitions (`Lum=0.3R+0.59G+0.11B`; **Hue** = SetLum(SetSat(blend, Sat(base)), Lum(base)); **Color** = SetLum(blend, Lum(base))). Verified against an independent reference. Not added to the ΔtRTVI/ADSR blend menu: that menu blends four plain numbers (attack, decay, sustain, release), and hue/colour have no meaning for a number. The existing four (Normal/Multiply/Screen/Overlay) stay. Old songs are untouched (blend path verified identical on 1,872 cases).
 - **Stepped mix** (5th MIX option): no mixing; a stop's colour AND opacity hold until the next stop's position, then jump (the wall sits exactly at the next stop; a snapped stop will change colour on its own slot).
