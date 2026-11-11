@@ -483,9 +483,13 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .note-lane .nl{width:var(--sw);min-width:var(--sw);flex-shrink:0;text-align:center;line-height:1.05;min-height:36px;position:relative;white-space:nowrap;}
 .note-lane .nl-top{display:flex;align-items:center;justify-content:center;gap:3px;height:20px;}
 .note-lane .nl-n{font-size:17px;font-weight:600;color:var(--gold);letter-spacing:.01em;}
-.note-lane .nl-c{display:block;font-size:14px;color:rgba(201,169,110,.65);letter-spacing:-.03em;margin:0 -10px;}
+.note-lane .nl-c{display:block;font-size:14px;color:rgba(201,169,110,.65);letter-spacing:-.06em;margin:0 -10px;}
 .note-lane .nl.off .nl-n{color:rgba(201,169,110,.28);font-weight:400;}
 .nl-box{display:inline-block;width:9px;height:16px;border-radius:2px;border:1px solid rgba(255,255,255,.45);box-sizing:border-box;cursor:ew-resize;flex-shrink:0;touch-action:none;}
+.note-lane.colormode .nl-box{width:12px;height:12px;border-radius:1px;transform:rotate(45deg);}
+.nl-mode{flex-shrink:0;background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);font-family:inherit;font-size:12px;line-height:1;width:20px;height:20px;padding:0;border-radius:3px;cursor:pointer;}
+.nl-mode:hover{border-color:var(--gold);}
+.nl-mode.on{background:rgba(201,169,110,.2);}
 .nl-box:hover{border-color:#fff;box-shadow:0 0 6px rgba(255,255,255,.5);}
 body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!important;}
 .rib-btn.on{border-color:rgba(255,255,255,.6);color:#fff;box-shadow:0 0 6px rgba(255,255,255,.25);}
@@ -3769,7 +3773,39 @@ function getEffectiveColor(track,n,si=null,stepCount=null,pat=null){
       }
     });
   }
+  if(si!==null){
+    const p2=pat||patterns[activePatternIndex],pd2=p2&&p2.channelData&&p2.channelData[channels.indexOf(track)];
+    const sh=pd2&&pd2.stepShift&&pd2.stepShift[si];
+    if(sh) col=shiftColorCents(col,sh);
+  }
   return col;
+}
+
+// ── Colour shift (note-row Colour mode) ──
+// Re-pitches a colour by `cents` the way the frequency bar does: same saturation and lightness, the hue is moved to whichever
+// hue sings the target pitch. The wheel is not monotonic (see the Tricknologic Bridge) so the colour can jump a long way for a tiny pitch move.
+const _shiftCache=new Map();
+function shiftColorCents(col,cents){
+  const key=col.r+','+col.g+','+col.b+','+cents+','+(songMultiOctave?1:0);
+  if(_shiftCache.has(key)) return _shiftCache.get(key);
+  let s=rgbToHSLSaturation(col.r,col.g,col.b);if(s<0.3) s=1;
+  const L=rgbLightness(col.r,col.g,col.b),h0=rgbToHue(col.r,col.g,col.b);
+  const target=activeRgbToFreq(col.r,col.g,col.b)*Math.pow(2,cents/1200);
+  let best=col,bd=Infinity,bh=1e9;
+  for(let h=0;h<360;h+=0.05){
+    const c=hslToRgb(h,s,L);
+    const d=Math.abs(Math.log2(activeRgbToFreq(c.r,c.g,c.b)/target));
+    const dh=Math.min(Math.abs(h-h0),360-Math.abs(h-h0));
+    if(d<bd-1e-9||(Math.abs(d-bd)<=1e-9&&dh<bh)){bd=d;best=c;bh=dh;}
+  }
+  best={r:best.r,g:best.g,b:best.b};
+  if(_shiftCache.size>400) _shiftCache.clear();
+  _shiftCache.set(key,best);return best;
+}
+function setShift(pd,si,v,sc){
+  if(!v&&!pd.stepShift) return;
+  if(!pd.stepShift) pd.stepShift=new Array(sc||(pd.steps?pd.steps.length:16)).fill(0);
+  pd.stepShift[si]=v;
 }
 
 function cardColor(n){const c=BASE_CARDS.find(x=>x.n===n);return c?{r:c.r,g:c.g,b:c.b}:{r:128,g:128,b:128};}
@@ -4284,6 +4320,7 @@ function copyStepSel(){
       offset:si-minSi,
       n:pd.steps?.[si]??null,
       oct:pd.stepOctaves?.[si]??0,
+      shf:pd.stepShift?.[si]??0,
       vel:pd.stepVelocities?.[si]??100
     }))
   };
@@ -4301,6 +4338,7 @@ function pasteStepClipboard(toCi,startSi){
     if(dest<0||dest>=sc) continue;
     pd.steps[dest]=item.n;
     pd.stepOctaves[dest]=item.oct;
+    setShift(pd,dest,item.shf||0,sc);
     pd.stepVelocities[dest]=item.vel;
   }
   render();saveState();
@@ -4467,12 +4505,14 @@ function dropCard(toCi,toSi,drag){
   // Place card at destination
   toPd.steps[toSi]       =drag.n;
   toPd.stepOctaves[toSi] =drag.oct;
+  setShift(toPd,toSi,drag.shf||0,sc);
   toPd.stepVelocities[toSi]=drag.vel;
   // Clear source if move (not copy) and not dropping on itself
   if(!drag.copy&&(drag.fromCi!==toCi||drag.fromSi!==toSi)){
     const fromPd=pat.channelData[drag.fromCi];
     fromPd.steps[drag.fromSi]=null;
     if(fromPd.stepOctaves)    fromPd.stepOctaves[drag.fromSi]=0;
+    setShift(fromPd,drag.fromSi,0,sc);
     if(fromPd.stepVelocities) fromPd.stepVelocities[drag.fromSi]=100;
   }
   render();saveState();
@@ -4486,6 +4526,7 @@ function copyChannelCards(ci){
     steps:      [...(pd.steps||[])],
     stepOctaves:[...(pd.stepOctaves||new Array(pat.stepCount).fill(0))],
     stepVelocities:[...(pd.stepVelocities||new Array(pat.stepCount).fill(100))],
+    stepShift:[...(pd.stepShift||new Array(pat.stepCount).fill(0))],
     stepCount:  pat.stepCount
   };
 }
@@ -4502,6 +4543,8 @@ function pasteChannelCards(ci){
   for(let i=0;i<sc;i++) pd.stepOctaves.push(i<src.stepOctaves.length?src.stepOctaves[i]:0);
   pd.stepVelocities=[];
   for(let i=0;i<sc;i++) pd.stepVelocities.push(i<src.stepVelocities.length?src.stepVelocities[i]:100);
+  pd.stepShift=[];
+  for(let i=0;i<sc;i++) pd.stepShift.push((src.stepShift&&i<src.stepShift.length)?src.stepShift[i]:0);
   render();saveState();
 }
 
@@ -4811,6 +4854,7 @@ function openStepCtxMenu(ti,si,e,kind){
     if(hasNote) addOpt('Copy',()=>{melodyClipboard={
       n:pd.steps[si],
       oct:(pd.stepOctaves&&pd.stepOctaves[si])||0,
+      shf:(pd.stepShift&&pd.stepShift[si])||0,
       vel:(pd.stepVelocities&&pd.stepVelocities[si]!==undefined)?pd.stepVelocities[si]:100
     };});
     if(melodyClipboard) addOpt('Paste',()=>{
@@ -4818,6 +4862,7 @@ function openStepCtxMenu(ti,si,e,kind){
       pd.steps[si]=melodyClipboard.n;
       if(!pd.stepOctaves) pd.stepOctaves=new Array(sc).fill(0);
       pd.stepOctaves[si]=melodyClipboard.oct;
+      setShift(pd,si,melodyClipboard.shf||0,sc);
       if(!pd.stepVelocities) pd.stepVelocities=new Array(sc).fill(100);
       pd.stepVelocities[si]=melodyClipboard.vel!==undefined?melodyClipboard.vel:100;
       render();saveState();
@@ -4825,6 +4870,7 @@ function openStepCtxMenu(ti,si,e,kind){
     if(hasNote) addOpt('Clear',()=>{
       pushHistory();pd.steps[si]=null;
       if(pd.stepOctaves) pd.stepOctaves[si]=0;
+      setShift(pd,si,0,sc);
       if(pd.stepVelocities) pd.stepVelocities[si]=100;
       render();saveState();
     },true);
@@ -5222,6 +5268,7 @@ function shiftChannelCards(ci,dir){
     const shiftArr=(arr,d)=>{const a=[...arr];if(d<0){a.push(a.shift());}else{a.unshift(a.pop());}return a;};
     pd.steps=shiftArr(pd.steps,dir);
     pd.stepOctaves=shiftArr(pd.stepOctaves,dir);
+    if(pd.stepShift) pd.stepShift=shiftArr(pd.stepShift,dir);
     pd.stepVelocities=shiftArr(pd.stepVelocities,dir);
   } else if(pd.drumSteps){
     pd.drumSteps=pd.drumSteps.map(row=>{
@@ -5249,6 +5296,7 @@ function flattenPattern(idx){
       if(pd.steps){
         pd.steps=new Array(sc).fill(null);
         pd.stepOctaves=new Array(sc).fill(0);
+        pd.stepShift=new Array(sc).fill(0);
         pd.stepVelocities=new Array(sc).fill(100);
       }
       if(pd.drumSteps){
@@ -7298,6 +7346,13 @@ function buildTrackRow(channel,ci,hasSolo=false,inGroup=false,gi=-1){
       noteBtn.title='Note row — shows the note (and how many cents off it is) that each step will really play';
       noteBtn.addEventListener('click',e=>{e.stopPropagation();channel.notesOpen=!channel.notesOpen;render();saveState();});
       octRow.appendChild(noteBtn);
+      if(channel.notesOpen){
+        const mb=document.createElement('button');mb.className='nl-mode'+(channel.noteMode==='color'?' on':'');mb.type='button';
+        mb.textContent=channel.noteMode==='color'?'◆':'▮';
+        mb.title=channel.noteMode==='color'?'Colour mode: dragging a note box moves the colour along the frequency bar (sound and envelope change). Click for Tune mode.':'Tune mode: dragging a note box fine-tunes the pitch only; colour, envelope and mass stay. Click for Colour mode.';
+        mb.addEventListener('click',e=>{e.stopPropagation();channel.noteMode=channel.noteMode==='color'?'tune':'color';render();saveState();});
+        octRow.appendChild(mb);
+      }
     }
 
     inf.appendChild(octRow);
@@ -7468,6 +7523,7 @@ function buildMelodyCell(channel,ci,si){
         fromCi:ci,fromSi:si,
         n:pd.steps[si],
         oct:(pd.stepOctaves&&pd.stepOctaves[si])||0,
+        shf:(pd.stepShift&&pd.stepShift[si])||0,
         vel:(pd.stepVelocities&&pd.stepVelocities[si]!==undefined)?pd.stepVelocities[si]:100,
         copy:e.ctrlKey||e.metaKey
       };
@@ -7819,6 +7875,7 @@ function fmtCents(c){
 // It never leaves the note it started on (stops at ±49.98¢).
 function nlStartDrag(e,ci,si){
   if(e.button!==0) return;
+  if(channels[ci].noteMode==='color') return nlStartColorDrag(e,ci,si);
   e.preventDefault();e.stopPropagation();
   const pat=patterns[activePatternIndex],ch=channels[ci],pd=pat.channelData[ci];
   const info=stepPitchInfo(ch,ci,pat,si);if(!info) return;
@@ -7840,14 +7897,37 @@ function nlStartDrag(e,ci,si){
   const up=()=>{document.body.classList.remove('nl-dragging');document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);commitGesture();saveState();};
   document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
 }
+// Colour mode: the same drag, but it re-pitches the COLOUR (hue moves on the frequency bar; saturation and lightness stay).
+// ~1¢ per pixel (Alt 0.2¢, Shift 5¢); the colour can only land on real RGB values, so the pitch steps in whatever the 8-bit colours allow.
+// Still stays on the note the drag began on.
+function nlStartColorDrag(e,ci,si){
+  e.preventDefault();e.stopPropagation();
+  const pat=patterns[activePatternIndex],ch=channels[ci],pd=pat.channelData[ci];
+  const info=stepPitchInfo(ch,ci,pat,si);if(!info) return;
+  const s0=(pd.stepShift&&pd.stepShift[si])||0;
+  const lo=-49-(info.m*100-homeCents(info))+s0,hi=49-(info.m*100-homeCents(info))+s0;   // keeps the sounding pitch on its home note
+  let want=s0,lastX=e.clientX;
+  beginGesture();document.body.classList.add('nl-dragging');
+  const mv=ev=>{
+    const step=ev.altKey?0.2:(ev.shiftKey?5:1);
+    want=Math.max(lo,Math.min(hi,want+(ev.clientX-lastX)*step));lastX=ev.clientX;
+    setShift(pd,si,Math.round(want*100)/100,pat.stepCount);
+    render();
+  };
+  const up=()=>{document.body.classList.remove('nl-dragging');document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);commitGesture();saveState();};
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+}
+function homeCents(info){return info.mi*100;}
 function nlResetFine(ci,si){
-  const pat=patterns[activePatternIndex],pd=pat.channelData[ci];if(!pd||!pd.stepOctaves) return;
+  const pat=patterns[activePatternIndex],pd=pat.channelData[ci];
+  if(channels[ci].noteMode==='color'){if(!(pd.stepShift&&pd.stepShift[si])) return;pushHistory();setShift(pd,si,0,pat.stepCount);render();saveState();return;}
+  if(!pd||!pd.stepOctaves) return;
   if(!octFine(pd.stepOctaves[si])) return;
   pushHistory();pd.stepOctaves[si]=octWhole(pd.stepOctaves[si]);render();saveState();
 }
 function buildNoteLane(ch,ci){
   const pat=patterns[activePatternIndex];
-  const lane=document.createElement('div');lane.className='note-lane';
+  const lane=document.createElement('div');lane.className='note-lane'+(ch.noteMode==='color'?' colormode':'');
   for(let si=0;si<pat.stepCount;si++){
     if(si>0&&si%4===0){const gap=document.createElement('div');gap.className='beat-gap';lane.appendChild(gap);}
     const cell=document.createElement('div');cell.className='nl';
@@ -7856,7 +7936,8 @@ function buildNoteLane(ch,ci){
       const top=document.createElement('div');top.className='nl-top';
       const nn=document.createElement('span');nn.className='nl-n';nn.textContent=info.name;
       const box=document.createElement('i');box.className='nl-box';box.style.background=`rgb(${info.col.r},${info.col.g},${info.col.b})`;
-      box.title='Drag left/right to fine-tune this step (0.1¢ per pixel · Alt 0.02¢ · Shift 1¢). Stays on this note. Double-click to return to the colour\'s own pitch.';
+      box.title=ch.noteMode==='color'?'Colour mode — drag left/right to move the colour (1¢ per pixel · Alt 0.2¢ · Shift 5¢). Stays on this note. Double-click to return to the original colour. Right-click: switch mode.':'Tune mode — drag left/right to fine-tune (0.1¢ per pixel · Alt 0.02¢ · Shift 1¢). Stays on this note. Double-click to return to the colour\'s own pitch. Right-click: switch mode.';
+      box.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();ch.noteMode=ch.noteMode==='color'?'tune':'color';render();saveState();});
       box.addEventListener('pointerdown',e=>nlStartDrag(e,ci,si));
       box.addEventListener('dblclick',e=>{e.stopPropagation();nlResetFine(ci,si);});
       top.append(nn,box);
@@ -8935,6 +9016,7 @@ document.querySelectorAll('.step-preset').forEach(btn=>{
     pat.channelData.forEach(pd=>{
       if(pd.steps){while(pd.steps.length<newCount)pd.steps.push(null);pd.steps=pd.steps.slice(0,newCount);}
       if(pd.stepOctaves){while(pd.stepOctaves.length<newCount)pd.stepOctaves.push(0);pd.stepOctaves=pd.stepOctaves.slice(0,newCount);}
+      if(pd.stepShift){while(pd.stepShift.length<newCount)pd.stepShift.push(0);pd.stepShift=pd.stepShift.slice(0,newCount);}
       if(pd.stepVelocities){while(pd.stepVelocities.length<newCount)pd.stepVelocities.push(100);pd.stepVelocities=pd.stepVelocities.slice(0,newCount);}
       if(pd.drumSteps){pd.drumSteps=pd.drumSteps.map(row=>{while(row.length<newCount)row.push(false);return row.slice(0,newCount);});}
     });

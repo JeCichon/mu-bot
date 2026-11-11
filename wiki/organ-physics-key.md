@@ -381,3 +381,13 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Physics: colour is the COARSE dial (RGB can't resolve 0.02¢ — L moves in 1/510 steps ≈ 5¢); the fine tune is a separate offset riding on top. Not WEDGED: pure 2^(cents/1200).
 - Default OFF in effect: existing songs have integer stepOctaves → unchanged.
 - Observation (Justin): two colours can give the same note with different cents, landing on different envelope/mass values.
+
+---
+
+## N3 — Tune ⇄ Colour mode on the note row (Nov 11)
+- Per-channel switch (`channel.noteMode` = 'tune' | 'color'); a small ▮/◆ button beside ♪ when the note row is open. Right-click a note box flips the mode too. Colour mode shows the box as a diamond (visible cue).
+- **Tune** = fine tuner (N2): pitch only, colour/envelope/mass untouched.
+- **Colour** = the peg: drag re-pitches the COLOUR the way the frequency bar does — same saturation and lightness, hue moves to whichever hue sings the target pitch. The colour can jump far for a tiny pitch move (the wheel is not monotonic — Tricknologic Bridge). Because colour changes, mass/envelope change with it. 1¢/px, Alt 0.2¢, Shift 5¢; stays within the home note (±49¢); double-click resets.
+- Storage: `pd.stepShift[si]` (cents, per step; rides with copy/move/paste/rotate/step-count like stepOctaves). Applied LAST in `getEffectiveColor` (after card, channel gradient, channel + group ribbons), via `shiftColorCents(col,cents)`. Missing array = 0 → old songs unchanged.
+- Resolution is limited by 8-bit RGB (roughly 1¢ steps); the label shows the pitch actually reached. Tune fine offset still rides on top of the shifted colour's pitch.
+- True physics vs WEDGED: no new constants; the hue→pitch map is the existing Color-of-Sound table.
