@@ -480,10 +480,14 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .note-btn:hover{border-color:var(--gold);}
 .note-btn.on{border-color:rgba(255,255,255,.6);color:#fff;box-shadow:0 0 6px rgba(255,255,255,.25);}
 .note-lane{display:flex;gap:3px;padding:4px 10px 0;align-items:flex-end;}
-.note-lane .nl{width:var(--sw);min-width:var(--sw);flex-shrink:0;text-align:center;line-height:1.05;min-height:21px;}
-.note-lane .nl-n{display:block;font-size:11px;font-weight:600;color:var(--gold);letter-spacing:.02em;}
-.note-lane .nl-c{display:block;font-size:8px;color:rgba(201,169,110,.6);}
+.note-lane .nl{width:var(--sw);min-width:var(--sw);flex-shrink:0;text-align:center;line-height:1.05;min-height:36px;position:relative;white-space:nowrap;}
+.note-lane .nl-top{display:flex;align-items:center;justify-content:center;gap:3px;height:20px;}
+.note-lane .nl-n{font-size:17px;font-weight:600;color:var(--gold);letter-spacing:.01em;}
+.note-lane .nl-c{display:block;font-size:14px;color:rgba(201,169,110,.65);letter-spacing:-.03em;margin:0 -10px;}
 .note-lane .nl.off .nl-n{color:rgba(201,169,110,.28);font-weight:400;}
+.nl-box{display:inline-block;width:9px;height:16px;border-radius:2px;border:1px solid rgba(255,255,255,.45);box-sizing:border-box;cursor:ew-resize;flex-shrink:0;touch-action:none;}
+.nl-box:hover{border-color:#fff;box-shadow:0 0 6px rgba(255,255,255,.5);}
+body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!important;}
 .rib-btn.on{border-color:rgba(255,255,255,.6);color:#fff;box-shadow:0 0 6px rgba(255,255,255,.25);}
 .rib-strip{border-top:1px solid rgba(201,169,110,.08);}
 .rib.ovr{box-shadow:inset 0 -2px 0 rgba(201,169,110,.55);}
@@ -4781,8 +4785,8 @@ function openStepCtxMenu(ti,si,e,kind){
 
   if(kind==='compact'){
     // Effects strip right-click: octave and volume only
-    addOpt('Octave −',()=>{pushHistory();if(!pd.stepOctaves) pd.stepOctaves=new Array(sc).fill(0);pd.stepOctaves[si]=Math.max(-2,(pd.stepOctaves[si]||0)-1);render();saveState();});
-    addOpt('Octave +',()=>{pushHistory();if(!pd.stepOctaves) pd.stepOctaves=new Array(sc).fill(0);pd.stepOctaves[si]=Math.min(2,(pd.stepOctaves[si]||0)+1);render();saveState();});
+    addOpt('Octave −',()=>{pushHistory();if(!pd.stepOctaves) pd.stepOctaves=new Array(sc).fill(0);pd.stepOctaves[si]=Math.max(-2,octWhole(pd.stepOctaves[si])-1)+octFine(pd.stepOctaves[si]);render();saveState();});
+    addOpt('Octave +',()=>{pushHistory();if(!pd.stepOctaves) pd.stepOctaves=new Array(sc).fill(0);pd.stepOctaves[si]=Math.min(2,octWhole(pd.stepOctaves[si])+1)+octFine(pd.stepOctaves[si]);render();saveState();});
     addOpt('Volume −',()=>{pushHistory();if(!pd.stepVelocities) pd.stepVelocities=new Array(sc).fill(100);pd.stepVelocities[si]=Math.max(0,(pd.stepVelocities[si]??100)-10);render();saveState();});
     addOpt('Volume +',()=>{pushHistory();if(!pd.stepVelocities) pd.stepVelocities=new Array(sc).fill(100);pd.stepVelocities[si]=Math.min(127,(pd.stepVelocities[si]??100)+10);render();saveState();});
     ctxMenuEl.style.left=Math.min(e.clientX,window.innerWidth-140)+'px';
@@ -4828,7 +4832,7 @@ function openStepCtxMenu(ti,si,e,kind){
       const div=document.createElement('div');div.className='ctx-divider';ctxMenuEl.appendChild(div);
       const lbl=document.createElement('div');lbl.className='ctx-oct-lbl';lbl.textContent='OCTAVE';ctxMenuEl.appendChild(lbl);
       const octRow=document.createElement('div');octRow.className='ctx-oct-row';
-      const curOct=(pd.stepOctaves&&pd.stepOctaves[si])||0;
+      const curOct=octWhole(pd.stepOctaves&&pd.stepOctaves[si]);
       [-2,-1,0,1,2].forEach(v=>{
         const b=document.createElement('button');
         b.className='ctx-oct-btn'+(v===curOct?' on':'');
@@ -4836,7 +4840,7 @@ function openStepCtxMenu(ti,si,e,kind){
         b.addEventListener('click',()=>{
           pushHistory();
           if(!pd.stepOctaves) pd.stepOctaves=new Array(sc).fill(0);
-          pd.stepOctaves[si]=v;
+          pd.stepOctaves[si]=v+octFine(pd.stepOctaves[si]);
           render();saveState();closeStepCtxMenu();
         });
         octRow.appendChild(b);
@@ -7418,14 +7422,14 @@ function buildMelodyCell(channel,ci,si){
       const wd=document.createElement('div');wd.className='cell-words';wd.style.color=fg;wd.textContent=`${card.adj}·${card.noun}`;
       el.appendChild(nm);el.appendChild(wd);
 
-      const so=(pd.stepOctaves&&pd.stepOctaves[si])||0;
+      const so=octWhole(pd.stepOctaves&&pd.stepOctaves[si]);
       if(so!==0){
         const badge=document.createElement('span');badge.className='cell-oct';
         badge.style.color=fg;badge.textContent=(so>0?'+':'')+so;
         badge.title='Click to reset octave';
         badge.addEventListener('click',e=>{
           e.stopPropagation();pushHistory();
-          pd.stepOctaves[si]=0;render();saveState();
+          pd.stepOctaves[si]=octFine(pd.stepOctaves[si]);render();saveState();   // keeps any fine tune
         });
         el.appendChild(badge);
       }
@@ -7789,15 +7793,57 @@ function gpDeleteStop(st){
 // any RGB-particle pitch detune), as the nearest standard note plus how many cents it sits from it. Microtonal is fine —
 // this only reports. A = 440 Hz, equal temperament, the same labels as everywhere else (octave number steps up at C).
 const NOTE_NAMES_12=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+// A step's stepOctaves value is a whole octave PLUS an optional fine-tune carried as a fraction of an octave
+// (cents/1200). So 0 = untouched, −1 = one octave down, −1.0083 = one octave down and +… cents. Fine tune always rides on top of
+// the colour's own pitch; every copy/move/paste/duplicate of a step already carries the number, so the fine tune comes along.
+function octWhole(x){return Math.round(x||0);}
+function octFine(x){x=x||0;return x-Math.round(x);}                       // fraction of an octave
 function stepPitchInfo(ch,ci,pat,si){
   const pd=pat&&pat.channelData&&pat.channelData[ci];if(!pd||!pd.steps) return null;
   const n=pd.steps[si];if(n===null||n===undefined) return null;
   const card=BASE_CARDS.find(c=>c.n===n);if(!card) return null;
   const col=getEffectiveColor(ch,n,si,pat.stepCount,pat);
   let pm=1;try{const sh=noteShape(col,1,ch,{suit:card.suit});pm=(sh&&sh.pitchMul)||1;}catch(e){}
-  const f=activeRgbToFreq(col.r,col.g,col.b)*Math.pow(2,(ch.octave||0)+((pd.stepOctaves&&pd.stepOctaves[si])||0))*pm;
-  const m=69+12*Math.log2(f/440),mi=Math.round(m);
-  return{f,name:NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1),cents:(m-mi)*100};
+  const so=(pd.stepOctaves&&pd.stepOctaves[si])||0;
+  const fBase=activeRgbToFreq(col.r,col.g,col.b)*Math.pow(2,(ch.octave||0)+octWhole(so))*pm;   // colour (+octave) only
+  const f=fBase*Math.pow(2,octFine(so));
+  const mBase=69+12*Math.log2(fBase/440),m=69+12*Math.log2(f/440),mi=Math.round(m);
+  return{f,col,mBase,m,mi,fine:octFine(so)*1200,name:NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1),cents:(m-mi)*100};
+}
+function fmtCents(c){
+  let t=Math.abs(c).toFixed(2);if(t.endsWith('0')) t=t.slice(0,-1);
+  if(parseFloat(t)===0) return '0¢';
+  return (c>0?'+':'−')+t+'¢';
+}
+// Drag the little colour box beside a note: left/right changes the fine tune by 0.1¢ per pixel (Alt: 0.02¢, Shift: 1¢).
+// It never leaves the note it started on (stops at ±49.98¢).
+function nlStartDrag(e,ci,si){
+  if(e.button!==0) return;
+  e.preventDefault();e.stopPropagation();
+  const pat=patterns[activePatternIndex],ch=channels[ci],pd=pat.channelData[ci];
+  const info=stepPitchInfo(ch,ci,pat,si);if(!info) return;
+  const homeMidi=info.mi;                             // the note it started on
+  let total=info.m*100,lastX=e.clientX;               // total pitch in cents-of-midi (midi×100)
+  beginGesture();document.body.classList.add('nl-dragging');
+  const mv=ev=>{
+    const step=ev.altKey?0.02:(ev.shiftKey?1:0.1);
+    total+=(ev.clientX-lastX)*step;lastX=ev.clientX;
+    const lo=homeMidi*100-49.98,hi=homeMidi*100+49.98;
+    total=Math.max(lo,Math.min(hi,total));
+    const snapped=Math.round(total*50)/50;           // land on the 0.02¢ grid
+    const cur=stepPitchInfo(ch,ci,patterns[activePatternIndex],si);if(!cur) return;
+    const fineCents=snapped-cur.mBase*100;           // what the fine tune must be for the total to be `snapped`
+    if(!pd.stepOctaves) pd.stepOctaves=new Array(pat.stepCount).fill(0);
+    pd.stepOctaves[si]=octWhole(pd.stepOctaves[si])+Math.round(fineCents*1e4)/1e4/1200;
+    render();
+  };
+  const up=()=>{document.body.classList.remove('nl-dragging');document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);commitGesture();saveState();};
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+}
+function nlResetFine(ci,si){
+  const pat=patterns[activePatternIndex],pd=pat.channelData[ci];if(!pd||!pd.stepOctaves) return;
+  if(!octFine(pd.stepOctaves[si])) return;
+  pushHistory();pd.stepOctaves[si]=octWhole(pd.stepOctaves[si]);render();saveState();
 }
 function buildNoteLane(ch,ci){
   const pat=patterns[activePatternIndex];
@@ -7807,11 +7853,18 @@ function buildNoteLane(ch,ci){
     const cell=document.createElement('div');cell.className='nl';
     const info=stepPitchInfo(ch,ci,pat,si);
     if(info){
-      const c=Math.round(info.cents);
-      cell.innerHTML=`<span class="nl-n">${info.name}</span><span class="nl-c">${c>0?'+':c<0?'−':''}${Math.abs(c)}¢</span>`;
-      cell.title=`${info.name} ${c>0?'+':c<0?'−':'±'}${Math.abs(info.cents).toFixed(1)}¢ · ${info.f.toFixed(2)} Hz`;
+      const top=document.createElement('div');top.className='nl-top';
+      const nn=document.createElement('span');nn.className='nl-n';nn.textContent=info.name;
+      const box=document.createElement('i');box.className='nl-box';box.style.background=`rgb(${info.col.r},${info.col.g},${info.col.b})`;
+      box.title='Drag left/right to fine-tune this step (0.1¢ per pixel · Alt 0.02¢ · Shift 1¢). Stays on this note. Double-click to return to the colour\'s own pitch.';
+      box.addEventListener('pointerdown',e=>nlStartDrag(e,ci,si));
+      box.addEventListener('dblclick',e=>{e.stopPropagation();nlResetFine(ci,si);});
+      top.append(nn,box);
+      const cc=document.createElement('span');cc.className='nl-c';cc.textContent=fmtCents(info.cents);
+      cell.append(top,cc);
+      cell.title=`${info.name} ${info.cents>=0?'+':'−'}${Math.abs(info.cents).toFixed(2)}¢ · ${info.f.toFixed(2)} Hz`+(Math.abs(info.fine)>1e-6?` · fine tune ${info.fine>=0?'+':'−'}${Math.abs(info.fine).toFixed(2)}¢`:'');
     } else {
-      cell.classList.add('off');cell.innerHTML='<span class="nl-n">·</span><span class="nl-c">&nbsp;</span>';
+      cell.classList.add('off');cell.innerHTML='<div class="nl-top"><span class="nl-n">·</span></div><span class="nl-c">&nbsp;</span>';
     }
     lane.appendChild(cell);
   }

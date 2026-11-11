@@ -370,3 +370,14 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Removed the old 🎹 Piano link (the earlier standalone card piano; not connected to the organ).
 - **Note labels (fixed Nov 4):** multi-octave names now follow standard naming — the octave number steps up at C (523 Hz = C5, 261.6 Hz = C4, 349 Hz = F4). Pitches unchanged; labels only. Same table in Mixing Lab.
 - **Circle visualizer (assessed, NOT changed — parked for the visualizer phase):** (1) in multi-octave mode radius encodes octave (≈6 − 4r/195) but nothing labels it, and rings at 110/162/218 are arbitrary; (2) ring labels are letters only at source-chart hues that differ from where the mapping actually switches notes; (3) red zone takes pitch class from HSV brightness V while octave comes from HSL lightness L, so radius double-counts for reds; (4) tooltip shows no note/Hz; (5) dots sit between rings because lightness is continuous. Candidate design: true pitch-class ring + separate octave axis.
+
+---
+
+## N2 — Fine-tune drag on the note row (Nov 11)
+- Note row text enlarged +6px (name 17px, cents 14px).
+- A small colour box sits right of each note name (shows the step's effective colour). Drag it: right = cents up, left = down. 0.1¢/px normal, **Alt** 0.02¢/px (fine), **Shift** 1¢/px (coarse). Snaps to a 0.02¢ grid. Double-click the box = reset to the colour's own pitch.
+- It stops at ±49.98¢ around the note the drag began on — never crosses into the neighbouring note.
+- Storage: fractional part of `stepOctaves[si]` (whole part = octave shift, fraction = cents/1200). Helpers `octWhole`, `octFine`. Octave menu/badge preserve the fraction.
+- Physics: colour is the COARSE dial (RGB can't resolve 0.02¢ — L moves in 1/510 steps ≈ 5¢); the fine tune is a separate offset riding on top. Not WEDGED: pure 2^(cents/1200).
+- Default OFF in effect: existing songs have integer stepOctaves → unchanged.
+- Observation (Justin): two colours can give the same note with different cents, landing on different envelope/mass values.
