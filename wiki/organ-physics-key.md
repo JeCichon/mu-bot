@@ -391,3 +391,12 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Storage: `pd.stepShift[si]` (cents, per step; rides with copy/move/paste/rotate/step-count like stepOctaves). Applied LAST in `getEffectiveColor` (after card, channel gradient, channel + group ribbons), via `shiftColorCents(col,cents)`. Missing array = 0 → old songs unchanged.
 - Resolution is limited by 8-bit RGB (roughly 1¢ steps); the label shows the pitch actually reached. Tune fine offset still rides on top of the shifted colour's pitch.
 - True physics vs WEDGED: no new constants; the hue→pitch map is the existing Color-of-Sound table.
+
+---
+
+## N4 — Type a note (Nov 12)
+- Click a note name in the note row → a small box opens; type `C#5`, `Eb4`, `a3`… Enter commits, Esc cancels, a bad entry turns the box red. No octave typed = the copy of that note nearest to what the step sounds now. Works in Tune and Colour mode alike.
+- What it writes (all on the STEP, nothing on the ribbons, so neighbours are untouched): `stepShift` moves the colour's hue to the pitch class (N3 mechanism), `stepOctaves` whole part picks the octave (±2 from the colour's own), and the tune fine-offset absorbs the leftover so the label reads exactly 0¢. Verified exact for all 12 notes × octaves 3–5 on every channel.
+- Why not a ribbon stop: a stop bends every step between it and the next stop; a per-step mark does not. (A "write to ribbon" variant is possible later if wanted.)
+- Caveats: the colour changes (so mass/envelope follow it, as in Colour mode); the shift is relative to the step's colour from card + ribbons, so changing a ribbon afterwards will re-pitch the step; notes beyond ±2 octaves of the colour are refused with a message.
+- No new constants — WEDGED count unchanged.

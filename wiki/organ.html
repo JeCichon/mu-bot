@@ -490,6 +490,10 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .nl-mode{flex-shrink:0;background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);font-family:inherit;font-size:12px;line-height:1;width:20px;height:20px;padding:0;border-radius:3px;cursor:pointer;}
 .nl-mode:hover{border-color:var(--gold);}
 .nl-mode.on{background:rgba(201,169,110,.2);}
+.note-lane .nl-n{cursor:text;}
+.note-lane .nl-n:hover{text-decoration:underline dotted;}
+.nl-in{width:44px;box-sizing:border-box;font:600 17px inherit;font-family:inherit;color:var(--gold);background:#0d0a1e;border:1px solid var(--gold);border-radius:3px;padding:0 3px;text-align:center;height:20px;}
+.nl-in.bad{border-color:#e63946;}
 .nl-box:hover{border-color:#fff;box-shadow:0 0 6px rgba(255,255,255,.5);}
 body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!important;}
 .rib-btn.on{border-color:rgba(255,255,255,.6);color:#fff;box-shadow:0 0 6px rgba(255,255,255,.25);}
@@ -7864,7 +7868,7 @@ function stepPitchInfo(ch,ci,pat,si){
   const fBase=activeRgbToFreq(col.r,col.g,col.b)*Math.pow(2,(ch.octave||0)+octWhole(so))*pm;   // colour (+octave) only
   const f=fBase*Math.pow(2,octFine(so));
   const mBase=69+12*Math.log2(fBase/440),m=69+12*Math.log2(f/440),mi=Math.round(m);
-  return{f,col,mBase,m,mi,fine:octFine(so)*1200,name:NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1),cents:(m-mi)*100};
+  return{f,fBase,col,mBase,m,mi,fine:octFine(so)*1200,name:NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1),cents:(m-mi)*100};
 }
 function fmtCents(c){
   let t=Math.abs(c).toFixed(2);if(t.endsWith('0')) t=t.slice(0,-1);
@@ -7918,6 +7922,69 @@ function nlStartColorDrag(e,ci,si){
   document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
 }
 function homeCents(info){return info.mi*100;}
+// Click a note name, type a note (C#5, Eb4, a3 …) and the step is retuned to exactly that note (0.00¢).
+// The colour does the heavy lifting (hue moves to the pitch class, like the frequency bar), a whole-octave shift gets the octave,
+// and the tune fine-offset soaks up whatever the 8-bit colour can't reach — so the label ends at exactly 0¢.
+function parseNoteName(t){
+  const m=/^\s*([A-Ga-g])\s*([#♯b♭]?)\s*(-?\d)?\s*$/.exec(t||'');if(!m) return null;
+  const base={C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1].toUpperCase()];
+  const acc=(m[2]==='#'||m[2]==='♯')?1:(m[2]==='b'||m[2]==='♭')?-1:0;
+  return{pc:((base+acc)%12+12)%12,oct:m[3]===undefined?null:parseInt(m[3],10)};
+}
+function nlSetNote(ci,si,text){
+  const pat=patterns[activePatternIndex],ch=channels[ci],pd=pat.channelData[ci];
+  const pn=parseNoteName(text);if(!pn) return 'Type a note like C#5, Eb4 or A3';
+  const info0=stepPitchInfo(ch,ci,pat,si);if(!info0) return null;
+  // target midi: explicit octave, else the octave whose copy of the note is nearest the pitch now sounding
+  let mt;
+  if(pn.oct!==null) mt=12*(pn.oct+1)+pn.pc;
+  else{mt=Math.round((info0.m-pn.pc)/12)*12+pn.pc;}
+  const T=440*Math.pow(2,(mt-69)/12);
+  // work from the step's colour with its own shift removed
+  const hadShift=pd.stepShift&&pd.stepShift[si],snapShift=hadShift?pd.stepShift[si]:0;
+  if(hadShift) pd.stepShift[si]=0;
+  const base0=stepPitchInfo(ch,ci,pat,si);
+  let best=null;
+  const f0=activeRgbToFreq(base0.col.r,base0.col.g,base0.col.b);
+  const wCur=octWhole((pd.stepOctaves&&pd.stepOctaves[si])||0);
+  const pm=base0.fBase/(f0*Math.pow(2,(ch.octave||0)+wCur))||1;
+  for(let w=-2;w<=2;w++){
+    const req=T/Math.pow(2,(ch.octave||0)+w)/pm;           // colour pitch needed at this octave shift
+    const cents=1200*Math.log2(req/f0);
+    // a colour can only move within its own octave window (hue range at fixed lightness): |cents| must be < 1200
+    if(Math.abs(cents)>=1200) continue;
+    const c1=shiftColorCents(base0.col,cents);
+    const err=Math.abs(1200*Math.log2(activeRgbToFreq(c1.r,c1.g,c1.b)/req));
+    if(!best||err<best.err-1e-9||(Math.abs(err-best.err)<=1e-9&&Math.abs(w)<Math.abs(best.w))) best={w,cents,err};
+  }
+  if(!best){pd.stepShift&&(pd.stepShift[si]=snapShift);return 'That note is out of reach for this step\'s colour';}
+  if(hadShift) pd.stepShift[si]=snapShift;          // put it back so Undo remembers it
+  pushHistory();
+  if(!pd.stepOctaves) pd.stepOctaves=new Array(pat.stepCount).fill(0);
+  setShift(pd,si,Math.abs(best.cents)<1e-6?0:Math.round(best.cents*100)/100,pat.stepCount);
+  pd.stepOctaves[si]=best.w;
+  // fine pass: nudge the tune offset until the label reads exactly 0¢ (twice, in case pitchMul moves with the colour)
+  for(let k=0;k<3;k++){
+    const inf=stepPitchInfo(ch,ci,pat,si);const resid=(mt-inf.m)*100;   // cents still missing
+    if(Math.abs(resid)<0.005) break;
+    pd.stepOctaves[si]+=resid/1200;
+  }
+  render();saveState();return null;
+}
+function nlEditNote(nn,ci,si){
+  const input=document.createElement('input');input.className='nl-in';input.type='text';input.value=nn.textContent;input.maxLength=4;input.spellcheck=false;
+  input.title='Type a note: C#5, Eb4, A3 … then Enter. Esc cancels.';
+  nn.replaceWith(input);input.focus();input.select();
+  let done=false;
+  const finish=ok=>{
+    if(done) return;done=true;
+    if(ok){const msg=nlSetNote(ci,si,input.value);if(msg){input.classList.add('bad');input.title=msg;done=false;return;}}
+    else render();
+  };
+  input.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){finish(true);}else if(e.key==='Escape'){finish(false);}});
+  input.addEventListener('blur',()=>{if(!done){done=true;render();}});
+  input.addEventListener('pointerdown',e=>e.stopPropagation());
+}
 function nlResetFine(ci,si){
   const pat=patterns[activePatternIndex],pd=pat.channelData[ci];
   if(channels[ci].noteMode==='color'){if(!(pd.stepShift&&pd.stepShift[si])) return;pushHistory();setShift(pd,si,0,pat.stepCount);render();saveState();return;}
@@ -7934,7 +8001,7 @@ function buildNoteLane(ch,ci){
     const info=stepPitchInfo(ch,ci,pat,si);
     if(info){
       const top=document.createElement('div');top.className='nl-top';
-      const nn=document.createElement('span');nn.className='nl-n';nn.textContent=info.name;
+      const nn=document.createElement('span');nn.className='nl-n';nn.textContent=info.name;nn.title='Click to type a note (e.g. C#5) — the step retunes to exactly that note';nn.addEventListener('click',e=>{e.stopPropagation();nlEditNote(nn,ci,si);});
       const box=document.createElement('i');box.className='nl-box';box.style.background=`rgb(${info.col.r},${info.col.g},${info.col.b})`;
       box.title=ch.noteMode==='color'?'Colour mode — drag left/right to move the colour (1¢ per pixel · Alt 0.2¢ · Shift 5¢). Stays on this note. Double-click to return to the original colour. Right-click: switch mode.':'Tune mode — drag left/right to fine-tune (0.1¢ per pixel · Alt 0.02¢ · Shift 1¢). Stays on this note. Double-click to return to the colour\'s own pitch. Right-click: switch mode.';
       box.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();ch.noteMode=ch.noteMode==='color'?'tune':'color';render();saveState();});
