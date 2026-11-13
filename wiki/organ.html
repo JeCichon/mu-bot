@@ -582,6 +582,10 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 #gp-sat-wrap{display:flex;flex-direction:column;align-items:center;height:150px;justify-content:space-between;gap:4px;}
 .gp-sat-label{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.18em;color:rgba(201,169,110,.4);}
 #gp-sat-slider-track{position:relative;width:24px;flex:1;}
+#gp-sound-row{display:flex;align-items:center;gap:6px;padding:4px 10px 6px;}
+#gp-sound-row button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px;height:22px;padding:0 7px;}
+#gp-sound-row button.on{background:rgba(201,169,110,.22);border-color:var(--gold);}
+#gp-vol{width:80px;accent-color:var(--gold);cursor:pointer;}
 #gp-wheel-sat{position:absolute;width:118px;height:24px;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);accent-color:var(--gold);cursor:pointer;margin:0;}
 #gp-wheel-sat-val{font-family:'Cinzel',serif;font-size:10px;color:var(--gold);min-width:28px;text-align:center;}
 
@@ -1164,6 +1168,12 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
   <div id="gp-head">
     <span id="gp-title">GRADIENT</span>
     <div class="gp-toggle" id="gp-toggle"><div class="gp-knob"></div></div>
+  </div>
+
+  <div id="gp-sound-row">
+    <button id="gp-hear" class="on" title="Hear the colour while you pick it (updates continuously as you drag)">🔊 HEAR</button>
+    <button id="gp-fx" title="Hear it through this channel's effects (envelope, physics, Effects Lab) instead of the plain tone. Shared with the card pianos.">FX</button>
+    <span class="ctl-lbl">VOL</span><input type="range" id="gp-vol" min="0" max="1" step="0.05" value="0.5"/>
   </div>
 
   <div id="gp-main-row">
@@ -7675,11 +7685,11 @@ function openGradPopup(ti,e){
   document.querySelectorAll('.gp-point').forEach(p=>p.classList.toggle('active',p.dataset.target==='start'));
   gpSelStop=null;gpSelect(null);
 
-  gradPopup.classList.add('show');
+  gradPopup.classList.add('show');try{gpSyncSoundUI();}catch(e2){}
   gpPlace(e.clientX,e.clientY+8);
   refreshSoundMapping();
 }
-function closeGradPopup(){gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
+function closeGradPopup(){try{gpStopVoice();}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
 // ── movable colour editor ─────────────────────────────────────────────────
 // Floating (default): opens where you clicked and closes when you click elsewhere.
 // Pinned (press FLOAT, or just drag the bar): stays where you parked it — opening another ribbon, gradient or stop reuses that spot,
@@ -7818,7 +7828,7 @@ function gpRefreshUI(){
     const hit=e.target.closest('.gp-stop');
     if(hit){
       const st=g.stops[parseInt(hit.dataset.k)];
-      gpSelect(st);
+      gpSelect(st);gpLiveSound();
       const k=g.stops.indexOf(st);
       if(k>0&&k<g.stops.length-1){beginGesture();drag={st};bar.setPointerCapture(e.pointerId);}
       e.preventDefault();return;
@@ -8109,7 +8119,7 @@ function ribOpenPopup(g,title,el,stop,cx){
   document.getElementById('gp-opacity').value=g.opacity??100;
   document.getElementById('gp-opacity-val').textContent=(g.opacity??100)+'%';
   gradEnsure(g);
-  gpSelStop=null;gpSelect(stop||null);
+  gpSelStop=null;gpSelect(stop||null);try{gpSyncSoundUI();}catch(e){}
   const r=el.getBoundingClientRect();
   gp.classList.add('show');
   const pw=gp.offsetWidth,ph=gp.offsetHeight;
@@ -8393,6 +8403,69 @@ function refreshSoundMapping(){
   drawGpWheel();
 }
 
+// ── Live sound in the colour editor ──────────────────────────────────────
+// While you drag, the colour sings. Plain tone: one sustained voice that glides to the new pitch.
+// FX: the channel's real one-shot (envelope, physics, Effects Lab) re-struck as the pitch moves.
+// HEAR / FX / volume sit in the popup; FX and volume are shared with the card pianos (pianoFx, pianoVol).
+let gpHear=true,gpOsc=null,gpGain=null,gpIdleT=null,gpLastFxT=0,gpLastF=0;
+function gpOwnerChannel(){
+  if(gradTi!==null&&gradTi>=0&&channels[gradTi]) return channels[gradTi];
+  const g=activeGradObj;const melodic=channels.filter(c=>c.suit&&c.suit!=='drums');
+  if(g){
+    const direct=channels.find(c=>c.grad===g||c.stepGrad===g);if(direct) return direct;
+    const pat=patterns[activePatternIndex];
+    if(pat&&pat.ribbons) for(const k of Object.keys(pat.ribbons)) if(pat.ribbons[k]===g){
+      const id=k.slice(3);
+      const c=channels.find(c=>String(c.id)===id);if(c) return c;
+      const gr=channelGroups.find(x=>String(x.id)===id);if(gr){const m=melodic.find(c=>gr.channelIds.includes(c.id));if(m) return m;}
+    }
+    const gr=channelGroups.find(x=>x.grad===g);if(gr){const m=melodic.find(c=>gr.channelIds.includes(c.id));if(m) return m;}
+  }
+  return melodic[0]||null;
+}
+function gpStopVoice(){
+  clearTimeout(gpIdleT);gpIdleT=null;gpLastF=0;
+  if(gpGain){try{const a=getCtx();gpGain.gain.cancelScheduledValues(a.currentTime);gpGain.gain.setValueAtTime(gpGain.gain.value,a.currentTime);gpGain.gain.linearRampToValueAtTime(0,a.currentTime+0.06);gpOsc.stop(a.currentTime+0.07);}catch(e){}gpOsc=null;gpGain=null;}
+}
+function gpLiveSound(){
+  if(!gpHear||gradTi===null) return;
+  const hex=gpColorOf(gpSoundTarget);if(!hex) return;
+  const col=hexToRgb(hex),ch=gpOwnerChannel();if(!ch) return;
+  const a=getCtx();if(a.state==='suspended'&&a.resume) a.resume();
+  const f=activeRgbToFreq(col.r,col.g,col.b)*Math.pow(2,ch.octave||0);
+  if(pianoFx){
+    clearTimeout(gpIdleT);gpIdleT=setTimeout(()=>{gpLastF=0;},250);
+    const now=performance.now();
+    if(gpLastF&&(now-gpLastFxT<130||Math.abs(Math.log2(f/gpLastF))*1200<2)) return;
+    gpLastFxT=now;gpLastF=f;
+    const pd=patterns[activePatternIndex].channelData[channels.indexOf(ch)];
+    let n=pd&&pd.steps?pd.steps.find(x=>x!=null):null;
+    if(n==null||n===undefined){const c0=BASE_CARDS.find(c=>c.suit===ch.suit);n=c0?c0.n:null;}
+    if(n==null) return;
+    try{stopPreview();scheduleCardNote(n,a.currentTime+0.005,0.3,(ch.vol||0.8)*pianoVol*2,ch.octave||0,col,ch.pan||0,null,ch);}catch(e){}
+    return;
+  }
+  clearTimeout(gpIdleT);gpIdleT=setTimeout(gpStopVoice,380);
+  gpLastF=f;
+  if(!gpOsc){
+    gpOsc=a.createOscillator();gpGain=a.createGain();gpOsc.type=WAVES[ch.suit]||'sine';gpOsc.frequency.value=f;
+    gpGain.gain.setValueAtTime(0,a.currentTime);gpGain.gain.linearRampToValueAtTime(pianoVol*0.32,a.currentTime+0.025);
+    gpOsc.connect(gpGain);gpGain.connect(lbOut(a,null));gpOsc.start();
+  } else {
+    gpOsc.frequency.cancelScheduledValues(a.currentTime);gpOsc.frequency.setTargetAtTime(f,a.currentTime,0.02);
+    gpGain.gain.cancelScheduledValues(a.currentTime);gpGain.gain.setTargetAtTime(pianoVol*0.32,a.currentTime,0.02);
+  }
+}
+function gpSyncSoundUI(){
+  document.getElementById('gp-hear').classList.toggle('on',gpHear);
+  document.getElementById('gp-fx').classList.toggle('on',pianoFx);
+  document.getElementById('gp-vol').value=pianoVol;
+  const cf=document.getElementById('cp-fx');if(cf) cf.classList.toggle('on',pianoFx);
+  const cv=document.getElementById('cp-vol');if(cv) cv.value=pianoVol;
+}
+document.getElementById('gp-hear').addEventListener('click',()=>{gpHear=!gpHear;if(!gpHear) gpStopVoice();gpSyncSoundUI();});
+document.getElementById('gp-fx').addEventListener('click',()=>{pianoFx=!pianoFx;gpStopVoice();gpSyncSoundUI();gpLiveSound();});
+document.getElementById('gp-vol').addEventListener('input',e=>{pianoVol=parseFloat(e.target.value);gpSyncSoundUI();if(gpOsc){const a=getCtx();gpGain.gain.cancelScheduledValues(a.currentTime);gpGain.gain.setTargetAtTime(pianoVol*0.32,a.currentTime,0.02);}});
 function applySoundColor(newRgb){
   if(gradTi===null||gpSoundSyncing) return;
   const clamp=v=>Math.max(0,Math.min(255,Math.round(v)));
@@ -8403,12 +8476,13 @@ function applySoundColor(newRgb){
   gpRefreshUI();
   render();saveState();
   refreshSoundMapping();
+  gpLiveSound();
 }
 
 document.querySelectorAll('.gp-point').forEach(pt=>{
   pt.addEventListener('click',e=>{
     const gg=gpGrad();
-    if(gg){gradEnsure(gg);gpSelect(pt.dataset.target==='end'?gg.stops[gg.stops.length-1]:gg.stops[0]);}
+    if(gg){gradEnsure(gg);gpSelect(pt.dataset.target==='end'?gg.stops[gg.stops.length-1]:gg.stops[0]);gpLiveSound();}
     else{gpSoundTarget=pt.dataset.target;document.querySelectorAll('.gp-point').forEach(p=>p.classList.toggle('active',p===pt));refreshSoundMapping();}
   });
 });
@@ -8806,9 +8880,9 @@ function closeCardPicker(){
   if(cpEl.parentNode!==document.body) document.body.appendChild(cpEl); // park it out of the rows
 }
 document.getElementById('cp-close').addEventListener('click',()=>{closeCardPicker();render();});
-document.getElementById('cp-fx').addEventListener('click',e=>{pianoFx=!pianoFx;e.currentTarget.classList.toggle('on',pianoFx);});
+document.getElementById('cp-fx').addEventListener('click',e=>{pianoFx=!pianoFx;e.currentTarget.classList.toggle('on',pianoFx);gpSyncSoundUI();});
 document.getElementById('cp-vol').addEventListener('input',e=>{
-  pianoVol=parseFloat(e.target.value);
+  pianoVol=parseFloat(e.target.value);gpSyncSoundUI();
   // If a preview is currently playing, update its gain immediately
   if(previewGain){
     const a=getCtx();

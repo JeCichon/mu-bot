@@ -409,3 +409,13 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Out-of-reach notes (beyond ±2 octaves of the step's colour) show a red message in the popup.
 - Parked idea (Justin): a pass where the colour picker lets you hear the sound you are picking.
 - No new constants.
+
+---
+
+## N6 — Live sound in the colour editor (Nov 13) · Phase 1 of 3
+- A row under the editor title: 🔊 HEAR · FX · VOL. While a colour (any stop/end, any popup — channel gradient, step ribbon, group ribbon) is changed, it sings. Every colour change funnels through `applySoundColor`, so wheel, frequency bar, sliders, RGB/HSL boxes all sound. Clicking a stop/end also plays it.
+- Plain tone (FX off): one sustained oscillator in the channel's suit waveform that glides to each new pitch; fades 0.4 s after the last change. Pitch = `activeRgbToFreq(colour)` × channel octave (so it matches the note label).
+- FX on (shared with the card pianos, `pianoFx`): the channel's real one-shot via `scheduleCardNote` (envelope, physics, Effects Lab), re-struck as the pitch moves (≥130 ms apart, ≥2¢ movement) — "continuous" as repeated strikes, not a sustained glide. Uses the first card in the channel's active pattern (else the suit's first card).
+- VOL = `pianoVol`, shared with the card pianos. HEAR default ON (per session, not saved). For ribbon popups the owner channel is resolved from the ribbon (channel ribbon → its channel; group ribbon → first melodic member).
+- Not yet: the note keyboard inside the editor (Phase 2) and note labels above ribbon stops (Phase 3). Design agreed with Justin: clicking a key sets the node to the EXACT vivid colour for that note (table in `pcolors`, ≤0.21¢) as a starting "tube of tone paint" — he can then desaturate/adjust freely; only that node changes.
+- No new constants.
