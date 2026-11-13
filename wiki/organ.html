@@ -585,6 +585,22 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 #gp-sound-row{display:flex;align-items:center;gap:6px;padding:4px 10px 6px;}
 #gp-sound-row button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px;height:22px;padding:0 7px;}
 #gp-sound-row button.on{background:rgba(201,169,110,.22);border-color:var(--gold);}
+#gp-sound-row #gp-keys-btn{margin-left:auto;}
+#gp-keys{position:absolute;left:0;right:0;top:78px;bottom:0;z-index:5;background:linear-gradient(150deg,#130f22,#09071a);border-radius:0 0 8px 8px;padding:10px 14px;}
+.gk-head{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--gold);margin-bottom:8px;}
+.gk-head button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;height:22px;min-width:22px;padding:0 4px;}
+.gk-head button:hover{border-color:var(--gold);}
+.gk-now{flex:1;text-align:right;color:rgba(201,169,110,.75);font-size:12px;white-space:nowrap;}
+.gk-keys{position:relative;height:96px;margin:0 auto;}
+.gk-key{position:absolute;cursor:pointer;box-sizing:border-box;}
+.gk-key.w{top:0;width:18px;height:96px;background:#f2ecdc;border-radius:0 0 3px 3px;box-shadow:inset 0 -3px 0 #b9b2a0;}
+.gk-key.w span{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:9px;color:#6a6252;}
+.gk-key.b{top:0;width:12px;height:58px;background:#15121f;border-radius:0 0 3px 3px;box-shadow:inset 0 -3px 0 #4a4658;z-index:2;}
+.gk-key:hover{background:#e63946!important;}
+.gk-key.cur,.gk-key.cur:hover{background:var(--gold)!important;}
+.gk-key.cur:hover{background:#e63946!important;}
+.gk-msg{margin-top:8px;font-size:11px;color:#e63946;min-height:14px;}
+.gk-hint{font-size:11px;color:rgba(201,169,110,.55);margin-top:2px;}
 #gp-vol{width:80px;accent-color:var(--gold);cursor:pointer;}
 #gp-wheel-sat{position:absolute;width:118px;height:24px;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);accent-color:var(--gold);cursor:pointer;margin:0;}
 #gp-wheel-sat-val{font-family:'Cinzel',serif;font-size:10px;color:var(--gold);min-width:28px;text-align:center;}
@@ -1174,7 +1190,9 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
     <button id="gp-hear" class="on" title="Hear the colour while you pick it (updates continuously as you drag)">🔊 HEAR</button>
     <button id="gp-fx" title="Hear it through this channel's effects (envelope, physics, Effects Lab) instead of the plain tone. Shared with the card pianos.">FX</button>
     <span class="ctl-lbl">VOL</span><input type="range" id="gp-vol" min="0" max="1" step="0.05" value="0.5"/>
+    <button id="gp-keys-btn" title="Note keyboard — pick an exact note for this colour">♫ KEYS</button>
   </div>
+  <div id="gp-keys" style="display:none"></div>
 
   <div id="gp-main-row">
     <div id="gp-left-col">
@@ -7689,7 +7707,7 @@ function openGradPopup(ti,e){
   gpPlace(e.clientX,e.clientY+8);
   refreshSoundMapping();
 }
-function closeGradPopup(){try{gpStopVoice();}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
+function closeGradPopup(){try{gpStopVoice();gpKeysToggle(false);}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
 // ── movable colour editor ─────────────────────────────────────────────────
 // Floating (default): opens where you clicked and closes when you click elsewhere.
 // Pinned (press FLOAT, or just drag the bar): stays where you parked it — opening another ribbon, gradient or stop reuses that spot,
@@ -8456,6 +8474,89 @@ function gpLiveSound(){
     gpGain.gain.cancelScheduledValues(a.currentTime);gpGain.gain.setTargetAtTime(pianoVol*0.32,a.currentTime,0.02);
   }
 }
+// ── Note keyboard in the colour editor (Phase 2) ─────────────────────────
+// A button in the sound row lays a multi-octave keyboard over the editor; press again to put it away.
+// Clicking a key sets THIS colour to the exact vivid colour that sings that note (a tube of tone paint) — afterwards
+// desaturate / lighten / nudge it however you like. Only the selected node changes. Gold = the note the colour sings now.
+let gpKeysOpen=false,gpKeysOct=3;
+const GK_WHITE=[0,2,4,5,7,9,11],GK_NAMES=['C','D','E','F','G','A','B'],GK_BLACK=[[1,0],[3,1],[6,3],[8,4],[10,5]],GK_W=18,GK_OCTS=3;
+function gpNodeNote(){
+  const hex=gpColorOf(gpSoundTarget);const ch=gpOwnerChannel();if(!hex||!ch) return null;
+  const c=hexToRgb(hex),f=activeRgbToFreq(c.r,c.g,c.b)*Math.pow(2,ch.octave||0);
+  const m=69+12*Math.log2(f/440),mi=Math.round(m);
+  return{mi,cents:(m-mi)*100,name:NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1)};
+}
+// The vivid colour for an exact pitch. Multi-octave: octave lives in lightness, so search the colours on the vivid edge of the RGB cube
+// whose lightness is near the octave's, and take the one whose pitch is closest (lightness steps are ~5¢ wide, hue makes up the difference).
+const _gkCache=new Map();
+function gpVividForFreq(fTarget){
+  const key=fTarget.toFixed(3)+(songMultiOctave?'m':'s');if(_gkCache.has(key)) return _gkCache.get(key);
+  let best=null;
+  const test=(r,g,b)=>{const f=activeRgbToFreq(r,g,b);const e=Math.abs(1200*Math.log2(f/fTarget));if(!best||e<best.e) best={r,g,b,e};};
+  let sums;
+  if(songMultiOctave){
+    const k=Math.floor(Math.log2(fTarget/349.2)+1e-9);                 // octaves above F4: the lightness window of that octave
+    const L0=Math.max(0.04,Math.min(0.97,0.5+k/4));
+    const c0=Math.round(L0*510);sums=[];for(let d=-40;d<=40;d++){const sm=c0+d;if(sm>=20&&sm<=495) sums.push(sm);}
+  } else {sums=[255];}
+  for(const sm of sums){
+    const lo=sm<=255?0:sm-255,hi=sm<=255?sm:255;           // vivid edge: one channel at 0 (or one at 255)
+    for(let mid=lo;mid<=hi;mid++){
+      test(hi,mid,lo);test(mid,hi,lo);test(lo,hi,mid);test(lo,mid,hi);test(mid,lo,hi);test(hi,lo,mid);
+    }
+  }
+  _gkCache.set(key,best);return best;
+}
+function gpKeysRender(){
+  const el=document.getElementById('gp-keys');if(!el) return;
+  const multi=songMultiOctave;
+  const octs=multi?GK_OCTS:1;
+  const nn=gpNodeNote();
+  let h=`<div class="gk-head"><button data-d="-1" ${multi?'':'disabled'} title="Octave down">◀</button><span>OCT <b>${multi?gpKeysOct+'–'+(gpKeysOct+octs-1):'single'}</b></span><button data-d="1" ${multi?'':'disabled'} title="Octave up">▶</button><span class="gk-now">${nn?nn.name+' '+fmtCents(nn.cents):''}</span><button class="gk-x" title="Put the keyboard away">×</button></div>`;
+  const wTot=octs*7*GK_W;
+  h+=`<div class="gk-keys" style="width:${wTot}px">`;
+  for(let o=0;o<octs;o++){
+    const oct=multi?gpKeysOct+o:null;
+    GK_WHITE.forEach((pc,i)=>{
+      const midi=multi?12*(oct+1)+pc:null;
+      h+=`<div class="gk-key w${nn&&midi===nn.mi?' cur':''}" data-pc="${pc}" data-o="${oct===null?'':oct}" style="left:${(o*7+i)*GK_W}px"><span>${GK_NAMES[i]}${multi&&pc===0?oct:''}</span></div>`;
+    });
+    GK_BLACK.forEach(([pc,after])=>{
+      const midi=multi?12*(oct+1)+pc:null;
+      h+=`<div class="gk-key b${nn&&midi===nn.mi?' cur':''}" data-pc="${pc}" data-o="${oct===null?'':oct}" style="left:${(o*7+after+1)*GK_W-6}px"></div>`;
+    });
+  }
+  h+=`</div><div class="gk-hint">${multi?'':'Single-octave song: one octave of notes (F to E). '}Click a key — this colour becomes that exact note. Then adjust it any way you like.</div><div class="gk-msg"></div>`;
+  el.innerHTML=h;
+  el.querySelectorAll('.gk-head button[data-d]').forEach(b=>b.addEventListener('click',()=>{gpKeysOct=Math.max(0,Math.min(7,gpKeysOct+(+b.dataset.d)));gpKeysRender();}));
+  el.querySelector('.gk-x').addEventListener('click',()=>gpKeysToggle(false));
+  el.querySelectorAll('.gk-key').forEach(k=>k.addEventListener('click',()=>{
+    const ch=gpOwnerChannel();if(!ch) return;
+    const pc=+k.dataset.pc;let m;
+    if(multi) m=12*(+k.dataset.o+1)+pc;
+    else{ // single-octave song: the colour only holds the pitch class, in F4..E5 before the channel octave
+      let f=440*Math.pow(2,(60+pc-69)/12);while(f<349.2) f*=2;while(f>=698.5) f/=2;m=69+12*Math.log2(f*Math.pow(2,ch.octave||0)/440);m=Math.round(m);}
+    const fCol=440*Math.pow(2,(m-69)/12)/Math.pow(2,ch.octave||0);
+    const v=gpVividForFreq(fCol);
+    const msg=el.querySelector('.gk-msg');
+    if(!v||v.e>3){msg.textContent='That note is out of reach for a colour in this channel (try another octave).';return;}
+    msg.textContent='';
+    beginGesture();applySoundColor({r:v.r,g:v.g,b:v.b});commitGesture();
+    gpKeysRender();
+  }));
+}
+function gpKeysToggle(on){
+  gpKeysOpen=on===undefined?!gpKeysOpen:on;
+  const el=document.getElementById('gp-keys');if(!el) return;
+  el.style.display=gpKeysOpen?'block':'none';
+  document.getElementById('gp-keys-btn').classList.toggle('on',gpKeysOpen);
+  if(gpKeysOpen){
+    const nn=gpNodeNote();if(nn&&songMultiOctave) gpKeysOct=Math.max(0,Math.min(7,Math.floor(nn.mi/12)-1-1));
+    const mr=document.getElementById('gp-main-row');if(mr) el.style.top=mr.offsetTop+'px';
+    gpKeysRender();
+  }
+}
+document.getElementById('gp-keys-btn').addEventListener('click',()=>gpKeysToggle());
 function gpSyncSoundUI(){
   document.getElementById('gp-hear').classList.toggle('on',gpHear);
   document.getElementById('gp-fx').classList.toggle('on',pianoFx);
@@ -8477,6 +8578,7 @@ function applySoundColor(newRgb){
   render();saveState();
   refreshSoundMapping();
   gpLiveSound();
+  if(gpKeysOpen) gpKeysRender();
 }
 
 document.querySelectorAll('.gp-point').forEach(pt=>{

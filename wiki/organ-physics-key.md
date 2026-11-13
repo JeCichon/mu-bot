@@ -419,3 +419,17 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - VOL = `pianoVol`, shared with the card pianos. HEAR default ON (per session, not saved). For ribbon popups the owner channel is resolved from the ribbon (channel ribbon → its channel; group ribbon → first melodic member).
 - Not yet: the note keyboard inside the editor (Phase 2) and note labels above ribbon stops (Phase 3). Design agreed with Justin: clicking a key sets the node to the EXACT vivid colour for that note (table in `pcolors`, ≤0.21¢) as a starting "tube of tone paint" — he can then desaturate/adjust freely; only that node changes.
 - No new constants.
+
+---
+
+## N7 — Note keyboard in the colour editor (Nov 13) · Phase 2 of 3
+- A ♫ KEYS button in the editor's sound row lays a 3-octave keyboard over the editor; press again (or ×) to put it away. ◀ ▶ slide the octaves shown (range label e.g. OCT 4–6). Gold = the note the selected colour sings now (the header also shows its name and cents); red = hover.
+- Click a key → ONLY the selected node becomes the exact vivid colour for that note ("tube of tone paint"). After that it is an ordinary colour: desaturate, lighten, nudge freely (the note then drifts, and the header shows the cents). It plays through the live sound (N6).
+- How the colour is found (`gpVividForFreq`): multi-octave pitch = hue pitch × 2^((L−0.5)·4) and lightness moves in ~5¢ steps, so for each target pitch the search takes the vivid-edge colours (one channel at 0 or 255) with lightness near that octave's window and picks the one whose pitch is closest — the hue makes up what lightness can't. Result: every reachable note lands within ~0.02¢ (checked for octaves 3–6). Notes in octave 2 (below ~B2) can't be reached by a colour (lightness would be near black) — the editor says so.
+- The note shown includes the channel's own octave setting, so it matches the note row. Single-octave songs show one octave (F–E).
+- Pitch only comes from the colour here — no stepOctaves/shift exist at a ribbon node, so there is no tune offset; exactness comes from the search.
+- Still to do: Phase 3 — note labels above every ribbon stop.
+
+## Finding — "yellow sounds quiet" (Nov 13, measured)
+- Plain tone (editor HEAR with FX off): gain is constant for every colour — mass, gravity, RGB Particle and envelope do not touch it.
+- With FX on and the Physics Engine/RGB Particle on in a channel: yellow (high R, high G, zero B) has the highest peak but the SHORTEST release (K=0 → release ≈0.25 s vs ≈1.8 s for red/green/blue), and Blue→Sustain gives it no sustain lift. So it is not mass fighting gravity (yellow is light: mass ≈0.33, so gravity damps it least) — it is the CMYK envelope (K→Release) plus RGB Blue→Sustain: yellow notes are loud-but-brief.
