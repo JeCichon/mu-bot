@@ -400,3 +400,12 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Why not a ribbon stop: a stop bends every step between it and the next stop; a per-step mark does not. (A "write to ribbon" variant is possible later if wanted.)
 - Caveats: the colour changes (so mass/envelope follow it, as in Colour mode); the shift is relative to the step's colour from card + ribbons, so changing a ribbon afterwards will re-pitch the step; notes beyond ±2 octaves of the colour are refused with a message.
 - No new constants — WEDGED count unchanged.
+
+---
+
+## N5 — Note keyboard (Nov 13)
+- Click a note name → a one-octave piano pops up beside it (replaces typing as the main way; the typing box stays underneath as "or type: C#5" so Justin can test how it feels having both — he is leaning toward dropping it).
+- Gold key = the note the step is on now (only shown when that octave is on screen). Red = the key under the mouse. ◀ OCT n ▶ changes the octave shown (does NOT change the step); click a key = retune the step to exactly that note (same N4 machinery, `nlApplyMidi(ci,si,midi)`) and play it. 🔊 toggles the click sound (preview is the step's real one-shot through `previewCardFx`, so its envelope/physics are heard). Popup stays open so notes can be auditioned; closes with ×, Esc in the box, or a click outside.
+- Out-of-reach notes (beyond ±2 octaves of the step's colour) show a red message in the popup.
+- Parked idea (Justin): a pass where the colour picker lets you hear the sound you are picking.
+- No new constants.

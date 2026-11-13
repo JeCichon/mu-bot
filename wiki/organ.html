@@ -490,7 +490,26 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .nl-mode{flex-shrink:0;background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);font-family:inherit;font-size:12px;line-height:1;width:20px;height:20px;padding:0;border-radius:3px;cursor:pointer;}
 .nl-mode:hover{border-color:var(--gold);}
 .nl-mode.on{background:rgba(201,169,110,.2);}
-.note-lane .nl-n{cursor:text;}
+.note-lane .nl-n{cursor:pointer;}
+#np-pop{position:fixed;z-index:9000;background:#120e24;border:1px solid var(--gold);border-radius:6px;padding:8px 10px 8px;box-shadow:0 8px 28px rgba(0,0,0,.65);color:var(--gold);font-family:inherit;user-select:none;}
+.np-head{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:13px;}
+.np-head button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;height:22px;min-width:22px;padding:0 4px;}
+.np-head button:hover{border-color:var(--gold);}
+.np-octl b{font-size:16px;margin-left:2px;}
+.np-now{flex:1;text-align:right;color:rgba(201,169,110,.7);font-size:12px;white-space:nowrap;}
+.np-snd.on{background:rgba(201,169,110,.2)!important;}
+.np-keys{position:relative;width:182px;height:76px;margin:0 auto;}
+.np-key{position:absolute;cursor:pointer;box-sizing:border-box;}
+.np-key.w{top:0;width:24px;height:76px;background:#f2ecdc;border-radius:0 0 4px 4px;box-shadow:inset 0 -3px 0 #b9b2a0;}
+.np-key.w span{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:10px;color:#6a6252;}
+.np-key.b{top:0;width:18px;height:46px;background:#15121f;border-radius:0 0 3px 3px;box-shadow:inset 0 -3px 0 #4a4658;z-index:2;}
+.np-key:hover{background:#e63946!important;}
+.np-key.cur,.np-key.cur:hover{background:var(--gold)!important;}
+.np-key.cur:hover{background:#e63946!important;}
+.np-foot{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.np-in{width:84px;box-sizing:border-box;background:#0d0a1e;border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;padding:3px 6px;border-radius:3px;}
+.np-in:focus{outline:none;border-color:var(--gold);}
+.np-msg{font-size:11px;color:#e63946;flex:1;}
 .note-lane .nl-n:hover{text-decoration:underline dotted;}
 .nl-in{width:44px;box-sizing:border-box;font:600 17px inherit;font-family:inherit;color:var(--gold);background:#0d0a1e;border:1px solid var(--gold);border-radius:3px;padding:0 3px;text-align:center;height:20px;}
 .nl-in.bad{border-color:#e63946;}
@@ -7939,6 +7958,12 @@ function nlSetNote(ci,si,text){
   let mt;
   if(pn.oct!==null) mt=12*(pn.oct+1)+pn.pc;
   else{mt=Math.round((info0.m-pn.pc)/12)*12+pn.pc;}
+  return nlApplyMidi(ci,si,mt);
+}
+// Retune a step to an exact midi note number (69 = A4). Returns null on success, or a short message if it can't.
+function nlApplyMidi(ci,si,mt){
+  const pat=patterns[activePatternIndex],ch=channels[ci],pd=pat.channelData[ci];
+  const info0=stepPitchInfo(ch,ci,pat,si);if(!info0) return null;
   const T=440*Math.pow(2,(mt-69)/12);
   // work from the step's colour with its own shift removed
   const hadShift=pd.stepShift&&pd.stepShift[si],snapShift=hadShift?pd.stepShift[si]:0;
@@ -7971,6 +7996,54 @@ function nlSetNote(ci,si,text){
   }
   render();saveState();return null;
 }
+// ── Note keyboard: a one-octave piano that pops up from a note name ──
+// Gold = the note this step is on now · red = the key under the mouse · click a key to retune the step and hear it.
+let npState=null,nlPianoSound=true;
+const NP_WHITE=[0,2,4,5,7,9,11],NP_NAMES=['C','D','E','F','G','A','B'],NP_BLACK=[[1,0],[3,1],[6,3],[8,4],[10,5]];   // [pitch class, white key it follows]
+function closeNotePiano(){const e=document.getElementById('np-pop');if(e) e.remove();npState=null;document.removeEventListener('pointerdown',npOutside,true);}
+function npOutside(e){const el=document.getElementById('np-pop');if(el&&!el.contains(e.target)) closeNotePiano();}
+function npRefresh(){
+  const el=document.getElementById('np-pop');if(!el||!npState) return;
+  const {ci,si,oct}=npState;const inf=stepPitchInfo(channels[ci],ci,patterns[activePatternIndex],si);
+  const curMidi=inf?inf.mi:null;
+  el.querySelector('.np-oct').textContent=oct;
+  el.querySelectorAll('.np-key').forEach(k=>k.classList.toggle('cur',curMidi===12*(oct+1)+(+k.dataset.pc)));
+  el.querySelector('.np-now').textContent=inf?`${inf.name} ${fmtCents(inf.cents)}`:'';
+  const tb=el.querySelector('.np-snd');tb.textContent=nlPianoSound?'🔊':'🔈';tb.classList.toggle('on',nlPianoSound);
+}
+function npPlay(ci,si){
+  if(!nlPianoSound) return;
+  const ch=channels[ci],pd=patterns[activePatternIndex].channelData[ci],n=pd.steps[si];if(n==null) return;
+  try{previewCardFx(n,ch,si,(ch.octave||0)+((pd.stepOctaves&&pd.stepOctaves[si])||0));}catch(e){}
+}
+function openNotePiano(anchor,ci,si){
+  closeNotePiano();
+  const inf0=stepPitchInfo(channels[ci],ci,patterns[activePatternIndex],si);if(!inf0) return;
+  npState={ci,si,oct:Math.floor(inf0.mi/12)-1};
+  const el=document.createElement('div');el.id='np-pop';
+  let h='<div class="np-head"><button class="np-ar" data-d="-1" title="Octave down">◀</button><span class="np-octl">OCT <b class="np-oct"></b></span><button class="np-ar" data-d="1" title="Octave up">▶</button><span class="np-now"></span><button class="np-snd" title="Play the note when you click a key"></button><button class="np-x" title="Close">×</button></div><div class="np-keys">';
+  NP_WHITE.forEach((pc,i)=>{h+=`<div class="np-key w" data-pc="${pc}" style="left:${i*26}px"><span>${NP_NAMES[i]}</span></div>`;});
+  NP_BLACK.forEach(([pc,after])=>{h+=`<div class="np-key b" data-pc="${pc}" style="left:${(after+1)*26-9}px"></div>`;});
+  h+='</div><div class="np-foot"><input class="np-in" type="text" maxlength="4" placeholder="or type: C#5" spellcheck="false"/><span class="np-msg"></span></div>';
+  el.innerHTML=h;document.body.appendChild(el);
+  const msg=m=>{el.querySelector('.np-msg').textContent=m||'';};
+  el.querySelectorAll('.np-ar').forEach(b=>b.addEventListener('click',()=>{npState.oct=Math.max(0,Math.min(8,npState.oct+(+b.dataset.d)));msg('');npRefresh();}));
+  el.querySelector('.np-x').addEventListener('click',closeNotePiano);
+  el.querySelector('.np-snd').addEventListener('click',()=>{nlPianoSound=!nlPianoSound;npRefresh();});
+  el.querySelectorAll('.np-key').forEach(k=>k.addEventListener('click',()=>{
+    const m=nlApplyMidi(ci,si,12*(npState.oct+1)+(+k.dataset.pc));
+    msg(m);if(!m){npRefresh();npPlay(ci,si);}
+  }));
+  const inp=el.querySelector('.np-in');
+  inp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){const m=nlSetNote(ci,si,inp.value);msg(m);if(!m){inp.value='';const i2=stepPitchInfo(channels[ci],ci,patterns[activePatternIndex],si);if(i2) npState.oct=Math.floor(i2.mi/12)-1;npRefresh();npPlay(ci,si);}}else if(e.key==='Escape'){closeNotePiano();}});
+  // place it under the note name (above if there is no room, and kept inside the window)
+  const r=anchor.getBoundingClientRect(),pw=el.offsetWidth,ph=el.offsetHeight;
+  let x=Math.max(8,Math.min(r.left+r.width/2-pw/2,window.innerWidth-pw-8)),y=r.bottom+8;
+  if(y+ph>window.innerHeight-8) y=Math.max(8,r.top-ph-8);
+  el.style.left=x+'px';el.style.top=y+'px';
+  npRefresh();
+  setTimeout(()=>document.addEventListener('pointerdown',npOutside,true),0);
+}
 function nlEditNote(nn,ci,si){
   const input=document.createElement('input');input.className='nl-in';input.type='text';input.value=nn.textContent;input.maxLength=4;input.spellcheck=false;
   input.title='Type a note: C#5, Eb4, A3 … then Enter. Esc cancels.';
@@ -8001,7 +8074,7 @@ function buildNoteLane(ch,ci){
     const info=stepPitchInfo(ch,ci,pat,si);
     if(info){
       const top=document.createElement('div');top.className='nl-top';
-      const nn=document.createElement('span');nn.className='nl-n';nn.textContent=info.name;nn.title='Click to type a note (e.g. C#5) — the step retunes to exactly that note';nn.addEventListener('click',e=>{e.stopPropagation();nlEditNote(nn,ci,si);});
+      const nn=document.createElement('span');nn.className='nl-n';nn.textContent=info.name;nn.title='Click for a little keyboard (or type a note) — the step retunes to exactly the note you pick';nn.addEventListener('click',e=>{e.stopPropagation();openNotePiano(nn,ci,si);});
       const box=document.createElement('i');box.className='nl-box';box.style.background=`rgb(${info.col.r},${info.col.g},${info.col.b})`;
       box.title=ch.noteMode==='color'?'Colour mode — drag left/right to move the colour (1¢ per pixel · Alt 0.2¢ · Shift 5¢). Stays on this note. Double-click to return to the original colour. Right-click: switch mode.':'Tune mode — drag left/right to fine-tune (0.1¢ per pixel · Alt 0.02¢ · Shift 1¢). Stays on this note. Double-click to return to the colour\'s own pitch. Right-click: switch mode.';
       box.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();ch.noteMode=ch.noteMode==='color'?'tune':'color';render();saveState();});
