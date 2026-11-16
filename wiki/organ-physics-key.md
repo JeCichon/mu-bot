@@ -433,3 +433,11 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 ## Finding — "yellow sounds quiet" (Nov 13, measured)
 - Plain tone (editor HEAR with FX off): gain is constant for every colour — mass, gravity, RGB Particle and envelope do not touch it.
 - With FX on and the Physics Engine/RGB Particle on in a channel: yellow (high R, high G, zero B) has the highest peak but the SHORTEST release (K=0 → release ≈0.25 s vs ≈1.8 s for red/green/blue), and Blue→Sustain gives it no sustain lift. So it is not mass fighting gravity (yellow is light: mass ≈0.33, so gravity damps it least) — it is the CMYK envelope (K→Release) plus RGB Blue→Sustain: yellow notes are loud-but-brief.
+
+---
+
+## N8 — Dockable keyboard + keys painted in the colour they make (Nov 16)
+- The editor's keyboard is now its own small window (`#gk-pop`) belonging to the colour editor: opens docked above it, snaps to the editor's top / right / bottom / left when you drag its grab bar near an edge (gold outline shows the snap), floats freely when dropped elsewhere, FOLLOWS the editor when the editor is moved, and closes with the editor. If the chosen side has no room it flips to the opposite side. Clicking on it does not close a floating editor.
+- Every key (editor keyboard AND the small step-editor piano) is painted with the colour it will make: hover = the key fills with that colour; the current note = that colour with a gold ring, glow and gold tint (replaces red-hover / gold). Keys that can't be reached are dimmed.
+- Editor keys: the exact vivid colour for that note (`gpVividForFreq`, cached). Step piano keys: the step's colour after a press (`nlPlanMidi` — the same plan `nlApplyMidi` now uses, so what is shown is what is written).
+- No new constants.

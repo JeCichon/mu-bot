@@ -503,9 +503,9 @@ body{background:var(--bg);font-family:'EB Garamond',serif;color:var(--text);min-
 .np-key.w{top:0;width:24px;height:76px;background:#f2ecdc;border-radius:0 0 4px 4px;box-shadow:inset 0 -3px 0 #b9b2a0;}
 .np-key.w span{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:10px;color:#6a6252;}
 .np-key.b{top:0;width:18px;height:46px;background:#15121f;border-radius:0 0 3px 3px;box-shadow:inset 0 -3px 0 #4a4658;z-index:2;}
-.np-key:hover{background:#e63946!important;}
-.np-key.cur,.np-key.cur:hover{background:var(--gold)!important;}
-.np-key.cur:hover{background:#e63946!important;}
+.np-key:hover{background:var(--kc,#e8e2d0)!important;}
+.np-key.cur{background-color:var(--kc,var(--gold))!important;background-image:linear-gradient(rgba(201,169,110,.38),rgba(201,169,110,.38));box-shadow:inset 0 0 0 2px var(--gold),0 0 9px rgba(201,169,110,.85)!important;}
+.np-key.nc{opacity:.5;}
 .np-foot{display:flex;align-items:center;gap:8px;margin-top:8px;}
 .np-in{width:84px;box-sizing:border-box;background:#0d0a1e;border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;padding:3px 6px;border-radius:3px;}
 .np-in:focus{outline:none;border-color:var(--gold);}
@@ -586,7 +586,10 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 #gp-sound-row button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px;height:22px;padding:0 7px;}
 #gp-sound-row button.on{background:rgba(201,169,110,.22);border-color:var(--gold);}
 #gp-sound-row #gp-keys-btn{margin-left:auto;}
-#gp-keys{position:absolute;left:0;right:0;top:78px;bottom:0;z-index:5;background:linear-gradient(150deg,#130f22,#09071a);border-radius:0 0 8px 8px;padding:10px 14px;}
+#gk-pop{position:fixed;z-index:310;display:none;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.45);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.85);padding:0 14px 10px;}
+#gk-pop.snap{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,169,110,.6),0 14px 40px rgba(0,0,0,.85);}
+.gk-bar{white-space:nowrap;display:flex;align-items:center;gap:8px;margin:0 -14px 8px;padding:5px 14px;border-bottom:1px solid rgba(201,169,110,.2);cursor:grab;font-size:10px;letter-spacing:.14em;color:rgba(201,169,110,.65);user-select:none;touch-action:none;}
+.gk-bar:active{cursor:grabbing;}
 .gk-head{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--gold);margin-bottom:8px;}
 .gk-head button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:12px;height:22px;min-width:22px;padding:0 4px;}
 .gk-head button:hover{border-color:var(--gold);}
@@ -596,11 +599,11 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 .gk-key.w{top:0;width:18px;height:96px;background:#f2ecdc;border-radius:0 0 3px 3px;box-shadow:inset 0 -3px 0 #b9b2a0;}
 .gk-key.w span{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:9px;color:#6a6252;}
 .gk-key.b{top:0;width:12px;height:58px;background:#15121f;border-radius:0 0 3px 3px;box-shadow:inset 0 -3px 0 #4a4658;z-index:2;}
-.gk-key:hover{background:#e63946!important;}
-.gk-key.cur,.gk-key.cur:hover{background:var(--gold)!important;}
-.gk-key.cur:hover{background:#e63946!important;}
+.gk-key:hover{background:var(--kc,#e8e2d0)!important;}
+.gk-key.cur{background-color:var(--kc,var(--gold))!important;background-image:linear-gradient(rgba(201,169,110,.38),rgba(201,169,110,.38));box-shadow:inset 0 0 0 2px var(--gold),0 0 9px rgba(201,169,110,.85)!important;}
+.gk-key.nc{opacity:.45;cursor:not-allowed;}
 .gk-msg{margin-top:8px;font-size:11px;color:#e63946;min-height:14px;}
-.gk-hint{font-size:11px;color:rgba(201,169,110,.55);margin-top:2px;}
+.gk-hint{max-width:378px;font-size:11px;color:rgba(201,169,110,.55);margin-top:2px;}
 #gp-vol{width:80px;accent-color:var(--gold);cursor:pointer;}
 #gp-wheel-sat{position:absolute;width:118px;height:24px;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);accent-color:var(--gold);cursor:pointer;margin:0;}
 #gp-wheel-sat-val{font-family:'Cinzel',serif;font-size:10px;color:var(--gold);min-width:28px;text-align:center;}
@@ -1192,7 +1195,6 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
     <span class="ctl-lbl">VOL</span><input type="range" id="gp-vol" min="0" max="1" step="0.05" value="0.5"/>
     <button id="gp-keys-btn" title="Note keyboard — pick an exact note for this colour">♫ KEYS</button>
   </div>
-  <div id="gp-keys" style="display:none"></div>
 
   <div id="gp-main-row">
     <div id="gp-left-col">
@@ -7799,7 +7801,7 @@ document.getElementById('gp-opacity').addEventListener('input',e=>{
 });
 document.getElementById('gp-opacity').addEventListener('change',commitGesture);
 document.addEventListener('mousedown',e=>{
-  if(gradPopup.classList.contains('show')&&!gpPinned&&!gradPopup.contains(e.target)&&!e.target.classList.contains('grad-btn')&&!e.target.closest('.rib')) closeGradPopup();
+  if(gradPopup.classList.contains('show')&&!gpPinned&&!gradPopup.contains(e.target)&&!e.target.closest('#gk-pop')&&!e.target.classList.contains('grad-btn')&&!e.target.closest('.rib')) closeGradPopup();
 });
 
 
@@ -7989,32 +7991,43 @@ function nlSetNote(ci,si,text){
   return nlApplyMidi(ci,si,mt);
 }
 // Retune a step to an exact midi note number (69 = A4). Returns null on success, or a short message if it can't.
+// What would the step become if it were retuned to midi note `mt`? (no changes made) → {w,cents,err,col} or null.
+// col is the colour the step will have once the note is applied — the keyboards paint their keys with it.
+function nlPlanMidi(ci,si,mt){
+  const pat=patterns[activePatternIndex],ch=channels[ci],pd=pat.channelData[ci];
+  if(!pd) return null;
+  const T=440*Math.pow(2,(mt-69)/12);
+  const hadShift=pd.stepShift&&pd.stepShift[si],snapShift=hadShift?pd.stepShift[si]:0;
+  if(hadShift) pd.stepShift[si]=0;
+  let best=null,base0=null;
+  try{
+    base0=stepPitchInfo(ch,ci,pat,si);if(!base0) return null;
+    const f0=activeRgbToFreq(base0.col.r,base0.col.g,base0.col.b);
+    const wCur=octWhole((pd.stepOctaves&&pd.stepOctaves[si])||0);
+    const pm=base0.fBase/(f0*Math.pow(2,(ch.octave||0)+wCur))||1;
+    for(let w=-2;w<=2;w++){
+      const req=T/Math.pow(2,(ch.octave||0)+w)/pm;           // colour pitch needed at this octave shift
+      const cents=1200*Math.log2(req/f0);
+      // a colour can only move within its own octave window (hue range at fixed lightness): |cents| must be < 1200
+      if(Math.abs(cents)>=1200) continue;
+      const c1=shiftColorCents(base0.col,cents);
+      const err=Math.abs(1200*Math.log2(activeRgbToFreq(c1.r,c1.g,c1.b)/req));
+      if(!best||err<best.err-1e-9||(Math.abs(err-best.err)<=1e-9&&Math.abs(w)<Math.abs(best.w))) best={w,cents,err};
+    }
+  } finally { if(hadShift) pd.stepShift[si]=snapShift; }
+  if(!best) return null;
+  best.cents=Math.abs(best.cents)<1e-6?0:Math.round(best.cents*100)/100;
+  best.col=best.cents?shiftColorCents(base0.col,best.cents):base0.col;
+  return best;
+}
 function nlApplyMidi(ci,si,mt){
   const pat=patterns[activePatternIndex],ch=channels[ci],pd=pat.channelData[ci];
   const info0=stepPitchInfo(ch,ci,pat,si);if(!info0) return null;
-  const T=440*Math.pow(2,(mt-69)/12);
-  // work from the step's colour with its own shift removed
-  const hadShift=pd.stepShift&&pd.stepShift[si],snapShift=hadShift?pd.stepShift[si]:0;
-  if(hadShift) pd.stepShift[si]=0;
-  const base0=stepPitchInfo(ch,ci,pat,si);
-  let best=null;
-  const f0=activeRgbToFreq(base0.col.r,base0.col.g,base0.col.b);
-  const wCur=octWhole((pd.stepOctaves&&pd.stepOctaves[si])||0);
-  const pm=base0.fBase/(f0*Math.pow(2,(ch.octave||0)+wCur))||1;
-  for(let w=-2;w<=2;w++){
-    const req=T/Math.pow(2,(ch.octave||0)+w)/pm;           // colour pitch needed at this octave shift
-    const cents=1200*Math.log2(req/f0);
-    // a colour can only move within its own octave window (hue range at fixed lightness): |cents| must be < 1200
-    if(Math.abs(cents)>=1200) continue;
-    const c1=shiftColorCents(base0.col,cents);
-    const err=Math.abs(1200*Math.log2(activeRgbToFreq(c1.r,c1.g,c1.b)/req));
-    if(!best||err<best.err-1e-9||(Math.abs(err-best.err)<=1e-9&&Math.abs(w)<Math.abs(best.w))) best={w,cents,err};
-  }
-  if(!best){pd.stepShift&&(pd.stepShift[si]=snapShift);return 'That note is out of reach for this step\'s colour';}
-  if(hadShift) pd.stepShift[si]=snapShift;          // put it back so Undo remembers it
+  const best=nlPlanMidi(ci,si,mt);
+  if(!best) return 'That note is out of reach for this step\'s colour';
   pushHistory();
   if(!pd.stepOctaves) pd.stepOctaves=new Array(pat.stepCount).fill(0);
-  setShift(pd,si,Math.abs(best.cents)<1e-6?0:Math.round(best.cents*100)/100,pat.stepCount);
+  setShift(pd,si,best.cents,pat.stepCount);
   pd.stepOctaves[si]=best.w;
   // fine pass: nudge the tune offset until the label reads exactly 0¢ (twice, in case pitchMul moves with the colour)
   for(let k=0;k<3;k++){
@@ -8035,7 +8048,14 @@ function npRefresh(){
   const {ci,si,oct}=npState;const inf=stepPitchInfo(channels[ci],ci,patterns[activePatternIndex],si);
   const curMidi=inf?inf.mi:null;
   el.querySelector('.np-oct').textContent=oct;
-  el.querySelectorAll('.np-key').forEach(k=>k.classList.toggle('cur',curMidi===12*(oct+1)+(+k.dataset.pc)));
+  el.querySelectorAll('.np-key').forEach(k=>{
+    const midi=12*(oct+1)+(+k.dataset.pc);
+    k.classList.toggle('cur',curMidi===midi);
+    // paint the key with the colour this step would become if you pressed it
+    let pl=null;try{pl=nlPlanMidi(ci,si,midi);}catch(e){}
+    if(pl){k.style.setProperty('--kc','rgb('+pl.col.r+','+pl.col.g+','+pl.col.b+')');k.classList.remove('nc');}
+    else{k.style.removeProperty('--kc');k.classList.add('nc');}
+  });
   el.querySelector('.np-now').textContent=inf?`${inf.name} ${fmtCents(inf.cents)}`:'';
   const tb=el.querySelector('.np-snd');tb.textContent=nlPianoSound?'🔊':'🔈';tb.classList.toggle('on',nlPianoSound);
 }
@@ -8507,55 +8527,98 @@ function gpVividForFreq(fTarget){
   }
   _gkCache.set(key,best);return best;
 }
+const gkPop=document.createElement('div');gkPop.id='gk-pop';document.body.appendChild(gkPop);
+let gkDock='top',gkFree={x:60,y:60},gkTimer=null;
+// The keyboard is its own little window that belongs to the editor: it docks to the editor's top / right / bottom / left,
+// follows the editor when you move it, and closes with it. Drag the grab bar away and it floats; drag it near an edge and it snaps.
+function gkDockPos(d,kw,kh,gr){const G=6;return d==='top'?[gr.left,gr.top-kh-G]:d==='bottom'?[gr.left,gr.bottom+G]:d==='right'?[gr.right+G,gr.top]:[gr.left-kw-G,gr.top];}
+function gkPlace(){
+  if(gkPop.style.display==='none'||!gradPopup.classList.contains('show')) return;
+  const kw=gkPop.offsetWidth,kh=gkPop.offsetHeight,gr=gradPopup.getBoundingClientRect();
+  const fits=p=>p[0]>=0&&p[1]>=0&&p[0]+kw<=window.innerWidth&&p[1]+kh<=window.innerHeight;
+  let pos;
+  if(gkDock==='free') pos=[gkFree.x,gkFree.y];
+  else{
+    const alt={top:['bottom','right','left'],bottom:['top','right','left'],right:['left','top','bottom'],left:['right','top','bottom']}[gkDock];
+    pos=null;for(const d of [gkDock,...alt]){const q=gkDockPos(d,kw,kh,gr);if(fits(q)){pos=q;break;}}
+    if(!pos) pos=gkDockPos(gkDock,kw,kh,gr);
+  }
+  const x=Math.max(0,Math.min(window.innerWidth-kw,pos[0])),y=Math.max(0,Math.min(window.innerHeight-kh,pos[1]));
+  gkPop.style.left=x+'px';gkPop.style.top=y+'px';
+}
+function gkBarText(){return gkDock==='free'?'⠿ KEYBOARD · FREE':'⠿ KEYBOARD · DOCKED '+gkDock.toUpperCase();}
+function gkNearDock(x,y){
+  const kw=gkPop.offsetWidth,kh=gkPop.offsetHeight,gr=gradPopup.getBoundingClientRect();
+  let best=null,bd=60;
+  for(const d of ['top','bottom','right','left']){const p=gkDockPos(d,kw,kh,gr);const dist=Math.hypot(x-p[0],y-p[1]);if(dist<bd){bd=dist;best=d;}}
+  return best;
+}
+gkPop.addEventListener('pointerdown',e=>{
+  const bar=e.target.closest('.gk-bar');if(!bar||e.button!==0) return;
+  e.preventDefault();
+  const r=gkPop.getBoundingClientRect(),sx=e.clientX,sy=e.clientY;let near=null,moved=false;
+  const mv=ev=>{
+    moved=true;
+    const x=Math.max(0,Math.min(window.innerWidth-r.width,r.left+ev.clientX-sx)),y=Math.max(0,Math.min(window.innerHeight-r.height,r.top+ev.clientY-sy));
+    gkPop.style.left=x+'px';gkPop.style.top=y+'px';gkFree={x,y};
+    near=gkNearDock(x,y);gkPop.classList.toggle('snap',!!near);
+  };
+  const up=()=>{
+    document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
+    gkPop.classList.remove('snap');
+    if(moved){gkDock=near||'free';gkPlace();const b=gkPop.querySelector('.gk-bar');if(b) b.textContent=gkBarText();}
+  };
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+});
+function gkMidiFor(pc,oct,ch){
+  if(songMultiOctave) return 12*(oct+1)+pc;
+  let f=440*Math.pow(2,(60+pc-69)/12);while(f<349.2) f*=2;while(f>=698.5) f/=2;   // single-octave song: the colour holds only the pitch class
+  return Math.round(69+12*Math.log2(f*Math.pow(2,ch.octave||0)/440));
+}
 function gpKeysRender(){
-  const el=document.getElementById('gp-keys');if(!el) return;
-  const multi=songMultiOctave;
-  const octs=multi?GK_OCTS:1;
-  const nn=gpNodeNote();
-  let h=`<div class="gk-head"><button data-d="-1" ${multi?'':'disabled'} title="Octave down">◀</button><span>OCT <b>${multi?gpKeysOct+'–'+(gpKeysOct+octs-1):'single'}</b></span><button data-d="1" ${multi?'':'disabled'} title="Octave up">▶</button><span class="gk-now">${nn?nn.name+' '+fmtCents(nn.cents):''}</span><button class="gk-x" title="Put the keyboard away">×</button></div>`;
-  const wTot=octs*7*GK_W;
-  h+=`<div class="gk-keys" style="width:${wTot}px">`;
+  const el=gkPop;if(!gpKeysOpen) return;
+  const multi=songMultiOctave,octs=multi?GK_OCTS:1,ch=gpOwnerChannel(),nn=gpNodeNote();
+  let h=`<div class="gk-bar" title="Drag me. Bring me close to an edge of the editor and I snap there; I follow the editor and close with it.">${gkBarText()}</div><div class="gk-head"><button data-d="-1" ${multi?'':'disabled'} title="Octave down">◀</button><span>OCT <b>${multi?gpKeysOct+'–'+(gpKeysOct+octs-1):'single'}</b></span><button data-d="1" ${multi?'':'disabled'} title="Octave up">▶</button><span class="gk-now">${nn?nn.name+' '+fmtCents(nn.cents):''}</span><button class="gk-x" title="Put the keyboard away">×</button></div>`;
+  h+=`<div class="gk-keys" style="width:${octs*7*GK_W}px">`;
+  const keyHtml=(cls,pc,oct,left,label)=>{
+    const m=ch?gkMidiFor(pc,oct,ch):null;
+    let v=null;if(ch){const fCol=440*Math.pow(2,(m-69)/12)/Math.pow(2,ch.octave||0);v=gpVividForFreq(fCol);if(v&&v.e>3) v=null;}
+    const cur=nn&&(multi?m===nn.mi:((nn.mi%12)+12)%12===pc);
+    return `<div class="gk-key ${cls}${cur?' cur':''}${v?'':' nc'}" data-pc="${pc}" data-o="${oct===null?'':oct}" style="left:${left}px${v?`;--kc:rgb(${v.r},${v.g},${v.b})`:''}">${label}</div>`;
+  };
   for(let o=0;o<octs;o++){
     const oct=multi?gpKeysOct+o:null;
-    GK_WHITE.forEach((pc,i)=>{
-      const midi=multi?12*(oct+1)+pc:null;
-      h+=`<div class="gk-key w${nn&&midi===nn.mi?' cur':''}" data-pc="${pc}" data-o="${oct===null?'':oct}" style="left:${(o*7+i)*GK_W}px"><span>${GK_NAMES[i]}${multi&&pc===0?oct:''}</span></div>`;
-    });
-    GK_BLACK.forEach(([pc,after])=>{
-      const midi=multi?12*(oct+1)+pc:null;
-      h+=`<div class="gk-key b${nn&&midi===nn.mi?' cur':''}" data-pc="${pc}" data-o="${oct===null?'':oct}" style="left:${(o*7+after+1)*GK_W-6}px"></div>`;
-    });
+    GK_WHITE.forEach((pc,i)=>{h+=keyHtml('w',pc,oct,(o*7+i)*GK_W,`<span>${GK_NAMES[i]}${multi&&pc===0?oct:''}</span>`);});
+    GK_BLACK.forEach(([pc,after])=>{h+=keyHtml('b',pc,oct,(o*7+after+1)*GK_W-6,'');});
   }
-  h+=`</div><div class="gk-hint">${multi?'':'Single-octave song: one octave of notes (F to E). '}Click a key — this colour becomes that exact note. Then adjust it any way you like.</div><div class="gk-msg"></div>`;
+  h+=`</div><div class="gk-hint">${multi?'':'Single-octave song: one octave of notes (F to E). '}Hover a key to see the colour it makes · click to paint this colour with it, then adjust any way you like.</div><div class="gk-msg"></div>`;
   el.innerHTML=h;
-  el.querySelectorAll('.gk-head button[data-d]').forEach(b=>b.addEventListener('click',()=>{gpKeysOct=Math.max(0,Math.min(7,gpKeysOct+(+b.dataset.d)));gpKeysRender();}));
+  el.querySelectorAll('.gk-head button[data-d]').forEach(b=>b.addEventListener('click',()=>{gpKeysOct=Math.max(0,Math.min(7,gpKeysOct+(+b.dataset.d)));gpKeysRender();gkPlace();}));
   el.querySelector('.gk-x').addEventListener('click',()=>gpKeysToggle(false));
   el.querySelectorAll('.gk-key').forEach(k=>k.addEventListener('click',()=>{
-    const ch=gpOwnerChannel();if(!ch) return;
-    const pc=+k.dataset.pc;let m;
-    if(multi) m=12*(+k.dataset.o+1)+pc;
-    else{ // single-octave song: the colour only holds the pitch class, in F4..E5 before the channel octave
-      let f=440*Math.pow(2,(60+pc-69)/12);while(f<349.2) f*=2;while(f>=698.5) f/=2;m=69+12*Math.log2(f*Math.pow(2,ch.octave||0)/440);m=Math.round(m);}
+    if(!ch) return;
+    const m=gkMidiFor(+k.dataset.pc,k.dataset.o===''?null:+k.dataset.o,ch);
     const fCol=440*Math.pow(2,(m-69)/12)/Math.pow(2,ch.octave||0);
     const v=gpVividForFreq(fCol);
     const msg=el.querySelector('.gk-msg');
     if(!v||v.e>3){msg.textContent='That note is out of reach for a colour in this channel (try another octave).';return;}
     msg.textContent='';
     beginGesture();applySoundColor({r:v.r,g:v.g,b:v.b});commitGesture();
-    gpKeysRender();
   }));
+  gkPlace();
 }
 function gpKeysToggle(on){
   gpKeysOpen=on===undefined?!gpKeysOpen:on;
-  const el=document.getElementById('gp-keys');if(!el) return;
-  el.style.display=gpKeysOpen?'block':'none';
-  document.getElementById('gp-keys-btn').classList.toggle('on',gpKeysOpen);
+  gkPop.style.display=gpKeysOpen?'block':'none';
+  const btn=document.getElementById('gp-keys-btn');if(btn) btn.classList.toggle('on',gpKeysOpen);
+  clearInterval(gkTimer);gkTimer=null;
   if(gpKeysOpen){
     const nn=gpNodeNote();if(nn&&songMultiOctave) gpKeysOct=Math.max(0,Math.min(7,Math.floor(nn.mi/12)-1-1));
-    const mr=document.getElementById('gp-main-row');if(mr) el.style.top=mr.offsetTop+'px';
     gpKeysRender();
+    gkTimer=setInterval(()=>{if(gkDock!=='free') gkPlace();},60);   // follow the editor when it is moved
   }
 }
+window.addEventListener('resize',()=>{try{gkPlace();}catch(e){}});
 document.getElementById('gp-keys-btn').addEventListener('click',()=>gpKeysToggle());
 function gpSyncSoundUI(){
   document.getElementById('gp-hear').classList.toggle('on',gpHear);
