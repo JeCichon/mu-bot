@@ -441,3 +441,11 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Every key (editor keyboard AND the small step-editor piano) is painted with the colour it will make: hover = the key fills with that colour; the current note = that colour with a gold ring, glow and gold tint (replaces red-hover / gold). Keys that can't be reached are dimmed.
 - Editor keys: the exact vivid colour for that note (`gpVividForFreq`, cached). Step piano keys: the step's colour after a press (`nlPlanMidi` — the same plan `nlApplyMidi` now uses, so what is shown is what is written).
 - No new constants.
+
+---
+
+## N9 — Note on rollover for colour stops (Nov 16) · Phase 3 of 3
+- Decision (Justin): no permanent note labels above ribbons (too crowded). Instead, hovering ANY colour stop — on a ribbon (channel, group, card/step) or in the editor's stop bar — shows a small tag: colour swatch · note name · cents · Hz. It is the pitch of that stop's colour alone (`activeRgbToFreq` × the owning channel's octave), i.e. the same number the editor's note display and the keyboards use; what a step actually plays is that colour after the ribbons blend it.
+- Owner channel for a ribbon is resolved by `gpOwnerChannel(g,ti)` (channel ribbon → its channel; group ribbon → first melodic member).
+- This completes the 3-phase note-tool plan (live sound N6, keyboard N7/N8, rollover N9). Parked: paste-a-list importer.
+- No new constants.
