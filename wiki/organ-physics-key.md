@@ -449,3 +449,6 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Owner channel for a ribbon is resolved by `gpOwnerChannel(g,ti)` (channel ribbon → its channel; group ribbon → first melodic member).
 - This completes the 3-phase note-tool plan (live sound N6, keyboard N7/N8, rollover N9). Parked: paste-a-list importer.
 - No new constants.
+
+## N9b — Selected stop keeps its note on show (Nov 16)
+- In the colour editor, the selected stop (or end) carries a persistent tag above the stop bar: swatch · note · cents. It updates live as the colour changes, moves when you select another stop, and nudges inward at the left/right ends so it never clips. The hover tag skips the selected stop so the two don't overlap. Ribbon stops still use hover only.

@@ -582,6 +582,11 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 #gp-sat-wrap{display:flex;flex-direction:column;align-items:center;height:150px;justify-content:space-between;gap:4px;}
 .gp-sat-label{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.18em;color:rgba(201,169,110,.4);}
 #gp-sat-slider-track{position:relative;width:24px;flex:1;}
+#gp-stops-bar .gp-tag{position:absolute;bottom:calc(100% + 9px);transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:6px;background:#0d0a1e;border:1px solid var(--gold);border-radius:5px;padding:3px 9px;color:var(--gold);font-size:14px;white-space:nowrap;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.7);}
+#gp-stops-bar .gp-tag.l{transform:none;margin-left:-8px;}
+#gp-stops-bar .gp-tag.r{transform:translateX(-100%);margin-left:8px;}
+#gp-stops-bar .gp-tag i{width:11px;height:11px;border-radius:2px;border:1px solid rgba(255,255,255,.5);display:inline-block;}
+#gp-stops-bar .gp-tag b{font-size:16px;}
 #note-tip{position:fixed;z-index:400;display:none;align-items:center;gap:7px;background:#0d0a1e;border:1px solid var(--gold);border-radius:5px;padding:4px 9px;color:var(--gold);font-size:14px;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.7);white-space:nowrap;}
 #note-tip i{width:12px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,.5);display:inline-block;}
 #note-tip b{font-size:16px;}
@@ -7828,7 +7833,7 @@ function gpRefreshUI(){
   const pv=document.getElementById('gp-preview');if(pv) pv.style.background=css;
   const bar=document.getElementById('gp-stops-bar');if(!bar) return;
   bar.style.backgroundImage=css;
-  bar.querySelectorAll('.gp-stop').forEach(e=>e.remove());
+  bar.querySelectorAll('.gp-stop,.gp-tag').forEach(e=>e.remove());
   const n=g.stops.length;
   g.stops.forEach((st,k)=>{
     const h=document.createElement('div');h.className='gp-stop'+((k===0||k===n-1)?' end':'')+(st===gpSelStop?' sel':'');
@@ -7836,6 +7841,17 @@ function gpRefreshUI(){
     h.dataset.k=k;h.dataset.hex=st.c;h._rg=g;bar.appendChild(h);
   });
   const sel=gpSelStop&&g.stops.indexOf(gpSelStop)>=0?gpSelStop:g.stops[0];
+  // the selected stop keeps its note on show while you pick, and follows the colour live
+  try{
+    const ch0=gpOwnerChannel(g,gradTi);
+    if(ch0&&sel&&sel.c){
+      const cc=hexToRgb(sel.c),ff=activeRgbToFreq(cc.r,cc.g,cc.b)*Math.pow(2,ch0.octave||0),mm=69+12*Math.log2(ff/440),mi=Math.round(mm);
+      const tg=document.createElement('div');tg.className='gp-tag'+(sel.p<0.14?' l':sel.p>0.86?' r':'');
+      tg.style.left=(sel.p*100)+'%';
+      tg.innerHTML=`<i style="background:${sel.c}"></i><b>${NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1)}</b> <span>${fmtCents((mm-mi)*100)}</span>`;
+      bar.appendChild(tg);
+    }
+  }catch(_){}
   const k=g.stops.indexOf(sel);const inner=k>0&&k<n-1;
   const pos=document.getElementById('gp-stop-pos');pos.value=Math.round(sel.p*100);pos.disabled=!inner;
   const al=document.getElementById('gp-stop-alpha');al.value=sel.a===undefined?100:sel.a;
@@ -8636,7 +8652,7 @@ function noteTipFor(el){
 }
 document.addEventListener('mouseover',e=>{
   const el=e.target.closest&&e.target.closest('.rib-stop,.gp-stop');
-  if(!el){noteTip.style.display='none';return;}
+  if(!el||el.classList.contains('sel')&&el.classList.contains('gp-stop')){noteTip.style.display='none';return;}
   let t=null;try{t=noteTipFor(el);}catch(_){}
   if(!t){noteTip.style.display='none';return;}
   noteTip.innerHTML=`<i style="background:${t.hex}"></i><b>${t.name}</b> <span>${t.cents}</span><em>${t.hz} Hz</em>`;
