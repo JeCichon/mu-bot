@@ -452,3 +452,14 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 
 ## N9b — Selected stop keeps its note on show (Nov 16)
 - In the colour editor, the selected stop (or end) carries a persistent tag above the stop bar: swatch · note · cents. It updates live as the colour changes, moves when you select another stop, and nudges inward at the left/right ends so it never clips. The hover tag skips the selected stop so the two don't overlap. Ribbon stops still use hover only.
+
+---
+
+## N10 — Palettes (Nov 16) · Phases 1 + 2 of 3
+- **▦ PALETTES** button in the colour editor's sound row opens a dockable window (`#pal-pop`), default docked right of the editor; same dock/snap/follow/close-with-editor behaviour as the keyboard (drag the grab bar near an edge to snap, away to float).
+- **Image → palette:** ⤒ IMAGE (file picker), drag-and-drop onto the window, or paste an image while it is open. The image is shrunk to ≤160 px in a canvas (never uploaded), clustered with k-means (k=12, k-means++ start, seeded so results are repeatable) in Lab colour space, and each cluster is replaced by the real pixel nearest its centre. Ordered by how much of the image each colour covers; near-duplicates (ΔE<4) are merged so you may get fewer than 12. Becomes a new palette "Palette from <file>" and the active one.
+- **Palettes:** any number; each holds up to 30 colours in a 10×3 grid (Procreate-style). ＋ = new blank palette. ✓ circle = active palette. ••• menu: Rename, Duplicate, Add current colour, Clear swatches, Delete (two clicks to confirm). Click the name to rename.
+- **Using colours:** click a swatch → the selected colour in the editor becomes it (plays through live sound, one undo step). Click an empty slot → saves the editor's current colour there. Right-click a swatch → removes it. RECENT COLOURS strip at the top fills as you settle on colours (30 max, "clear" to reset).
+- Hovering a swatch shows its note (same tag as the stops).
+- **Storage:** `localStorage` key `trico_palettes_v1` — global across songs, per browser (so per person on their own machine). NOT saved inside songs. Goal (Justin): Supabase, per user, with a later publish/share system → needs a table + RLS; Justin will supply SQL access when we get there.
+- **Phase 3 (agreed, not built):** "snap to nearest exact note" (after-import, reversible toggle that keeps the original colours so it can be undone), "apply palette as stops" (one click turns a palette into ribbon stops = an image becomes a melody), Supabase sync/sharing.

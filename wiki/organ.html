@@ -587,6 +587,36 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 #gp-stops-bar .gp-tag.r{transform:translateX(-100%);margin-left:8px;}
 #gp-stops-bar .gp-tag i{width:11px;height:11px;border-radius:2px;border:1px solid rgba(255,255,255,.5);display:inline-block;}
 #gp-stops-bar .gp-tag b{font-size:16px;}
+#pal-pop{position:fixed;z-index:311;display:none;width:300px;max-height:min(82vh,640px);flex-direction:column;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.45);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.85);color:var(--gold);}
+#pal-pop.snap{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,169,110,.6),0 14px 40px rgba(0,0,0,.85);}
+#pal-pop.drop{outline:2px dashed var(--gold);outline-offset:-6px;}
+.pal-bar{white-space:nowrap;display:flex;align-items:center;padding:5px 14px;border-bottom:1px solid rgba(201,169,110,.2);cursor:grab;font-size:10px;letter-spacing:.14em;color:rgba(201,169,110,.65);user-select:none;touch-action:none;flex-shrink:0;}
+.pal-bar:active{cursor:grabbing;}
+.pal-top{display:flex;align-items:center;gap:8px;padding:10px 14px 6px;flex-shrink:0;}
+.pal-top h3{margin:0;font-size:19px;font-weight:600;flex:1;letter-spacing:.04em;}
+.pal-top button,.pal-imp{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;height:26px;padding:0 9px;}
+.pal-top button:hover,.pal-imp:hover{border-color:var(--gold);}
+.pal-list{overflow-y:auto;padding:4px 14px 12px;flex:1;min-height:60px;}
+.pal-card{background:rgba(255,255,255,.04);border-radius:8px;padding:8px 8px 8px;margin-bottom:10px;position:relative;}
+.pal-card.active{box-shadow:inset 0 0 0 1px rgba(201,169,110,.55);}
+.pal-head{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:14px;}
+.pal-head .pal-check{width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(201,169,110,.5);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#0d0a1e;}
+.pal-card.active .pal-check{background:var(--gold);border-color:var(--gold);}
+.pal-head .pal-name{flex:1;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pal-head input{flex:1;min-width:0;background:#0d0a1e;border:1px solid var(--gold);color:var(--gold);font-family:inherit;font-size:14px;padding:1px 5px;border-radius:3px;}
+.pal-more{background:transparent;border:none;color:var(--gold);cursor:pointer;font-size:16px;letter-spacing:1px;padding:0 4px;}
+.pal-grid{display:grid;grid-template-columns:repeat(10,1fr);border-radius:6px;overflow:hidden;background:#0a0816;}
+.pal-sw{aspect-ratio:1;cursor:pointer;position:relative;}
+.pal-sw.empty{background:#1a1730;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);}
+.pal-sw.empty:hover{background:#262244;}
+.pal-sw:not(.empty):hover{box-shadow:inset 0 0 0 2px #fff;z-index:2;}
+.pal-menu{position:absolute;right:6px;top:30px;z-index:5;background:#0d0a1e;border:1px solid var(--gold);border-radius:6px;padding:4px;display:flex;flex-direction:column;min-width:130px;box-shadow:0 8px 22px rgba(0,0,0,.7);}
+.pal-menu button{background:transparent;border:none;color:var(--gold);text-align:left;font-family:inherit;font-size:13px;padding:5px 8px;border-radius:3px;cursor:pointer;}
+.pal-menu button:hover{background:rgba(201,169,110,.18);}
+.pal-menu button.danger{color:#e63946;}
+.pal-foot{padding:6px 14px 10px;font-size:11px;color:rgba(201,169,110,.55);border-top:1px solid rgba(201,169,110,.15);flex-shrink:0;}
+.pal-sec{font-size:10px;letter-spacing:.14em;color:rgba(201,169,110,.6);margin:2px 0 5px;display:flex;justify-content:space-between;align-items:center;}
+.pal-sec button{background:transparent;border:none;color:rgba(201,169,110,.6);cursor:pointer;font-size:10px;font-family:inherit;}
 #note-tip{position:fixed;z-index:400;display:none;align-items:center;gap:7px;background:#0d0a1e;border:1px solid var(--gold);border-radius:5px;padding:4px 9px;color:var(--gold);font-size:14px;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.7);white-space:nowrap;}
 #note-tip i{width:12px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,.5);display:inline-block;}
 #note-tip b{font-size:16px;}
@@ -595,6 +625,7 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 #gp-sound-row button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px;height:22px;padding:0 7px;}
 #gp-sound-row button.on{background:rgba(201,169,110,.22);border-color:var(--gold);}
 #gp-sound-row #gp-keys-btn{margin-left:auto;}
+#gp-vol{width:60px!important;}
 #gk-pop{position:fixed;z-index:310;display:none;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.45);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.85);padding:0 14px 10px;}
 #gk-pop.snap{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,169,110,.6),0 14px 40px rgba(0,0,0,.85);}
 .gk-bar{white-space:nowrap;display:flex;align-items:center;gap:8px;margin:0 -14px 8px;padding:5px 14px;border-bottom:1px solid rgba(201,169,110,.2);cursor:grab;font-size:10px;letter-spacing:.14em;color:rgba(201,169,110,.65);user-select:none;touch-action:none;}
@@ -1202,7 +1233,7 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
     <button id="gp-hear" class="on" title="Hear the colour while you pick it (updates continuously as you drag)">🔊 HEAR</button>
     <button id="gp-fx" title="Hear it through this channel's effects (envelope, physics, Effects Lab) instead of the plain tone. Shared with the card pianos.">FX</button>
     <span class="ctl-lbl">VOL</span><input type="range" id="gp-vol" min="0" max="1" step="0.05" value="0.5"/>
-    <button id="gp-keys-btn" title="Note keyboard — pick an exact note for this colour">♫ KEYS</button>
+    <button id="gp-keys-btn" title="Note keyboard — pick an exact note for this colour">♫ KEYS</button><button id="gp-pal-btn" title="Palettes — saved colours, and palettes made from an image">▦ PALETTES</button>
   </div>
 
   <div id="gp-main-row">
@@ -7718,7 +7749,7 @@ function openGradPopup(ti,e){
   gpPlace(e.clientX,e.clientY+8);
   refreshSoundMapping();
 }
-function closeGradPopup(){try{gpStopVoice();gpKeysToggle(false);}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
+function closeGradPopup(){try{gpStopVoice();gpKeysToggle(false);palToggle(false);}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
 // ── movable colour editor ─────────────────────────────────────────────────
 // Floating (default): opens where you clicked and closes when you click elsewhere.
 // Pinned (press FLOAT, or just drag the bar): stays where you parked it — opening another ribbon, gradient or stop reuses that spot,
@@ -7810,7 +7841,7 @@ document.getElementById('gp-opacity').addEventListener('input',e=>{
 });
 document.getElementById('gp-opacity').addEventListener('change',commitGesture);
 document.addEventListener('mousedown',e=>{
-  if(gradPopup.classList.contains('show')&&!gpPinned&&!gradPopup.contains(e.target)&&!e.target.closest('#gk-pop')&&!e.target.classList.contains('grad-btn')&&!e.target.closest('.rib')) closeGradPopup();
+  if(gradPopup.classList.contains('show')&&!gpPinned&&!gradPopup.contains(e.target)&&!e.target.closest('#gk-pop')&&!e.target.closest('#pal-pop')&&!e.target.classList.contains('grad-btn')&&!e.target.closest('.rib')) closeGradPopup();
 });
 
 
@@ -8644,14 +8675,14 @@ document.getElementById('gp-keys-btn').addEventListener('click',()=>gpKeysToggle
 const noteTip=document.createElement('div');noteTip.id='note-tip';document.body.appendChild(noteTip);
 function noteTipFor(el){
   const hex=el.dataset.hex;if(!hex) return null;
-  const ch=gpOwnerChannel(el._rg||activeGradObj,el.classList.contains('gp-stop')?gradTi:null);if(!ch) return null;
+  const ch=gpOwnerChannel(el._rg||activeGradObj,(el.classList.contains('gp-stop')||el.classList.contains('pal-sw'))?gradTi:null);if(!ch) return null;
   const c=hexToRgb(hex),f=activeRgbToFreq(c.r,c.g,c.b)*Math.pow(2,ch.octave||0);
   const m=69+12*Math.log2(f/440),mi=Math.round(m);
   const name=NOTE_NAMES_12[((mi%12)+12)%12]+(Math.floor(mi/12)-1);
   return{name,cents:fmtCents((m-mi)*100),hz:f.toFixed(1),hex};
 }
 document.addEventListener('mouseover',e=>{
-  const el=e.target.closest&&e.target.closest('.rib-stop,.gp-stop');
+  const el=e.target.closest&&e.target.closest('.rib-stop,.gp-stop,.pal-sw[data-hex]');
   if(!el||el.classList.contains('sel')&&el.classList.contains('gp-stop')){noteTip.style.display='none';return;}
   let t=null;try{t=noteTipFor(el);}catch(_){}
   if(!t){noteTip.style.display='none';return;}
@@ -8661,8 +8692,229 @@ document.addEventListener('mouseover',e=>{
   noteTip.style.left=Math.max(4,Math.min(window.innerWidth-w-4,r.left+r.width/2-w/2))+'px';
   noteTip.style.top=(r.top-noteTip.offsetHeight-8>4?r.top-noteTip.offsetHeight-8:r.bottom+8)+'px';
 });
-document.addEventListener('mouseout',e=>{if(e.target.closest&&e.target.closest('.rib-stop,.gp-stop')&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('.rib-stop,.gp-stop'))) noteTip.style.display='none';});
+document.addEventListener('mouseout',e=>{if(e.target.closest&&e.target.closest('.rib-stop,.gp-stop,.pal-sw')&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('.rib-stop,.gp-stop,.pal-sw'))) noteTip.style.display='none';});
 document.addEventListener('pointerdown',()=>{noteTip.style.display='none';},true);
+// ── Palettes ──────────────────────────────────────────────────────────────
+// Saved colour sets, like a paint box. Kept per browser for now (global, not per song) — Supabase sync comes later.
+// Image → 12 dominant colours; click a swatch to paint the selected colour; click an empty slot to save the current colour there.
+const PAL_KEY='trico_palettes_v1',PAL_CAP=30;
+let palData={palettes:[],active:null,history:[]};
+function palId(){return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function palLoad(){
+  try{const j=JSON.parse(localStorage.getItem(PAL_KEY)||'null');if(j&&Array.isArray(j.palettes)) palData=Object.assign({palettes:[],active:null,history:[]},j);}catch(e){}
+  if(!palData.palettes.length){const id=palId();palData.palettes.push({id,name:'Untitled',colors:[]});palData.active=id;}
+  if(!palData.palettes.some(x=>x.id===palData.active)) palData.active=palData.palettes[0].id;
+}
+function palSave(){try{localStorage.setItem(PAL_KEY,JSON.stringify(palData));}catch(e){}}
+palLoad();
+const palPop=document.createElement('div');palPop.id='pal-pop';document.body.appendChild(palPop);
+let palOpen=false,palDock='right',palFree={x:80,y:80},palTimer=null,palMenuFor=null,palDelArm=null,palHistT=null;
+function palPlace(){
+  if(!palOpen||!gradPopup.classList.contains('show')) return;
+  const kw=palPop.offsetWidth,kh=palPop.offsetHeight,gr=gradPopup.getBoundingClientRect();
+  const fits=q=>q[0]>=0&&q[1]>=0&&q[0]+kw<=window.innerWidth&&q[1]+kh<=window.innerHeight;
+  let pos;
+  if(palDock==='free') pos=[palFree.x,palFree.y];
+  else{
+    const alt={top:['bottom','right','left'],bottom:['top','right','left'],right:['left','top','bottom'],left:['right','top','bottom']}[palDock];
+    pos=null;for(const d of [palDock,...alt]){const q=gkDockPos(d,kw,kh,gr);if(fits(q)){pos=q;break;}}
+    if(!pos) pos=gkDockPos(palDock,kw,kh,gr);
+  }
+  palPop.style.left=Math.max(0,Math.min(window.innerWidth-kw,pos[0]))+'px';
+  palPop.style.top=Math.max(0,Math.min(window.innerHeight-kh,pos[1]))+'px';
+}
+function palBarText(){return palDock==='free'?'⠿ PALETTES · FREE':'⠿ PALETTES · DOCKED '+palDock.toUpperCase();}
+palPop.addEventListener('pointerdown',e=>{
+  const bar=e.target.closest('.pal-bar');if(!bar||e.button!==0) return;
+  e.preventDefault();
+  const r=palPop.getBoundingClientRect(),sx=e.clientX,sy=e.clientY;let near=null,moved=false;
+  const mv=ev=>{
+    moved=true;
+    const x=Math.max(0,Math.min(window.innerWidth-r.width,r.left+ev.clientX-sx)),y=Math.max(0,Math.min(window.innerHeight-r.height,r.top+ev.clientY-sy));
+    palPop.style.left=x+'px';palPop.style.top=y+'px';palFree={x,y};
+    const gr=gradPopup.getBoundingClientRect();let bd=60;near=null;
+    for(const d of ['top','bottom','right','left']){const q=gkDockPos(d,r.width,r.height,gr);const dist=Math.hypot(x-q[0],y-q[1]);if(dist<bd){bd=dist;near=d;}}
+    palPop.classList.toggle('snap',!!near);
+  };
+  const up=()=>{
+    document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
+    palPop.classList.remove('snap');
+    if(moved){palDock=near||'free';palPlace();const b=palPop.querySelector('.pal-bar');if(b) b.textContent=palBarText();}
+  };
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+});
+function palActive(){return palData.palettes.find(x=>x.id===palData.active)||palData.palettes[0];}
+function palGridHtml(id,colors,editable){
+  let h='<div class="pal-grid">';
+  for(let i=0;i<PAL_CAP;i++){
+    const c=colors[i];
+    h+=c?`<div class="pal-sw" data-p="${id}" data-i="${i}" data-hex="${c}" style="background:${c}"></div>`:`<div class="pal-sw empty" data-p="${id}" data-i="${i}"></div>`;
+  }
+  return h+'</div>';
+}
+function palRender(){
+  if(!palOpen) return;
+  const keepScroll=(palPop.querySelector('.pal-list')||{}).scrollTop||0;
+  let h=`<div class="pal-bar" title="Drag me. Bring me close to an edge of the editor and I snap there; I follow the editor and close with it.">${palBarText()}</div>
+  <div class="pal-top"><h3>Palettes</h3><button class="pal-imp" data-act="import" title="Make a palette from the dominant colours of an image">⤒ IMAGE</button><button data-act="new" title="New blank palette">＋</button></div>
+  <div class="pal-list">`;
+  if(palData.history.length){
+    h+=`<div class="pal-card"><div class="pal-sec"><span>RECENT COLOURS</span><button data-act="clearhist">clear</button></div><div class="pal-grid">`;
+    for(let i=0;i<PAL_CAP;i++){const c=palData.history[i];h+=c?`<div class="pal-sw" data-hist="1" data-hex="${c}" style="background:${c}"></div>`:`<div class="pal-sw empty" style="cursor:default"></div>`;}
+    h+='</div></div>';
+  }
+  palData.palettes.forEach(pl=>{
+    h+=`<div class="pal-card${pl.id===palData.active?' active':''}" data-card="${pl.id}">
+      <div class="pal-head"><span class="pal-check" data-act="activate" data-p="${pl.id}" title="Make this the palette that new colours are saved into">${pl.id===palData.active?'✓':''}</span><span class="pal-name" data-act="rename" data-p="${pl.id}" title="Click to rename">${pl.name.replace(/</g,'&lt;')}</span><button class="pal-more" data-act="menu" data-p="${pl.id}">•••</button></div>
+      ${palGridHtml(pl.id,pl.colors)}
+      ${palMenuFor===pl.id?`<div class="pal-menu"><button data-act="rename" data-p="${pl.id}">Rename</button><button data-act="dup" data-p="${pl.id}">Duplicate</button><button data-act="save-cur" data-p="${pl.id}">Add current colour</button><button data-act="clear" data-p="${pl.id}">Clear swatches</button><button class="danger" data-act="del" data-p="${pl.id}">${palDelArm===pl.id?'Click again to delete':'Delete palette'}</button></div>`:''}
+    </div>`;
+  });
+  h+=`</div><div class="pal-foot">Click a swatch to paint the selected colour · click an empty slot to save the current colour there · right-click a swatch to remove it · drop an image here</div>`;
+  palPop.innerHTML=h;
+  const l=palPop.querySelector('.pal-list');if(l) l.scrollTop=keepScroll;
+  palPlace();
+}
+function palCurrentHex(){try{return gpColorOf(gpSoundTarget);}catch(e){return null;}}
+function palApply(hex){
+  const c=hexToRgb(hex);if(!c||gradTi===null) return;
+  beginGesture();applySoundColor({r:c.r,g:c.g,b:c.b});commitGesture();
+}
+function palAddColors(pl,list){for(const c of list){if(pl.colors.length>=PAL_CAP) break;pl.colors.push(c);}}
+palPop.addEventListener('click',e=>{
+  const sw=e.target.closest('.pal-sw');
+  if(sw){
+    if(sw.dataset.hist){palApply(sw.dataset.hex);return;}
+    const pl=palData.palettes.find(x=>x.id===sw.dataset.p);if(!pl) return;
+    const i=+sw.dataset.i;
+    if(sw.classList.contains('empty')){
+      const cur=palCurrentHex();if(!cur) return;
+      pl.colors[Math.min(i,pl.colors.length)]=cur;palSave();palRender();     // fills the next free slot (colours stay packed to the left)
+    } else palApply(sw.dataset.hex);
+    return;
+  }
+  const a=e.target.closest('[data-act]');
+  if(!a){if(palMenuFor){palMenuFor=null;palDelArm=null;palRender();}return;}
+  const act=a.dataset.act,pl=a.dataset.p?palData.palettes.find(x=>x.id===a.dataset.p):null;
+  if(act==='import'){palFile.click();return;}
+  if(act==='new'){const id=palId();palData.palettes.unshift({id,name:'Untitled',colors:[]});palData.active=id;palSave();palRender();return;}
+  if(act==='clearhist'){palData.history=[];palSave();palRender();return;}
+  if(act==='activate'&&pl){palData.active=pl.id;palSave();palRender();return;}
+  if(act==='menu'&&pl){palMenuFor=palMenuFor===pl.id?null:pl.id;palDelArm=null;palRender();return;}
+  if(act==='rename'&&pl){palMenuFor=null;palRenameStart(pl.id);return;}
+  if(!pl) return;
+  if(act==='dup'){palData.palettes.splice(palData.palettes.indexOf(pl)+1,0,{id:palId(),name:pl.name+' copy',colors:[...pl.colors]});}
+  else if(act==='save-cur'){const cur=palCurrentHex();if(cur&&pl.colors.length<PAL_CAP) pl.colors.push(cur);}
+  else if(act==='clear'){pl.colors=[];}
+  else if(act==='del'){
+    if(palDelArm!==pl.id){palDelArm=pl.id;palRender();return;}
+    palData.palettes=palData.palettes.filter(x=>x!==pl);palDelArm=null;
+    if(!palData.palettes.length) palData.palettes.push({id:palId(),name:'Untitled',colors:[]});
+    if(!palData.palettes.some(x=>x.id===palData.active)) palData.active=palData.palettes[0].id;
+  }
+  palMenuFor=null;palDelArm=null;palSave();palRender();
+});
+palPop.addEventListener('contextmenu',e=>{
+  const sw=e.target.closest('.pal-sw');if(!sw) return;
+  e.preventDefault();
+  if(sw.dataset.hist){palData.history=palData.history.filter(c=>c!==sw.dataset.hex);palSave();palRender();return;}
+  if(sw.classList.contains('empty')) return;
+  const pl=palData.palettes.find(x=>x.id===sw.dataset.p);if(!pl) return;
+  pl.colors.splice(+sw.dataset.i,1);palSave();palRender();
+});
+function palRenameStart(id){
+  const pl=palData.palettes.find(x=>x.id===id);const nameEl=palPop.querySelector(`.pal-name[data-p="${id}"]`);if(!pl||!nameEl) return;
+  const inp=document.createElement('input');inp.value=pl.name;inp.maxLength=40;nameEl.replaceWith(inp);inp.focus();inp.select();
+  let done=false;const fin=ok=>{if(done) return;done=true;if(ok&&inp.value.trim()){pl.name=inp.value.trim();palSave();}palRender();};
+  inp.addEventListener('keydown',ev=>{ev.stopPropagation();if(ev.key==='Enter') fin(true);else if(ev.key==='Escape') fin(false);});
+  inp.addEventListener('blur',()=>fin(true));
+}
+// ── image → dominant colours (k-means in Lab, then the real pixel nearest each centre) ──
+function palLab(r,g,b){
+  const f=v=>{v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);};
+  const R=f(r),G=f(g),B=f(b);
+  const X=(R*0.4124+G*0.3576+B*0.1805)/0.95047,Y=(R*0.2126+G*0.7152+B*0.0722),Z=(R*0.0193+G*0.1192+B*0.9505)/1.08883;
+  const h=t=>t>0.008856?Math.cbrt(t):7.787*t+16/116;
+  return[116*h(Y)-16,500*(h(X)-h(Y)),200*(h(Y)-h(Z))];
+}
+function palExtract(data,k){
+  const pts=[];
+  for(let i=0;i<data.length;i+=4){if(data[i+3]<128) continue;const l=palLab(data[i],data[i+1],data[i+2]);pts.push([l[0],l[1],l[2],data[i],data[i+1],data[i+2]]);}
+  if(!pts.length) return [];
+  let seed=1;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  const d2=(p,c)=>{const a=p[0]-c[0],b=p[1]-c[1],d=p[2]-c[2];return a*a+b*b+d*d;};
+  const cent=[pts[Math.floor(rnd()*pts.length)].slice(0,3)];
+  const best=new Float64Array(pts.length).fill(Infinity);
+  while(cent.length<k){
+    let sum=0;const last=cent[cent.length-1];
+    for(let i=0;i<pts.length;i++){const d=d2(pts[i],last);if(d<best[i]) best[i]=d;sum+=best[i];}
+    if(sum<=0) break;
+    let r=rnd()*sum,pick=0;for(let i=0;i<pts.length;i++){r-=best[i];if(r<=0){pick=i;break;}}
+    cent.push(pts[pick].slice(0,3));
+  }
+  const assign=new Int32Array(pts.length);
+  for(let it=0;it<14;it++){
+    const sums=cent.map(()=>[0,0,0,0]);
+    for(let i=0;i<pts.length;i++){
+      let bi=0,bd=Infinity;for(let c=0;c<cent.length;c++){const d=d2(pts[i],cent[c]);if(d<bd){bd=d;bi=c;}}
+      assign[i]=bi;const s2=sums[bi];s2[0]+=pts[i][0];s2[1]+=pts[i][1];s2[2]+=pts[i][2];s2[3]++;
+    }
+    cent.forEach((c,ci)=>{const s2=sums[ci];if(s2[3]){c[0]=s2[0]/s2[3];c[1]=s2[1]/s2[3];c[2]=s2[2]/s2[3];}});
+  }
+  const size=new Array(cent.length).fill(0);for(let i=0;i<pts.length;i++) size[assign[i]]++;
+  const out=[];
+  cent.forEach((c,ci)=>{
+    if(!size[ci]) return;
+    let bi=-1,bd=Infinity;for(let i=0;i<pts.length;i++){if(assign[i]!==ci) continue;const d=d2(pts[i],c);if(d<bd){bd=d;bi=i;}}
+    if(bi>=0) out.push({n:size[ci],lab:pts[bi].slice(0,3),rgb:[pts[bi][3],pts[bi][4],pts[bi][5]]});
+  });
+  out.sort((a,b)=>b.n-a.n);
+  const keep=[];for(const o of out){if(!keep.some(q=>Math.sqrt(d2(o.lab,q.lab))<4)) keep.push(o);}
+  return keep.map(o=>'#'+o.rgb.map(v=>v.toString(16).padStart(2,'0')).join(''));
+}
+function palFromImageFile(file){
+  if(!file||!/^image\//.test(file.type)) return;
+  const url=URL.createObjectURL(file),img=new Image();
+  img.onload=()=>{
+    const sc=Math.min(1,160/Math.max(img.width,img.height)),w=Math.max(1,Math.round(img.width*sc)),h=Math.max(1,Math.round(img.height*sc));
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(img,0,0,w,h);
+    let cols=[];try{cols=palExtract(cx.getImageData(0,0,w,h).data,12);}catch(e){}
+    URL.revokeObjectURL(url);
+    if(!cols.length) return;
+    const id=palId(),name=((file.name||'image').replace(/\.[^.]+$/,'')||'image').slice(0,30);
+    palData.palettes.unshift({id,name:'Palette from '+name,colors:cols.slice(0,12)});palData.active=id;palSave();palRender();
+    const l=palPop.querySelector('.pal-list');if(l) l.scrollTop=0;
+  };
+  img.onerror=()=>URL.revokeObjectURL(url);img.src=url;
+}
+const palFile=document.createElement('input');palFile.type='file';palFile.accept='image/*';palFile.style.display='none';document.body.appendChild(palFile);
+palFile.addEventListener('change',()=>{if(palFile.files[0]) palFromImageFile(palFile.files[0]);palFile.value='';});
+palPop.addEventListener('dragover',e=>{e.preventDefault();palPop.classList.add('drop');});
+palPop.addEventListener('dragleave',()=>palPop.classList.remove('drop'));
+palPop.addEventListener('drop',e=>{e.preventDefault();palPop.classList.remove('drop');const f=[...(e.dataTransfer.files||[])].find(x=>/^image\//.test(x.type));if(f) palFromImageFile(f);});
+document.addEventListener('paste',e=>{
+  if(!palOpen) return;
+  const it=[...(e.clipboardData?e.clipboardData.items:[])].find(x=>x.type&&x.type.startsWith('image/'));
+  if(it){const f=it.getAsFile();if(f){e.preventDefault();palFromImageFile(f);}}
+});
+function palToggle(on){
+  palOpen=on===undefined?!palOpen:on;
+  palPop.style.display=palOpen?'flex':'none';
+  const b=document.getElementById('gp-pal-btn');if(b) b.classList.toggle('on',palOpen);
+  clearInterval(palTimer);palTimer=null;palMenuFor=null;palDelArm=null;
+  if(palOpen){palRender();palTimer=setInterval(()=>{if(palDock!=='free') palPlace();},60);}
+}
+document.getElementById('gp-pal-btn').addEventListener('click',()=>palToggle());
+window.addEventListener('resize',()=>{try{palPlace();}catch(e){}});
+// recent colours: remember a colour once you stop changing it
+function palNoteHistory(hex){
+  clearTimeout(palHistT);
+  palHistT=setTimeout(()=>{
+    if(!hex) return;
+    palData.history=[hex,...palData.history.filter(c=>c!==hex)].slice(0,PAL_CAP);palSave();
+    if(palOpen&&!palPop.querySelector('input')) palRender();
+  },700);
+}
 function gpSyncSoundUI(){
   document.getElementById('gp-hear').classList.toggle('on',gpHear);
   document.getElementById('gp-fx').classList.toggle('on',pianoFx);
@@ -8685,6 +8937,7 @@ function applySoundColor(newRgb){
   refreshSoundMapping();
   gpLiveSound();
   if(gpKeysOpen) gpKeysRender();
+  try{palNoteHistory(gpColorOf(gpSoundTarget));}catch(e){}
 }
 
 document.querySelectorAll('.gp-point').forEach(pt=>{
