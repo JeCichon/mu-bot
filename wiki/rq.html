@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Room Quest</title>
+<style>
+:root{
+  --bg:#13151b; --panel:#1b1e27; --panel2:#242836; --line:#323850; --ink:#ebe7de; --mute:#98a0b3;
+  --accent:#f2b84b; --danger:#e5707e; --furn:#262b39; --furn-line:#5b6482;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font:600 20px Georgia,"Times New Roman",serif;margin:0;letter-spacing:.02em}
+header h1 small{display:block;font:12px system-ui;color:var(--mute);letter-spacing:0}
+.prog{flex:1;max-width:420px;margin-left:auto}
+.prog .bar{height:10px;border-radius:6px;background:var(--panel2);overflow:hidden;border:1px solid var(--line)}
+.prog .bar i{display:block;height:100%;background:linear-gradient(90deg,#6fcf97,#f2b84b);width:0;transition:width .5s}
+.prog span{font-size:12px;color:var(--mute)}
+main{flex:1;display:flex;min-height:0}
+#mapwrap{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+#map{width:100%;flex:1;min-height:0;background:#0f1117;border:1px solid var(--line);border-radius:12px;touch-action:none;user-select:none}
+aside{width:390px;max-width:44vw;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+nav{display:flex;border-bottom:1px solid var(--line)}
+nav button{flex:1;background:none;border:0;color:var(--mute);padding:12px 4px;font:600 13px system-ui;cursor:pointer;border-bottom:3px solid transparent}
+nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+#panel{flex:1;overflow:auto;padding:16px}
+h2{font:600 18px Georgia,serif;margin:0 0 6px}
+.hint{color:var(--mute);margin:0 0 12px;font-size:14px}
+.dim{opacity:.7}
+button,select,input,textarea{font:inherit;color:var(--ink)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--furn-line)}
+button.primary{background:var(--accent);color:#1a1405;border-color:var(--accent);font-weight:600}
+button.danger{color:var(--danger)}
+button.small{padding:3px 8px;font-size:13px}
+input,select,textarea{background:#12141b;border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+textarea{min-height:130px;resize:vertical}
+label{display:block;font-size:13px;color:var(--mute);margin:8px 0}
+label input,label select{margin-top:3px;color:var(--ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0}
+.chk{display:flex;gap:8px;align-items:center;color:var(--ink)}
+.chk input{width:auto;margin:0}
+.list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.item{display:flex;gap:6px;align-items:center}
+.item input[type=text]{flex:1}
+.item select{width:120px}
+.sw{width:14px;height:14px;border-radius:50%;flex:none;border:1px solid #0006}
+input[type=color]{width:38px;height:34px;padding:2px;flex:none}
+.chip{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;border:2px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:600}
+.chip.on{border-color:var(--ink)}
+.chip b{font-weight:700;opacity:.8}
+.big{font:600 28px Georgia,serif;margin:6px 0 2px;line-height:1.2}
+.homes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.homes button{padding:14px 8px;font-weight:700;border:0;color:#10121a;font-size:15px}
+.homes button.idk{grid-column:1/-1;color:var(--ink);background:#3a3f4d}
+.cleanrow{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
+.cleanrow .nm{flex:1}
+.cleanrow .nm small{display:block;color:var(--mute)}
+.cleanrow button{padding:8px 14px;font-weight:700}
+footer{border-top:1px solid var(--line);padding:10px 16px;font-size:12px;color:var(--mute)}
+footer .row{margin:6px 0 0}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+.good{color:#6fcf97}
+#layoutbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lays{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.lay{padding:7px 14px;font-weight:600}
+.lay.on{background:var(--accent);color:#1a1405;border-color:var(--accent)}
+kbd{font:600 11px system-ui;opacity:.6;border:1px solid currentColor;border-radius:4px;padding:0 4px}
+.laytools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.laytools input[type=text]{width:160px}
+.laytools .chk{margin:0}
+details.inside{margin:6px 0 0}
+details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
+.item .nm2{flex:1}
+@media (max-width:900px){main{flex-direction:column}aside{width:auto;max-width:none;height:50vh;border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Room Quest<small>name it · give it a home · clear the fog</small></h1>
+  <div class="prog"><div class="bar"><i id="bar"></i></div><span id="progtxt"></span></div>
+</header>
+<main>
+  <div id="mapwrap">
+    <div id="layoutbar"></div>
+    <svg id="map" viewBox="90 140 1720 1240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="fog" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter>
+        <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1b1f2b" stroke-width="2"/></pattern>
+      </defs>
+      <rect x="-500" y="-500" width="4000" height="4000" fill="url(#grid)" data-t="bg"/>
+      <image id="sketch" href="sketch.png" x="0" y="0" width="2208" height="1656" opacity=".2" style="pointer-events:none"/>
+      <g id="walls" style="pointer-events:none"></g>
+      <g id="ghost" style="pointer-events:none"></g>
+      <g id="furn"></g>
+      <g id="tags" style="pointer-events:none"></g>
+      <g id="piles"></g>
+      <g id="fx" style="pointer-events:none"></g>
+    </svg>
+  </div>
+  <aside>
+    <nav id="tabs"></nav>
+    <div id="panel"></div>
+    <footer>
+      Everything stays in this browser, on your computer. Nothing is uploaded.
+      <div class="row">
+        <button class="small" data-act="export">Save backup</button>
+        <button class="small" data-act="import">Load backup</button>
+        <button class="small danger" data-act="reset" id="resetbtn">Start over</button>
+        <input type="file" id="file" accept=".json" hidden>
+      </div>
+    </footer>
+  </aside>
+</main>
+
+<script>
+"use strict";
+const KEY = "roomquest.v1";
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SVGNS = "http://www.w3.org/2000/svg";
+const snap = v => Math.round(v / 10) * 10;
+
+/* ---------- starting data, traced from the sketch ---------- */
+function defaults() {
+  const F = (name, x, y, w, h, shape = "rect", kind = "furn") => ({ id: uid(), name, x, y, w, h, shape, kind, type: "furniture", rot: 0, face: 0, locked: false });
+  const furniture = [
+    F("Lofted bed", 690, 615, 940, 515, "rect", "loft"),
+    F("Closet", 990, 200, 700, 270, "rect", "closet"),
+    F("Desk + computer", 820, 570, 500, 250),
+    F("Bean bag", 790, 870, 340, 340, "ellipse"),
+    F("Cabinet?", 1380, 860, 240, 270),
+    F("Top-right shelf?", 1430, 470, 290, 130),
+    F("Corner stack?", 1400, 1150, 340, 180),
+    F("Table?", 480, 605, 150, 215),
+    F("Left wall A", 150, 530, 120, 180),
+    F("Left wall B", 175, 730, 95, 95, "ellipse"),
+    F("Left wall C", 170, 835, 100, 75),
+    F("Left wall D", 160, 930, 90, 190),
+    F("Left wall E", 175, 1170, 90, 130, "ellipse"),
+    F("Window", 530, 1295, 440, 30, "rect", "window"),
+  ];
+  [[715,655],[1585,625],[715,1125],[1620,1110],[1165,870]].forEach((p, i) =>
+    furniture.push(F("Post " + (i + 1), p[0] - 36, p[1] - 36, 72, 72, "ellipse", "post")));
+  const byName = n => furniture.find(f => f.name === n).id;
+  const homes = [
+    { id: "closet", name: "Closet", color: "#5b9cf6", furnId: byName("Closet") },
+    { id: "desk",   name: "Desk",   color: "#6fcf97", furnId: byName("Desk + computer") },
+    { id: "shelf",  name: "Shelf",  color: "#b58cf0", furnId: null },
+    { id: "donate", name: "Donate", color: "#f2b84b", furnId: null },
+    { id: "trash",  name: "Trash",  color: "#e5707e", furnId: null },
+    { id: "idk",    name: "Not sure yet", color: "#8a8f9c", furnId: null, special: true },
+  ];
+  return { furniture, homes, piles: [], items: [], log: [], showSketch: true };
+}
+let S = (() => { try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) {} return defaults(); })();
+function syncLayout() { const L = S.layouts && S.layouts.find(l => l.id === S.layoutId); if (L) L.furniture = S.furniture; }
+function save() { syncLayout(); try { const c = { ...S }; delete c.furniture; localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {} }
+function migrate() {
+  if (!S.layouts) { S.layouts = [{ id: uid(), name: "Current room", furniture: S.furniture }]; S.layoutId = S.layouts[0].id; }
+  const L = S.layouts.find(l => l.id === S.layoutId) || S.layouts[0]; S.layoutId = L.id; S.furniture = L.furniture;
+  S.layouts.forEach(l => l.furniture.forEach(f => { if (f.type == null) f.type = "furniture"; if (f.rot == null) f.rot = 0; if (f.face == null) f.face = 0; if (f.locked == null) f.locked = false; }));
+}
+migrate();
+const PALETTE = ["#5b9cf6","#6fcf97","#b58cf0","#f2b84b","#e5707e","#4dd0c8","#f08a4b","#d36fd0","#a3d65c","#6fa8dc"];
+const nextColor = () => PALETTE.find(c => !S.homes.some(h => h.color.toLowerCase() === c)) || PALETTE[Math.floor(Math.random() * PALETTE.length)];
+
+/* ---------- UI state ---------- */
+let mode = "layout";            // layout | homes | piles | sort | clean
+let sel = null;                 // {type:'furn'|'pile', id}
+let placing = false;            // next map click drops a new pile
+let revisit = false;            // sort: include 'not sure yet' items
+let skips = {};
+let cleanHome = null;
+let flash = "";
+
+const homeOf = id => S.homes.find(h => h.id === id);
+const pending = () => S.items.filter(i => !i.done);
+
+/* ---------- map ---------- */
+const svg = $("#map");
+const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+
+function drawWalls() {
+  const g = $("#walls"); g.innerHTML = "";
+  const L = (x1, y1, x2, y2, c = "#7d86a6", w = 10) => el("line", { x1, y1, x2, y2, stroke: c, "stroke-width": w, "stroke-linecap": "round" }, g);
+  L(140,190,1740,190); L(1740,190,1740,1310); L(1740,1310,140,1310); L(140,1310,140,190);
+  L(140,480,340,480); L(830,480,990,480); L(990,190,990,480);
+  L(350,470,540,215,"#d9625a",14);
+  el("line", { x1:540, y1:215, x2:910, y2:470, stroke:"#d9625a", "stroke-width":4, "stroke-dasharray":"14 12", opacity:.6 }, g);
+  const t = (x, y, s, c = "#d9625a") => { const n = el("text", { x, y, fill: c, "font-size": 40, "font-family": "Georgia,serif", opacity: .85 }, g); n.textContent = s; };
+  t(190, 330, "door"); g.lastChild.setAttribute("id", "doorlabel");
+}
+
+function dotLayout(pile) {
+  const items = S.items.filter(i => i.pileId === pile.id && !i.done);
+  const pos = {}; let ring = 0, placed = 0;
+  while (placed < items.length) {
+    const R = 52 + ring * 32, cap = Math.max(6, Math.floor(2 * Math.PI * R / 30));
+    const n = Math.min(cap, items.length - placed);
+    for (let k = 0; k < n; k++) {
+      const a = -Math.PI / 2 + (2 * Math.PI * k) / n + ring * .4;
+      pos[items[placed + k].id] = { x: R * Math.cos(a), y: R * Math.sin(a) };
+    }
+    placed += n; ring++;
+  }
+  return { pos, outer: items.length ? 52 + (ring - 1) * 32 + 26 : 50, items };
+}
+const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
+function homeCenter(h) {
+  const f = h && S.furniture.find(x => x.id === h.furnId);
+  return f ? { x: f.x + f.w / 2, y: f.y + f.h / 2 } : null;
+}
+
+function rotPt(f, x, y) {
+  const r = (f.rot || 0) * Math.PI / 180, cx = f.x + f.w / 2, cy = f.y + f.h / 2;
+  return { x: cx + x * Math.cos(r) - y * Math.sin(r), y: cy + x * Math.sin(r) + y * Math.cos(r) };
+}
+function renderMap() {
+  $("#sketch").setAttribute("display", S.showSketch ? "" : "none");
+  $("#doorlabel").setAttribute("display", S.showSketch ? "none" : "");
+  renderGhost();
+  const fg = $("#furn"); fg.innerHTML = "";
+  const hl = mode === "clean" && cleanHome ? homeOf(cleanHome) : null;
+  S.furniture.forEach(f => {
+    const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
+    const g = el("g", { "data-t": "furn", "data-id": f.id, transform: `translate(${cx} ${cy}) rotate(${f.rot || 0})`, style: mode === "layout" ? "cursor:move" : "pointer-events:none" }, fg);
+    const loft = f.kind === "loft", post = f.kind === "post", win = f.kind === "window", large = f.type === "large";
+    const style = {
+      fill: loft ? "#c9c98a" : win ? "#3c6f78" : post ? "#1b1e27" : large ? "#2d2a3d" : "#262b39",
+      "fill-opacity": loft ? .13 : 1,
+      stroke: loft ? "#c9c98a" : win ? "#6aa9b4" : large ? "#9a8fd0" : "#5b6482",
+      "stroke-width": 4, "stroke-dasharray": loft ? "16 10" : large ? "12 7" : ""
+    };
+    if (f.shape === "ellipse") el("ellipse", { cx: 0, cy: 0, rx: f.w / 2, ry: f.h / 2, ...style }, g);
+    else el("rect", { x: -f.w / 2, y: -f.h / 2, width: f.w, height: f.h, rx: 10, ...style }, g);
+    if (post) el("circle", { r: 10, fill: "#5b6482" }, g);
+    if (!post && !win) {   // the front-facing arrow
+      const face = f.face || 0, d = (face % 2 === 0 ? f.h : f.w) / 2, k = Math.max(.45, Math.min(1, d / 70));
+      const a = el("g", { transform: `rotate(${face * 90})`, style: "pointer-events:none" }, g);
+      el("path", { d: `M0 ${-d + 8 * k} L${-14 * k} ${-d + 30 * k} L${14 * k} ${-d + 30 * k} Z`, fill: "#f2b84b" }, a);
+      el("line", { x1: 0, y1: -d + 30 * k, x2: 0, y2: -d + 52 * k, stroke: "#f2b84b", "stroke-width": 5 * k + 1, "stroke-linecap": "round" }, a);
+    }
+    if (mode === "layout" && sel && sel.type === "furn" && sel.id === f.id) {
+      el("rect", { x: -f.w / 2 - 6, y: -f.h / 2 - 6, width: f.w + 12, height: f.h + 12, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8", rx: 12, style: "pointer-events:none" }, g);
+      el("line", { x1: 0, y1: -f.h / 2 - 6, x2: 0, y2: -f.h / 2 - 44, stroke: "#f2b84b", "stroke-width": 4 }, g);
+      el("circle", { "data-t": "rotate", "data-id": f.id, cx: 0, cy: -f.h / 2 - 44, r: 18, fill: "#13151b", stroke: "#f2b84b", "stroke-width": 5, style: "cursor:grab" }, g);
+      if (f.locked) { const l = el("text", { x: f.w / 2, y: f.h / 2 + 8, "text-anchor": "middle", "font-size": 34, style: "pointer-events:none" }, g); l.textContent = "🔒"; }
+      else el("circle", { "data-t": "resize", "data-id": f.id, cx: f.w / 2, cy: f.h / 2, r: 20, fill: "#f2b84b", style: "cursor:nwse-resize" }, g);
+    }
+  });
+  S.furniture.forEach(f => {   // labels last, so nothing covers them
+    if (f.kind === "post" || f.kind === "window" || f.w <= 70) return;
+    const lp = f.kind === "loft" ? rotPt(f, 60, f.h / 2 - 24) : rotPt(f, 0, 10);
+    const t = el("text", { x: lp.x, y: lp.y, "text-anchor": "middle", fill: f.kind === "loft" ? "#c9c98a" : "#b9c0d6", "font-size": Math.min(34, f.w / Math.max(5, f.name.length * .55)), "font-family": "system-ui", style: "pointer-events:none" }, fg);
+    t.textContent = f.name;
+  });
+
+  // home color tags on the furniture they live in
+  const tg = $("#tags"); tg.innerHTML = "";
+  const stack = {};
+  S.homes.forEach(h => {
+    const f = S.furniture.find(x => x.id === h.furnId);
+    if (!f) return;
+    const n = stack[f.id] = (stack[f.id] || 0) + 1;
+    const active = !hl || hl.id === h.id;
+    const count = pending().filter(i => i.homeId === h.id).length;
+    const og = el("g", { transform: `translate(${f.x + f.w / 2} ${f.y + f.h / 2}) rotate(${f.rot || 0})` }, tg);
+    const ring = { fill: "none", stroke: h.color, "stroke-width": hl && hl.id === h.id ? 12 : 6, opacity: active ? .95 : .2 };
+    if (f.shape === "ellipse") el("ellipse", { rx: f.w / 2 + 4, ry: f.h / 2 + 4, ...ring }, og);
+    else el("rect", { x: -f.w / 2 - 4, y: -f.h / 2 - 4, width: f.w + 8, height: f.h + 8, rx: 12, ...ring }, og);
+    const bp = rotPt(f, -f.w / 2 + 26 + (n - 1) * 54, -f.h / 2 - 4);
+    el("circle", { cx: bp.x, cy: bp.y, r: 24, fill: h.color, opacity: active ? 1 : .25 }, tg);
+    const t = el("text", { x: bp.x, y: bp.y + 9, "text-anchor": "middle", fill: "#10121a", "font-size": 26, "font-weight": 700, "font-family": "system-ui" }, tg);
+    t.textContent = count;
+  });
+
+  // piles
+  const pg = $("#piles"); pg.innerHTML = "";
+  S.piles.forEach(p => {
+    const g = el("g", { transform: `translate(${p.x} ${p.y})`, "data-t": "pile", "data-id": p.id, style: mode === "piles" ? "cursor:move" : "pointer-events:none" }, pg);
+    const { pos, outer, items } = dotLayout(p);
+    const total = S.items.filter(i => i.pileId === p.id).length;
+    const fogShare = total === 0 ? 1 : items.length === 0 ? 0 : items.filter(i => !i.homeId || i.homeId === "idk").length / items.length;
+    const cleared = total > 0 && items.length === 0;
+    if (cleared) {
+      el("circle", { r: 46, fill: "none", stroke: "#6fcf97", "stroke-width": 4, "stroke-dasharray": "8 8", opacity: .7 }, g);
+      const t = el("text", { y: 14, "text-anchor": "middle", fill: "#6fcf97", "font-size": 40 }, g); t.textContent = "✓";
+    } else {
+      const cloud = el("g", { filter: "url(#fog)", opacity: Math.max(.12, .12 + fogShare * .62) }, g), h = hash(p.id);
+      for (let k = 0; k < 4; k++) el("circle", { cx: ((h >> (k * 3)) % 40) - 20, cy: ((h >> (k * 3 + 5)) % 40) - 20, r: outer * (.62 + k * .1), fill: "#cdd3e6" }, cloud);
+      if (total === 0) {
+        el("rect", { x: -30, y: -24, width: 60, height: 48, rx: 8, fill: "#3a3f4d", stroke: "#cdd3e6", "stroke-width": 3 }, g);
+        const q = el("text", { y: 12, "text-anchor": "middle", fill: "#ebe7de", "font-size": 34, "font-weight": 700 }, g); q.textContent = "?";
+      }
+    }
+    items.forEach(it => {
+      const h = homeOf(it.homeId), c = h ? h.color : "#cdd3e6";
+      const dim = mode === "clean" && cleanHome && it.homeId !== cleanHome;
+      const hot = mode === "clean" && cleanHome && it.homeId === cleanHome;
+      const d = el("circle", { cx: pos[it.id].x, cy: pos[it.id].y, r: hot ? 17 : 13, fill: c, stroke: h ? "#0008" : "#0009", "stroke-width": 3, opacity: dim ? .15 : 1 }, g);
+      if (hot) d.setAttribute("class", "pulse");
+      const tt = el("title", {}, d); tt.textContent = it.name + (h ? " → " + h.name : " (no home yet)");
+    });
+    const nm = el("text", { y: outer + 34, "text-anchor": "middle", fill: "#ebe7de", "font-size": 30, "font-family": "Georgia,serif", stroke: "#0f1117", "stroke-width": 6, "paint-order": "stroke" }, g);
+    nm.textContent = p.name + (items.length ? " · " + items.length : "");
+    if (sel && sel.type === "pile" && sel.id === p.id) el("circle", { r: outer + 10, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8" }, g);
+  });
+  const hint = placing ? "Click the map to drop the pile" : "";
+  svg.style.cursor = placing ? "crosshair" : "";
+  renderProgress(hint);
+}
+
+function renderProgress() {
+  const total = S.items.length, done = S.items.filter(i => i.done).length;
+  $("#bar").style.width = total ? (100 * done / total) + "%" : "0";
+  $("#progtxt").textContent = total ? `${done} of ${total} things put away` : "No things named yet";
+}
+
+/* ---------- map interaction ---------- */
+let drag = null;
+function pt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+svg.addEventListener("pointerdown", e => {
+  const p = pt(e), t = e.target.closest("[data-t]");
+  const type = t && t.dataset.t, id = t && t.dataset.id;
+  if (mode === "piles" && placing && (!t || type === "bg" || type === "furn")) {
+    const pile = { id: uid(), name: "New pile", x: snap(p.x), y: snap(p.y) };
+    S.piles.push(pile); sel = { type: "pile", id: pile.id }; placing = false; save(); render(); focusName(); return;
+  }
+  const f0 = id && S.furniture.find(x => x.id === id);
+  if (type === "resize" && f0) drag = { kind: "resize", f: f0, cx: f0.x + f0.w / 2, cy: f0.y + f0.h / 2 };
+  else if (type === "rotate" && f0) drag = { kind: "rotate", f: f0 };
+  else if (type === "furn" && mode === "layout") { sel = { type: "furn", id }; drag = { kind: "move", f: f0, dx: p.x - f0.x, dy: p.y - f0.y }; renderPanel(); }
+  else if (type === "pile" && mode === "piles") { const q = S.piles.find(x => x.id === id); sel = { type: "pile", id }; drag = { kind: "pile", q, dx: p.x - q.x, dy: p.y - q.y }; renderPanel(); }
+  else if (mode === "layout" && sel) { sel = null; renderPanel(); }
+  renderMap();
+});
+window.addEventListener("pointermove", e => {
+  if (!drag) return; const p = pt(e);
+  if (drag.kind === "move") { drag.f.x = snap(p.x - drag.dx); drag.f.y = snap(p.y - drag.dy); }
+  if (drag.kind === "resize") {
+    const f = drag.f, r = (f.rot || 0) * Math.PI / 180, dx = p.x - drag.cx, dy = p.y - drag.cy;
+    const lx = dx * Math.cos(r) + dy * Math.sin(r), ly = -dx * Math.sin(r) + dy * Math.cos(r);
+    f.w = Math.max(30, snap(2 * Math.abs(lx))); f.h = Math.max(30, snap(2 * Math.abs(ly)));
+    f.x = drag.cx - f.w / 2; f.y = drag.cy - f.h / 2;
+  }
+  if (drag.kind === "rotate") {
+    const f = drag.f; let a = Math.atan2(p.y - (f.y + f.h / 2), p.x - (f.x + f.w / 2)) * 180 / Math.PI + 90;
+    const m = Math.round(a / 45) * 45; if (Math.abs(a - m) < 6) a = m;
+    f.rot = ((Math.round(a / 5) * 5) % 360 + 360) % 360;
+  }
+  if (drag.kind === "pile") { drag.q.x = snap(p.x - drag.dx); drag.q.y = snap(p.y - drag.dy); }
+  renderMap();
+});
+window.addEventListener("pointerup", () => { if (drag) { drag = null; save(); renderPanel(); } });
+
+/* ---------- panels ---------- */
+const TABS = [["layout","Room"],["piles","Piles"],["sort","Sort"],["clean","Clean"]];
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map(([k, n]) => `<button data-tab="${k}" class="${mode === k ? "on" : ""}">${n}</button>`).join("");
+}
+function homeOptions(cur, withNone = true) {
+  return (withNone ? `<option value="">— no home yet —</option>` : "") +
+    S.homes.map(h => `<option value="${h.id}" ${cur === h.id ? "selected" : ""}>${esc(h.name)}</option>`).join("");
+}
+const insideOf = id => S.items.filter(i => i.done && i.homeId === id).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+function insideList(id) {
+  const l = insideOf(id);
+  return l.length ? `<details class="inside"><summary>Inside · ${l.length}</summary><div class="list">${l.map(i => `<div class="item"><span class="nm2">${esc(i.name)}</span><button class="small" data-act="takeout" data-id="${i.id}">Take out</button></div>`).join("")}</div></details>`
+    : `<p class="hint" style="margin:4px 0 0">Nothing put away here yet.</p>`;
+}
+function layoutPanel() {
+  const f = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
+  const here = f ? S.homes.filter(h => h.furnId === f.id) : [];
+  const off = S.homes.filter(h => !S.furniture.some(x => x.id === h.furnId));
+  const placeable = S.furniture.filter(x => x.kind !== "post" && x.kind !== "window");
+  const dis = f && f.locked ? "disabled" : "";
+  return `<h2>Your room</h2>
+  <p class="hint">Drag pieces to match your room — or to try a new arrangement. The yellow arrow marks the <b>front</b>. Click a piece for its details.</p>
+  <div class="row"><button data-act="addF" data-type="furniture">+ Furniture</button><button data-act="addF" data-type="large">+ Large item</button></div>
+  <label class="chk"><input type="checkbox" data-f="sketch" ${S.showSketch ? "checked" : ""}> Show my sketch faintly underneath</label>
+  ${f ? `<div class="card">
+    <label>Name<input data-f="fname" value="${esc(f.name)}"></label>
+    <div class="two">
+      <label>Type<select data-f="ftype"><option value="furniture" ${f.type === "furniture" ? "selected" : ""}>Furniture</option><option value="large" ${f.type === "large" ? "selected" : ""}>Large item</option></select></label>
+      <label>Shape<select data-f="fshape"><option value="rect" ${f.shape === "rect" ? "selected" : ""}>Rectangle</option><option value="ellipse" ${f.shape === "ellipse" ? "selected" : ""}>Round</option></select></label>
+    </div>
+    <div class="two">
+      <label>Width<input type="number" step="10" data-f="fw" value="${Math.round(f.w)}" ${dis}></label>
+      <label>Height<input type="number" step="10" data-f="fh" value="${Math.round(f.h)}" ${dis}></label>
+    </div>
+    <label class="chk"><input type="checkbox" data-f="flock" ${f.locked ? "checked" : ""}> Lock size (so it keeps its real dimensions)</label>
+    <div class="row"><button data-act="rot90">Turn 90°</button><button data-act="flip">Flip front ⇄ back</button><button data-act="turnarrow">Turn arrow</button></div>
+    <label>Angle (degrees) — or drag the round handle above the piece<input type="number" step="5" data-f="frot" value="${f.rot || 0}"></label>
+    <div class="hint" style="margin:12px 0 4px"><b>Home</b></div>
+    ${here.length ? here.map(h => `<div class="item"><input type="color" data-f="hcolor" data-id="${h.id}" value="${h.color}">
+        <input type="text" data-f="hname" data-id="${h.id}" value="${esc(h.name)}">
+        <button class="small danger" data-act="unhome" data-id="${h.id}" title="Not a home anymore">✕</button></div>
+        <p class="hint" style="margin:4px 0 0">${pending().filter(i => i.homeId === h.id).length} things going here</p>${insideList(h.id)}`).join("")
+      : `<button data-act="makehome">Make this a home</button>`}
+    <div class="row" style="margin-top:14px"><button class="small danger" data-act="delF">Remove this piece</button></div>
+  </div>` : `<p class="hint dim">Nothing selected. Click a piece to name it, give it a type, turn it, or make it a home.</p>`}
+  <h2 style="margin-top:22px">Homes off the map</h2>
+  <p class="hint">For places that aren't a piece in your room — a trash bag, a donate box. You can pin one to a piece if you like.</p>
+  <div class="list">${off.map(h => `<div class="card" style="margin:6px 0">
+    <div class="item"><input type="color" data-f="hcolor" data-id="${h.id}" value="${h.color}">
+      <input type="text" data-f="hname" data-id="${h.id}" value="${esc(h.name)}">
+      ${h.special ? "" : `<button class="small danger" data-act="delH" data-id="${h.id}">✕</button>`}</div>
+    ${h.special ? `<p class="hint" style="margin:6px 0 0">The shelf for things you can't place yet. That's allowed.</p>` :
+    `<label>Pin to a piece<select data-f="hfurn" data-id="${h.id}"><option value="">— not on the map —</option>${placeable.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></label>`}
+    ${insideList(h.id)}
+  </div>`).join("")}</div>
+  <button data-act="addH">+ Add a home</button>`;
+}
+function pilesPanel() {
+  const p = sel && sel.type === "pile" && S.piles.find(x => x.id === sel.id);
+  const items = p ? S.items.filter(i => i.pileId === p.id && !i.done) : [];
+  return `<h2>Piles</h2>
+  <p class="hint">Drop a pile where it sits, then just <b>name</b> what's in it. No deciding yet — naming comes first.</p>
+  <div class="row"><button class="primary" data-act="newPile">${placing ? "Click the map…" : "+ New pile"}</button></div>
+  <div class="row">${S.piles.map(q => `<span class="chip ${p && p.id === q.id ? "on" : ""}" data-act="selPile" data-id="${q.id}">${esc(q.name)} <b>${S.items.filter(i => i.pileId === q.id && !i.done).length}</b></span>`).join("")}</div>
+  ${p ? `<div class="card">
+    <label>Pile name<input id="pname" data-f="pname" value="${esc(p.name)}"></label>
+    <label>Everything in this pile — one per line
+      <textarea id="dump" placeholder="blue hoodie&#10;phone charger&#10;receipt from…&#10;that weird cable"></textarea></label>
+    <div class="row"><button class="primary" data-act="unpack">Unpack these</button><button class="small danger" data-act="delPile">Remove pile</button></div>
+    <div class="list">${items.map(i => `<div class="item"><span class="sw" style="background:${(homeOf(i.homeId) || {}).color || "#cdd3e6"}"></span>
+      <input type="text" data-f="iname" data-id="${i.id}" value="${esc(i.name)}">
+      <select data-f="ihome" data-id="${i.id}">${homeOptions(i.homeId)}</select>
+      <button class="small danger" data-act="delI" data-id="${i.id}">✕</button></div>`).join("")}</div>
+  </div>` : `<p class="hint dim">${S.piles.length ? "Pick a pile above." : "No piles yet."}</p>`}`;
+}
+function sortQueue() {
+  return pending().filter(i => !i.homeId || (revisit && i.homeId === "idk"))
+    .sort((a, b) => (skips[a.id] || 0) - (skips[b.id] || 0));
+}
+function sortPanel() {
+  const q = sortQueue(), cur = q[0], total = pending().length, homed = pending().filter(i => i.homeId && i.homeId !== "idk").length;
+  const idk = pending().filter(i => i.homeId === "idk").length;
+  let body;
+  if (cur) {
+    const pile = S.piles.find(p => p.id === cur.pileId);
+    body = `<div class="card"><div class="hint" style="margin:0">from ${esc(pile ? pile.name : "…")}</div>
+      <div class="big">${esc(cur.name)}</div>
+      <div class="hint" style="margin:0">Where does it live?</div>
+      <div class="homes">${S.homes.filter(h => !h.special).map(h => `<button data-act="home" data-id="${h.id}" style="background:${h.color}">${esc(h.name)}</button>`).join("")}
+      <button class="idk" data-act="home" data-id="idk">Not sure yet</button></div>
+      <button class="small" data-act="skip">Skip for now</button></div>
+      <p class="hint">${q.length} left in the queue · ${homed} of ${total} homed</p>`;
+  } else {
+    body = `<div class="card"><div class="big good">Everything has a name and a spot.</div>
+      ${idk ? `<p class="hint">${idk} thing${idk > 1 ? "s are" : " is"} waiting on the “not sure yet” shelf.</p><button data-act="revisit">Look at those now</button>` :
+      `<p class="hint">Head to <b>Clean</b> and start a trip.</p>`}</div>`;
+  }
+  return `<h2>Sort quest</h2><p class="hint">One thing at a time. Pick its home, or say you're not sure — both are fine answers.</p>${body}`;
+}
+function cleanPanel() {
+  const homes = S.homes.filter(h => pending().some(i => i.homeId === h.id));
+  if (cleanHome && !homes.some(h => h.id === cleanHome)) cleanHome = null;
+  const h = cleanHome && homeOf(cleanHome);
+  const list = h ? pending().filter(i => i.homeId === h.id) : [];
+  const unsorted = pending().filter(i => !i.homeId).length;
+  return `<h2>Clean trips</h2>
+  <p class="hint">Pick one color. Gather everything glowing that color, carry it over, tap it off.</p>
+  ${unsorted ? `<p class="hint">${unsorted} thing${unsorted > 1 ? "s haven't" : " hasn't"} been sorted yet — see the Sort tab.</p>` : ""}
+  <div class="row">${homes.map(x => `<span class="chip ${cleanHome === x.id ? "on" : ""}" data-act="trip" data-id="${x.id}" style="border-color:${cleanHome === x.id ? "#ebe7de" : x.color}"><span class="sw" style="background:${x.color}"></span>${esc(x.name)} <b>${pending().filter(i => i.homeId === x.id).length}</b></span>`).join("") || `<span class="hint">Nothing is waiting for a trip yet.</span>`}</div>
+  ${flash ? `<p class="good"><b>${esc(flash)}</b></p>` : ""}
+  <div class="list">${list.map(i => `<div class="cleanrow"><span class="sw" style="background:${h.color}"></span><div class="nm">${esc(i.name)}<small>${esc((S.piles.find(p => p.id === i.pileId) || {}).name || "")}</small></div>
+    <button style="background:${h.color};color:#10121a;border:0" data-act="done" data-id="${i.id}">Done</button></div>`).join("")}</div>
+  ${S.homes.some(h => insideOf(h.id).length) ? `<h2 style="margin-top:20px">Put away</h2>${S.homes.filter(h => insideOf(h.id).length).map(h => `<div class="card" style="margin:6px 0"><div class="item"><span class="sw" style="background:${h.color}"></span><b>${esc(h.name)}</b></div>${insideList(h.id)}</div>`).join("")}` : ""}
+  ${S.log.length ? `<div class="row"><button class="small" data-act="undo">Undo last</button></div>` : ""}`;
+}
+function renderPanel() {
+  const p = $("#panel");
+  p.innerHTML = { layout: layoutPanel, piles: pilesPanel, sort: sortPanel, clean: cleanPanel }[mode]();
+}
+function render() { renderTabs(); renderPanel(); renderBar(); renderMap(); }
+function focusName() { const n = $("#pname"); if (n) { n.focus(); n.select(); } }
+
+/* ---------- panel events ---------- */
+$("#tabs").addEventListener("click", e => {
+  const b = e.target.closest("[data-tab]"); if (!b) return;
+  mode = b.dataset.tab; placing = false; flash = "";
+  if (mode === "sort") { const c = sortQueue()[0]; if (c) sel = { type: "pile", id: c.pileId }; }
+  render();
+});
+function fly(from, home) {
+  const to = homeCenter(home) || { x: from.x, y: from.y - 90 };
+  const c = el("circle", { cx: from.x, cy: from.y, r: 16, fill: home ? home.color : "#cdd3e6", stroke: "#0008", "stroke-width": 3 }, $("#fx"));
+  const t0 = performance.now(), dur = 700;
+  (function step(t) {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    c.setAttribute("cx", from.x + (to.x - from.x) * e); c.setAttribute("cy", from.y + (to.y - from.y) * e);
+    c.setAttribute("r", 16 * (1 - .6 * e)); c.setAttribute("opacity", 1 - .7 * k * k);
+    if (k < 1) requestAnimationFrame(step); else c.remove();
+  })(t0);
+}
+$("#panel").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
+  if (act === "addF") { const ty = b.dataset.type, f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: 400, y: 400, w: 120, h: 120, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
+  if (act === "makehome" && fu) S.homes.splice(S.homes.length - 1, 0, { id: uid(), name: fu.name, color: nextColor(), furnId: fu.id });
+  if (act === "unhome") { S.items.forEach(i => { if (i.homeId === id) i.homeId = null; }); S.homes = S.homes.filter(h => h.id !== id); }
+  if (act === "rot90" && fu) fu.rot = ((fu.rot || 0) + 90) % 360;
+  if (act === "flip" && fu) fu.face = ((fu.face || 0) + 2) % 4;
+  if (act === "turnarrow" && fu) fu.face = ((fu.face || 0) + 1) % 4;
+  if (act === "delF") { S.homes.forEach(h => { if (h.furnId === sel.id) h.furnId = null; }); S.furniture = S.furniture.filter(f => f.id !== sel.id); sel = null; }
+  if (act === "addH") S.homes.splice(S.homes.length - 1, 0, { id: uid(), name: "New home", color: "#4dd0c8", furnId: null });
+  if (act === "delH") { S.items.forEach(i => { if (i.homeId === id) i.homeId = null; }); S.homes = S.homes.filter(h => h.id !== id); }
+  if (act === "newPile") { placing = !placing; }
+  if (act === "selPile") { sel = { type: "pile", id }; }
+  if (act === "delPile") { S.items = S.items.filter(i => i.pileId !== sel.id); S.piles = S.piles.filter(p => p.id !== sel.id); sel = null; }
+  if (act === "unpack") {
+    const lines = $("#dump").value.split("\n").map(s => s.trim()).filter(Boolean);
+    lines.forEach(n => S.items.push({ id: uid(), pileId: sel.id, name: n, homeId: null, done: false }));
+  }
+  if (act === "delI") S.items = S.items.filter(i => i.id !== id);
+  if (act === "home") { const cur = sortQueue()[0]; if (cur) { cur.homeId = id; delete skips[cur.id]; } const nx = sortQueue()[0]; sel = nx ? { type: "pile", id: nx.pileId } : sel; }
+  if (act === "skip") { const cur = sortQueue()[0]; if (cur) skips[cur.id] = (skips[cur.id] || 0) + 1; const nx = sortQueue()[0]; if (nx) sel = { type: "pile", id: nx.pileId }; }
+  if (act === "revisit") { revisit = true; S.items.forEach(i => { if (i.homeId === "idk") i.homeId = null; }); revisit = false; const nx = sortQueue()[0]; if (nx) sel = { type: "pile", id: nx.pileId }; }
+  if (act === "trip") { cleanHome = cleanHome === id ? null : id; flash = ""; }
+  if (act === "done") {
+    const it = S.items.find(i => i.id === id), pile = S.piles.find(p => p.id === it.pileId), h = homeOf(it.homeId);
+    const lay = dotLayout(pile).pos[id];
+    if (lay) fly({ x: pile.x + lay.x, y: pile.y + lay.y }, h);
+    it.done = true; it.doneAt = Date.now(); S.log.push(id);
+    flash = pending().some(i => i.homeId === h.id) ? "" : h.name + " trip cleared!";
+  }
+  if (act === "takeout") { const it = S.items.find(i => i.id === id); if (it) { it.done = false; S.log = S.log.filter(x => x !== id); } flash = ""; }
+  if (act === "undo") { const last = S.log.pop(); const it = S.items.find(i => i.id === last); if (it) it.done = false; flash = ""; }
+  save(); render();
+  if (act === "newPile") { /* wait for map click */ }
+  if (act === "unpack") { const d = $("#dump"); if (d) d.focus(); }
+});
+$("#panel").addEventListener("input", e => {
+  const f = e.target.dataset.f, id = e.target.dataset.id, v = e.target.value;
+  const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
+  const pl = sel && sel.type === "pile" && S.piles.find(x => x.id === sel.id);
+  if (f === "fname" && fu) { fu.name = v; S.homes.forEach(h => { if (h.furnId === fu.id) { h.name = v; document.querySelectorAll('[data-f=hname]').forEach(n => { if (n.dataset.id === h.id) n.value = v; }); } }); }
+  else if (f === "fw" && fu) { const c = fu.x + fu.w / 2; fu.w = Math.max(30, +v || 30); fu.x = c - fu.w / 2; }
+  else if (f === "fh" && fu) { const c = fu.y + fu.h / 2; fu.h = Math.max(30, +v || 30); fu.y = c - fu.h / 2; }
+  else if (f === "frot" && fu) fu.rot = (((+v || 0) % 360) + 360) % 360;
+  else if (f === "pname" && pl) pl.name = v;
+  else if (f === "iname") { const it = S.items.find(i => i.id === id); if (it) it.name = v; }
+  else if (f === "hname") { const h = homeOf(id); if (h) h.name = v; }
+  else if (f === "hcolor") { const h = homeOf(id); if (h) h.color = v; }
+  else return;
+  save(); renderMap();
+});
+$("#panel").addEventListener("change", e => {
+  const f = e.target.dataset.f, id = e.target.dataset.id, v = e.target.value;
+  if (f === "sketch") S.showSketch = e.target.checked;
+  else if (f === "fshape") S.furniture.find(x => x.id === sel.id).shape = v;
+  else if (f === "ftype") S.furniture.find(x => x.id === sel.id).type = v;
+  else if (f === "flock") S.furniture.find(x => x.id === sel.id).locked = e.target.checked;
+  else if (f === "ihome") { const it = S.items.find(i => i.id === id); it.homeId = v || null; }
+  else if (f === "hfurn") homeOf(id).furnId = v || null;
+  else return;
+  save(); render();
+});
+
+/* ---------- layouts ---------- */
+const otherLayout = () => S.layouts.find(l => l.id === S.prevId && l.id !== S.layoutId) || S.layouts.find(l => l.id !== S.layoutId);
+const sameSpot = (a, b) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && (a.rot || 0) === (b.rot || 0);
+function renderGhost() {
+  const g = $("#ghost"); g.innerHTML = ""; let moved = 0; const o = otherLayout();
+  if (o) o.furniture.forEach(of => {
+    if (of.kind === "post" || of.kind === "window") return;
+    const cur = S.furniture.find(f => f.id === of.id);
+    if (cur && sameSpot(cur, of)) return;
+    moved++;
+    if (!S.ghost) return;
+    const cx = of.x + of.w / 2, cy = of.y + of.h / 2;
+    const og = el("g", { transform: `translate(${cx} ${cy}) rotate(${of.rot || 0})`, opacity: .75 }, g);
+    const st = { fill: "#f2b84b", "fill-opacity": .07, stroke: "#f2b84b", "stroke-width": 3, "stroke-dasharray": "8 8" };
+    if (of.shape === "ellipse") el("ellipse", { rx: of.w / 2, ry: of.h / 2, ...st }, og);
+    else el("rect", { x: -of.w / 2, y: -of.h / 2, width: of.w, height: of.h, rx: 10, ...st }, og);
+    if (cur) el("line", { x1: cx, y1: cy, x2: cur.x + cur.w / 2, y2: cur.y + cur.h / 2, stroke: "#f2b84b", "stroke-width": 3, opacity: .5, "stroke-dasharray": "2 9", "stroke-linecap": "round" }, g);
+    const t = el("text", { x: cx, y: cy + 8, "text-anchor": "middle", fill: "#f2b84b", "font-size": 24, opacity: .7 }, g); t.textContent = of.name;
+  });
+  const m = $("#moved"); if (m) m.textContent = o ? `${moved} piece${moved === 1 ? "" : "s"} sit differently than in “${o.name}”` : "";
+}
+function renderBar() {
+  const L = S.layouts, cur = L.find(l => l.id === S.layoutId), o = otherLayout();
+  $("#layoutbar").innerHTML = `<div class="lays">${L.map((l, i) => `<button class="lay ${l.id === S.layoutId ? "on" : ""}" data-lay="${l.id}"><kbd>${i + 1}</kbd> <span class="nm">${esc(l.name)}</span></button>`).join("")}
+    <button class="small" data-lay-act="new" title="Copy this layout so you can try changes">+ New layout</button></div>
+    <div class="laytools"><input type="text" id="layname" value="${esc(cur.name)}" aria-label="Layout name">
+    ${o ? `<label class="chk"><input type="checkbox" id="ghostchk" ${S.ghost ? "checked" : ""}> Ghost of “${esc(o.name)}” <kbd>G</kbd></label>` : ""}
+    ${L.length > 1 ? `<button class="small danger" data-lay-act="del" id="laydel">Delete layout</button>` : ""}
+    <span id="moved" class="hint" style="margin:0"></span></div>`;
+}
+function switchLayout(id) {
+  const l = S.layouts.find(x => x.id === id); if (!l || id === S.layoutId) return;
+  syncLayout(); S.prevId = S.layoutId; S.layoutId = id; S.furniture = l.furniture; sel = null; drag = null; save(); render();
+}
+let layDelArmed = false;
+$("#layoutbar").addEventListener("click", e => {
+  const lb = e.target.closest("[data-lay]"); if (lb) return switchLayout(lb.dataset.lay);
+  const a = e.target.closest("[data-lay-act]"); if (!a) return;
+  if (a.dataset.layAct === "new") {
+    syncLayout();
+    const nl = { id: uid(), name: "Layout " + (S.layouts.length + 1), furniture: JSON.parse(JSON.stringify(S.furniture)) };
+    S.layouts.push(nl); switchLayout(nl.id); S.ghost = true; save(); render();
+    const n = $("#layname"); if (n) { n.focus(); n.select(); }
+  }
+  if (a.dataset.layAct === "del") {
+    if (!layDelArmed) { layDelArmed = true; a.textContent = "Really delete?"; setTimeout(() => { layDelArmed = false; const b = $("#laydel"); if (b) b.textContent = "Delete layout"; }, 4000); return; }
+    layDelArmed = false;
+    const rest = S.layouts.filter(l => l.id !== S.layoutId); S.layouts = rest; S.layoutId = rest[0].id; S.furniture = rest[0].furniture; S.prevId = null; sel = null; save(); render();
+  }
+});
+$("#layoutbar").addEventListener("input", e => {
+  if (e.target.id !== "layname") return;
+  const cur = S.layouts.find(l => l.id === S.layoutId); cur.name = e.target.value;
+  const n = document.querySelector(".lay.on .nm"); if (n) n.textContent = e.target.value; save();
+});
+$("#layoutbar").addEventListener("change", e => {
+  if (e.target.id === "ghostchk") { S.ghost = e.target.checked; save(); e.target.blur(); renderMap(); }
+  if (e.target.id === "layname") { renderBar(); renderMap(); }
+});
+document.addEventListener("keydown", e => {
+  if (e.target.matches && e.target.matches("input,textarea,select") || e.ctrlKey || e.metaKey || e.altKey) return;
+  const n = +e.key; if (n >= 1 && n <= S.layouts.length) switchLayout(S.layouts[n - 1].id);
+  if (e.key === "g" || e.key === "G") { if (otherLayout()) { S.ghost = !S.ghost; save(); render(); } }
+});
+
+/* ---------- backup / reset ---------- */
+let resetArmed = false;
+document.querySelector("footer").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  if (b.dataset.act === "export") {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
+    a.download = "room-quest-backup.json"; a.click();
+  }
+  if (b.dataset.act === "import") $("#file").click();
+  if (b.dataset.act === "reset") {
+    if (!resetArmed) { resetArmed = true; b.textContent = "Really start over?"; setTimeout(() => { resetArmed = false; b.textContent = "Start over"; }, 4000); return; }
+    S = defaults(); migrate(); sel = null; cleanHome = null; save(); resetArmed = false; b.textContent = "Start over"; render();
+  }
+});
+$("#file").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { try { S = JSON.parse(t); migrate(); save(); sel = null; render(); } catch (err) { alert("That file didn't look like a backup."); } });
+});
+
+drawWalls(); render();
+</script>
+</body>
+</html>
