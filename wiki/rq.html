@@ -2,17 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1b1e27">
 <title>Room Quest</title>
 <style>
 :root{
   --bg:#13151b; --panel:#1b1e27; --panel2:#242836; --line:#323850; --ink:#ebe7de; --mute:#98a0b3;
   --accent:#f2b84b; --danger:#e5707e; --furn:#262b39; --furn-line:#5b6482;
 }
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overscroll-behavior:none}
+body{height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;-webkit-text-size-adjust:100%}
+header{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);padding-top:max(10px,env(safe-area-inset-top))}
 header h1{font:600 20px Georgia,"Times New Roman",serif;margin:0;letter-spacing:.02em}
 header h1 small{display:block;font:12px system-ui;color:var(--mute);letter-spacing:0}
 .prog{flex:1;max-width:420px;margin-left:auto}
@@ -21,23 +24,30 @@ header h1 small{display:block;font:12px system-ui;color:var(--mute);letter-spaci
 .prog span{font-size:12px;color:var(--mute)}
 main{flex:1;display:flex;min-height:0}
 #mapwrap{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
-#map{width:100%;flex:1;min-height:0;background:#0f1117;border:1px solid var(--line);border-radius:12px;touch-action:none;user-select:none}
+#stage{position:relative;flex:1;min-height:0}
+#map{position:absolute;inset:0;width:100%;height:100%;background:#0f1117;border:1px solid var(--line);border-radius:12px;touch-action:none;user-select:none;-webkit-user-select:none}
+.zoomctl{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;z-index:5}
+.zoomctl button{width:40px;height:40px;padding:0;font-size:20px;background:#1b1e27e6}
 aside{width:390px;max-width:44vw;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.grab{display:none;height:24px;cursor:pointer;flex:none}
+.grab::after{content:"";display:block;width:44px;height:5px;border-radius:3px;background:var(--furn-line);margin:10px auto 0}
 nav{display:flex;border-bottom:1px solid var(--line)}
-nav button{flex:1;background:none;border:0;color:var(--mute);padding:12px 4px;font:600 13px system-ui;cursor:pointer;border-bottom:3px solid transparent}
+nav button{flex:1;background:none;border:0;border-radius:0;color:var(--mute);padding:12px 2px;font:600 13px system-ui;cursor:pointer;border-bottom:3px solid transparent}
 nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
-#panel{flex:1;overflow:auto;padding:16px}
+#panel{flex:1;overflow:auto;padding:16px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 h2{font:600 18px Georgia,serif;margin:0 0 6px}
 .hint{color:var(--mute);margin:0 0 12px;font-size:14px}
 .dim{opacity:.7}
 button,select,input,textarea{font:inherit;color:var(--ink)}
-button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;touch-action:manipulation}
 button:hover{border-color:var(--furn-line)}
+button:disabled{opacity:.4;cursor:not-allowed}
 button.primary{background:var(--accent);color:#1a1405;border-color:var(--accent);font-weight:600}
 button.danger{color:var(--danger)}
 button.small{padding:3px 8px;font-size:13px}
-input,select,textarea{background:#12141b;border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+input,select,textarea{font-size:16px;background:#12141b;border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
 textarea{min-height:130px;resize:vertical}
+textarea.short{min-height:80px}
 label{display:block;font-size:13px;color:var(--mute);margin:8px 0}
 label input,label select{margin-top:3px;color:var(--ink)}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
@@ -49,6 +59,7 @@ label input,label select{margin-top:3px;color:var(--ink)}
 .item{display:flex;gap:6px;align-items:center}
 .item input[type=text]{flex:1}
 .item select{width:120px}
+.item .nm2{flex:1}
 .sw{width:14px;height:14px;border-radius:50%;flex:none;border:1px solid #0006}
 input[type=color]{width:38px;height:34px;padding:2px;flex:none}
 .chip{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;border:2px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:600}
@@ -59,11 +70,10 @@ input[type=color]{width:38px;height:34px;padding:2px;flex:none}
 .homes button{padding:14px 8px;font-weight:700;border:0;color:#10121a;font-size:15px}
 .homes button.idk{grid-column:1/-1;color:var(--ink);background:#3a3f4d}
 .cleanrow{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
-.cleanrow .nm{flex:1}
+.cleanrow .nm{flex:1;min-width:0}
 .cleanrow .nm small{display:block;color:var(--mute)}
 .cleanrow button{padding:8px 14px;font-weight:700}
-footer{border-top:1px solid var(--line);padding:10px 16px;font-size:12px;color:var(--mute)}
-footer .row{margin:6px 0 0}
+.foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--mute)}
 .pulse{animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.45}}
 .good{color:#6fcf97}
@@ -77,8 +87,48 @@ kbd{font:600 11px system-ui;opacity:.6;border:1px solid currentColor;border-radi
 .laytools .chk{margin:0}
 details.inside{margin:6px 0 0}
 details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
-.item .nm2{flex:1}
-@media (max-width:900px){main{flex-direction:column}aside{width:auto;max-width:none;height:50vh;border-left:0;border-top:1px solid var(--line)}}
+.act{display:grid;grid-template-columns:auto 1fr auto;gap:6px 8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.act .ic{font-size:20px}
+.act .nm small{display:block;color:var(--mute);font-size:12px}
+.act .ctl{grid-column:1/-1;display:flex;gap:8px;align-items:center}
+.act .ctl select{flex:1}
+.done-txt{text-decoration:line-through;opacity:.6}
+/* floating menu for a pile or a spot */
+#popup{position:absolute;z-index:20;width:330px;max-width:calc(100% - 16px);max-height:78%;overflow:auto;background:var(--panel);border:1px solid var(--furn-line);border-radius:14px;box-shadow:0 12px 40px #000a;padding:12px;display:none}
+#popup.show{display:block}
+.pm-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pm-head b{flex:1;font:600 17px Georgia,serif;min-width:0;overflow-wrap:anywhere}
+.pm-item{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.pm-item .ctl{grid-column:1/-1;display:flex;gap:8px}
+.pm-item .ctl select{flex:1;min-width:0}
+.pm-item .ctl button{font-weight:700}
+.pm-note{white-space:pre-wrap;color:var(--mute);font-size:14px;margin:0 0 8px}
+@media (pointer:coarse){
+  button,select,input:not([type=checkbox]):not([type=color]){min-height:44px}
+  button.small{min-height:38px;padding:6px 12px}
+  nav button{padding:14px 2px}
+  .chk input{width:22px;height:22px}
+  input[type=color]{width:46px}
+}
+@media (max-width:900px){
+  header{padding:8px 12px;gap:10px;padding-top:max(8px,env(safe-area-inset-top))}
+  header h1{font-size:17px}
+  header h1 small{display:none}
+  main{flex-direction:column}
+  #mapwrap{padding:8px;gap:8px}
+  .lays{flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:2px}
+  .lay{white-space:nowrap}
+  .laytools{margin-left:0}
+  .laytools input[type=text]{width:130px}
+  #moved{display:none}
+  aside{width:auto;max-width:none;height:46vh;height:46dvh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:0 -6px 20px #0008}
+  aside.collapsed{height:auto}
+  aside.collapsed #panel{display:none}
+  .grab{display:block}
+  #panel{padding:14px 14px calc(18px + env(safe-area-inset-bottom))}
+  #popup{position:fixed;left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none;max-height:58vh}
+  .zoomctl{bottom:8px;right:8px}
+}
 </style>
 </head>
 <body>
@@ -89,35 +139,37 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <main>
   <div id="mapwrap">
     <div id="layoutbar"></div>
-    <svg id="map" viewBox="90 140 1720 1240" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <filter id="fog" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter>
-        <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1b1f2b" stroke-width="2"/></pattern>
-      </defs>
-      <rect x="-500" y="-500" width="4000" height="4000" fill="url(#grid)" data-t="bg"/>
-      <image id="sketch" href="sketch.png" x="0" y="0" width="2208" height="1656" opacity=".2" style="pointer-events:none"/>
-      <g id="walls" style="pointer-events:none"></g>
-      <g id="ghost" style="pointer-events:none"></g>
-      <g id="furn"></g>
-      <g id="tags" style="pointer-events:none"></g>
-      <g id="piles"></g>
-      <g id="fx" style="pointer-events:none"></g>
-    </svg>
+    <div id="stage">
+      <svg id="map" viewBox="90 140 1720 1240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="fog" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter>
+          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1b1f2b" stroke-width="2"/></pattern>
+        </defs>
+        <rect x="-1500" y="-1500" width="6000" height="6000" fill="url(#grid)" data-t="bg"/>
+        <image id="sketch" href="sketch.png" x="0" y="0" width="2208" height="1656" opacity=".2" style="pointer-events:none"/>
+        <g id="walls" style="pointer-events:none"></g>
+        <g id="ghost" style="pointer-events:none"></g>
+        <g id="furn"></g>
+        <g id="tags" style="pointer-events:none"></g>
+        <g id="piles"></g>
+        <g id="spots"></g>
+        <g id="fx" style="pointer-events:none"></g>
+      </svg>
+      <div class="zoomctl">
+        <button data-zoom="in" aria-label="Zoom in">+</button>
+        <button data-zoom="out" aria-label="Zoom out">−</button>
+        <button data-zoom="fit" aria-label="Fit the room">⤢</button>
+      </div>
+      <div id="popup" role="dialog"></div>
+    </div>
   </div>
-  <aside>
+  <aside id="sheet">
+    <div class="grab" id="grab" title="Show or hide the panel"></div>
     <nav id="tabs"></nav>
     <div id="panel"></div>
-    <footer>
-      Everything stays in this browser, on your computer. Nothing is uploaded.
-      <div class="row">
-        <button class="small" data-act="export">Save backup</button>
-        <button class="small" data-act="import">Load backup</button>
-        <button class="small danger" data-act="reset" id="resetbtn">Start over</button>
-        <input type="file" id="file" accept=".json" hidden>
-      </div>
-    </footer>
   </aside>
 </main>
+<input type="file" id="file" accept=".json,application/json" hidden>
 
 <script>
 "use strict";
@@ -127,6 +179,15 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const SVGNS = "http://www.w3.org/2000/svg";
 const snap = v => Math.round(v / 10) * 10;
+const DAY = 864e5;
+const KINDS = {
+  vacuum: { label: "Vacuum",      icon: "🧹", color: "#7aa2f7" },
+  dust:   { label: "Dust",        icon: "🪶", color: "#e0af68" },
+  spray:  { label: "Spray clean", icon: "🧴", color: "#73daca" },
+  wipe:   { label: "Wipe",        icon: "🧽", color: "#bb9af7" },
+  other:  { label: "Other",       icon: "✨", color: "#c0caf5" },
+};
+const EVERY = [[0, "Once"], [7, "Weekly"], [14, "Every 2 weeks"], [30, "Monthly"], [90, "Every 3 months"]];
 
 /* ---------- starting data, traced from the sketch ---------- */
 function defaults() {
@@ -158,7 +219,7 @@ function defaults() {
     { id: "trash",  name: "Trash",  color: "#e5707e", furnId: null },
     { id: "idk",    name: "Not sure yet", color: "#8a8f9c", furnId: null, special: true },
   ];
-  return { furniture, homes, piles: [], items: [], log: [], showSketch: true };
+  return { furniture, homes, piles: [], items: [], spots: [], log: [], showSketch: true };
 }
 let S = (() => { try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) {} return defaults(); })();
 function syncLayout() { const L = S.layouts && S.layouts.find(l => l.id === S.layoutId); if (L) L.furniture = S.furniture; }
@@ -167,26 +228,78 @@ function migrate() {
   if (!S.layouts) { S.layouts = [{ id: uid(), name: "Current room", furniture: S.furniture }]; S.layoutId = S.layouts[0].id; }
   const L = S.layouts.find(l => l.id === S.layoutId) || S.layouts[0]; S.layoutId = L.id; S.furniture = L.furniture;
   S.layouts.forEach(l => l.furniture.forEach(f => { if (f.type == null) f.type = "furniture"; if (f.rot == null) f.rot = 0; if (f.face == null) f.face = 0; if (f.locked == null) f.locked = false; }));
+  if (!S.spots) S.spots = [];
+  S.spots.forEach(sp => { if (!sp.actions) sp.actions = []; if (sp.note == null) sp.note = ""; if (sp.title == null) sp.title = ""; });
 }
 migrate();
 const PALETTE = ["#5b9cf6","#6fcf97","#b58cf0","#f2b84b","#e5707e","#4dd0c8","#f08a4b","#d36fd0","#a3d65c","#6fa8dc"];
 const nextColor = () => PALETTE.find(c => !S.homes.some(h => h.color.toLowerCase() === c)) || PALETTE[Math.floor(Math.random() * PALETTE.length)];
 
 /* ---------- UI state ---------- */
-let mode = "layout";            // layout | homes | piles | sort | clean
-let sel = null;                 // {type:'furn'|'pile', id}
-let placing = false;            // next map click drops a new pile
-let revisit = false;            // sort: include 'not sure yet' items
+let mode = "layout";            // layout | piles | spots | sort | clean
+let sel = null;                 // {type:'furn'|'pile'|'spot', id}
+let placing = false;            // next map tap drops a new pile
+let placingSpot = false;        // next map tap drops a new spot
+let revisit = false;
 let skips = {};
 let cleanHome = null;
+let cleanKind = null;
 let flash = "";
+let menu = null;                // {type:'pile'|'spot', id}  the floating menu
+let sketchOK = true;
 
 const homeOf = id => S.homes.find(h => h.id === id);
 const pending = () => S.items.filter(i => !i.done);
+const actOpen = a => { if (a.done) return false; if (!a.every || !a.last) return true; return Date.now() - a.last >= a.every * DAY; };
+const actName = a => a.label || (KINDS[a.kind] || KINDS.other).label;
+const kindOf = a => KINDS[a.kind] || KINDS.other;
+const agoTxt = t => { const d = Math.floor((Date.now() - t) / DAY); return d <= 0 ? "today" : d === 1 ? "yesterday" : d + " days ago"; };
+function actText(a) {
+  if (a.done) return "done " + agoTxt(a.last);
+  if (!a.last) return a.every ? "not done yet · repeats" : "to do";
+  if (actOpen(a)) return "due again · last done " + agoTxt(a.last);
+  return "done " + agoTxt(a.last) + " · due in " + Math.ceil((a.last + a.every * DAY - Date.now()) / DAY) + "d";
+}
+const spotName = sp => sp.title || "Untitled spot";
 
-/* ---------- map ---------- */
-const svg = $("#map");
+/* the probe tells us if the optional sketch backdrop exists (it won't on a shared site) */
+(() => { const p = new Image(); p.onerror = () => { sketchOK = false; try { render(); } catch (e) {} }; p.src = "sketch.png"; })();
+
+/* ---------- map + view ---------- */
+const svg = $("#map"), stage = $("#stage");
 const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+const BASE = { cx: 950, cy: 750, w: 1720, h: 1240 };
+let view = { x: 90, y: 140, w: 1720, h: 1240 };
+let touched = false;           // true once the person zooms or pans; until then we keep re-fitting the room
+const stageRect = () => stage.getBoundingClientRect();
+const scale = () => { const w = stage.clientWidth; return w ? w / view.w : .57; };
+const U = () => Math.max(1, .5 / scale());          // markers grow on small screens so they stay tappable
+function applyView() {
+  const r = stageRect(); if (r.width) view.h = view.w * r.height / r.width;
+  view.w = Math.min(3200, Math.max(260, view.w)); if (r.width) view.h = view.w * r.height / r.width;
+  const cx = Math.min(2100, Math.max(-100, view.x + view.w / 2)), cy = Math.min(1800, Math.max(-100, view.y + view.h / 2));
+  view.x = cx - view.w / 2; view.y = cy - view.h / 2;
+  svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+}
+function fitView() {
+  const r = stageRect(); if (!r.width) return;
+  const ar = r.height / r.width, w = Math.max(BASE.w, BASE.h / ar);
+  view = { w, h: w * ar, x: BASE.cx - w / 2, y: BASE.cy - w * ar / 2 }; touched = false; applyView();
+}
+function zoomAt(f, px, py) {
+  const r = stageRect(); if (!r.width) return;
+  const sx = view.x + (px - r.left) * view.w / r.width, sy = view.y + (py - r.top) * view.h / r.height;
+  touched = true;
+  const nw = Math.min(3200, Math.max(260, view.w / f)), k = nw / view.w;
+  view.x = sx - (sx - view.x) * k; view.y = sy - (sy - view.y) * k; view.w = nw;
+  applyView(); renderMap();
+}
+stage.addEventListener("wheel", e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0015)), e.clientX, e.clientY); }, { passive: false });
+document.querySelector(".zoomctl").addEventListener("click", e => {
+  const b = e.target.closest("[data-zoom]"); if (!b) return; const r = stageRect(), z = b.dataset.zoom;
+  if (z === "fit") { fitView(); renderMap(); } else zoomAt(z === "in" ? 1.4 : 1 / 1.4, r.left + r.width / 2, r.top + r.height / 2);
+});
+new ResizeObserver(() => { if (!touched) fitView(); else applyView(); renderMap(); }).observe(stage);
 
 function drawWalls() {
   const g = $("#walls"); g.innerHTML = "";
@@ -195,15 +308,14 @@ function drawWalls() {
   L(140,480,340,480); L(830,480,990,480); L(990,190,990,480);
   L(350,470,540,215,"#d9625a",14);
   el("line", { x1:540, y1:215, x2:910, y2:470, stroke:"#d9625a", "stroke-width":4, "stroke-dasharray":"14 12", opacity:.6 }, g);
-  const t = (x, y, s, c = "#d9625a") => { const n = el("text", { x, y, fill: c, "font-size": 40, "font-family": "Georgia,serif", opacity: .85 }, g); n.textContent = s; };
-  t(190, 330, "door"); g.lastChild.setAttribute("id", "doorlabel");
+  const n = el("text", { x: 190, y: 330, fill: "#d9625a", "font-size": 40, "font-family": "Georgia,serif", opacity: .85, id: "doorlabel" }, g); n.textContent = "door";
 }
 
 function dotLayout(pile) {
-  const items = S.items.filter(i => i.pileId === pile.id && !i.done);
+  const u = U(), items = S.items.filter(i => i.pileId === pile.id && !i.done);
   const pos = {}; let ring = 0, placed = 0;
   while (placed < items.length) {
-    const R = 52 + ring * 32, cap = Math.max(6, Math.floor(2 * Math.PI * R / 30));
+    const R = (52 + ring * 32) * u, cap = Math.max(6, Math.floor(2 * Math.PI * R / (30 * u)));
     const n = Math.min(cap, items.length - placed);
     for (let k = 0; k < n; k++) {
       const a = -Math.PI / 2 + (2 * Math.PI * k) / n + ring * .4;
@@ -211,24 +323,40 @@ function dotLayout(pile) {
     }
     placed += n; ring++;
   }
-  return { pos, outer: items.length ? 52 + (ring - 1) * 32 + 26 : 50, items };
+  return { pos, outer: items.length ? (52 + (ring - 1) * 32 + 26) * u : 50 * u, items };
 }
 const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
 function homeCenter(h) {
   const f = h && S.furniture.find(x => x.id === h.furnId);
   return f ? { x: f.x + f.w / 2, y: f.y + f.h / 2 } : null;
 }
-
 function rotPt(f, x, y) {
   const r = (f.rot || 0) * Math.PI / 180, cx = f.x + f.w / 2, cy = f.y + f.h / 2;
   return { x: cx + x * Math.cos(r) - y * Math.sin(r), y: cy + x * Math.sin(r) + y * Math.cos(r) };
 }
+function spotPos(sp) {
+  const f = sp.furnId && S.furniture.find(x => x.id === sp.furnId);
+  return f ? rotPt(f, sp.dx || 0, sp.dy || 0) : { x: sp.x, y: sp.y };
+}
+function attachSpot(sp) {     // a spot dropped on a piece sticks to it and follows it around
+  sp.furnId = null;
+  for (let i = S.furniture.length - 1; i >= 0; i--) {
+    const f = S.furniture[i]; if (f.kind === "loft" || f.kind === "post" || f.kind === "window") continue;
+    const r = -(f.rot || 0) * Math.PI / 180, dx = sp.x - (f.x + f.w / 2), dy = sp.y - (f.y + f.h / 2);
+    const lx = dx * Math.cos(r) - dy * Math.sin(r), ly = dx * Math.sin(r) + dy * Math.cos(r);
+    const inside = f.shape === "ellipse" ? (lx * lx) / ((f.w / 2) ** 2) + (ly * ly) / ((f.h / 2) ** 2) <= 1 : Math.abs(lx) <= f.w / 2 && Math.abs(ly) <= f.h / 2;
+    if (inside) { sp.furnId = f.id; sp.dx = lx; sp.dy = ly; return; }
+  }
+}
+
 function renderMap() {
-  $("#sketch").setAttribute("display", S.showSketch ? "" : "none");
-  $("#doorlabel").setAttribute("display", S.showSketch ? "none" : "");
-  renderGhost();
+  const u = U(), bu = Math.min(u, 1.8), showSk = S.showSketch && sketchOK;
+  $("#sketch").setAttribute("display", showSk ? "" : "none");
+  const dl = $("#doorlabel"); if (dl) dl.setAttribute("display", showSk ? "none" : "");
+  renderGhost(u);
   const fg = $("#furn"); fg.innerHTML = "";
   const hl = mode === "clean" && cleanHome ? homeOf(cleanHome) : null;
+  const hlKind = mode === "clean" && cleanKind ? cleanKind : null;
   S.furniture.forEach(f => {
     const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
     const g = el("g", { "data-t": "furn", "data-id": f.id, transform: `translate(${cx} ${cy}) rotate(${f.rot || 0})`, style: mode === "layout" ? "cursor:move" : "pointer-events:none" }, fg);
@@ -242,7 +370,7 @@ function renderMap() {
     if (f.shape === "ellipse") el("ellipse", { cx: 0, cy: 0, rx: f.w / 2, ry: f.h / 2, ...style }, g);
     else el("rect", { x: -f.w / 2, y: -f.h / 2, width: f.w, height: f.h, rx: 10, ...style }, g);
     if (post) el("circle", { r: 10, fill: "#5b6482" }, g);
-    if (!post && !win) {   // the front-facing arrow
+    if (!post && !win) {
       const face = f.face || 0, d = (face % 2 === 0 ? f.h : f.w) / 2, k = Math.max(.45, Math.min(1, d / 70));
       const a = el("g", { transform: `rotate(${face * 90})`, style: "pointer-events:none" }, g);
       el("path", { d: `M0 ${-d + 8 * k} L${-14 * k} ${-d + 30 * k} L${14 * k} ${-d + 30 * k} Z`, fill: "#f2b84b" }, a);
@@ -250,16 +378,16 @@ function renderMap() {
     }
     if (mode === "layout" && sel && sel.type === "furn" && sel.id === f.id) {
       el("rect", { x: -f.w / 2 - 6, y: -f.h / 2 - 6, width: f.w + 12, height: f.h + 12, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8", rx: 12, style: "pointer-events:none" }, g);
-      el("line", { x1: 0, y1: -f.h / 2 - 6, x2: 0, y2: -f.h / 2 - 44, stroke: "#f2b84b", "stroke-width": 4 }, g);
-      el("circle", { "data-t": "rotate", "data-id": f.id, cx: 0, cy: -f.h / 2 - 44, r: 18, fill: "#13151b", stroke: "#f2b84b", "stroke-width": 5, style: "cursor:grab" }, g);
-      if (f.locked) { const l = el("text", { x: f.w / 2, y: f.h / 2 + 8, "text-anchor": "middle", "font-size": 34, style: "pointer-events:none" }, g); l.textContent = "🔒"; }
-      else el("circle", { "data-t": "resize", "data-id": f.id, cx: f.w / 2, cy: f.h / 2, r: 20, fill: "#f2b84b", style: "cursor:nwse-resize" }, g);
+      el("line", { x1: 0, y1: -f.h / 2 - 6, x2: 0, y2: -f.h / 2 - 28 * u - 16, stroke: "#f2b84b", "stroke-width": 4 }, g);
+      el("circle", { "data-t": "rotate", "data-id": f.id, cx: 0, cy: -f.h / 2 - 28 * u - 16, r: 18 * u, fill: "#13151b", stroke: "#f2b84b", "stroke-width": 5, style: "cursor:grab" }, g);
+      if (f.locked) { const l = el("text", { x: f.w / 2, y: f.h / 2 + 8, "text-anchor": "middle", "font-size": 34 * u, style: "pointer-events:none" }, g); l.textContent = "🔒"; }
+      else el("circle", { "data-t": "resize", "data-id": f.id, cx: f.w / 2, cy: f.h / 2, r: 20 * u, fill: "#f2b84b", style: "cursor:nwse-resize" }, g);
     }
   });
   S.furniture.forEach(f => {   // labels last, so nothing covers them
     if (f.kind === "post" || f.kind === "window" || f.w <= 70) return;
     const lp = f.kind === "loft" ? rotPt(f, 60, f.h / 2 - 24) : rotPt(f, 0, 10);
-    const t = el("text", { x: lp.x, y: lp.y, "text-anchor": "middle", fill: f.kind === "loft" ? "#c9c98a" : "#b9c0d6", "font-size": Math.min(34, f.w / Math.max(5, f.name.length * .55)), "font-family": "system-ui", style: "pointer-events:none" }, fg);
+    const t = el("text", { x: lp.x, y: lp.y, "text-anchor": "middle", fill: f.kind === "loft" ? "#c9c98a" : "#b9c0d6", "font-size": Math.min(34 * u, f.w / Math.max(5, f.name.length * .55)), "font-family": "system-ui", style: "pointer-events:none" }, fg);
     t.textContent = f.name;
   });
 
@@ -276,74 +404,127 @@ function renderMap() {
     const ring = { fill: "none", stroke: h.color, "stroke-width": hl && hl.id === h.id ? 12 : 6, opacity: active ? .95 : .2 };
     if (f.shape === "ellipse") el("ellipse", { rx: f.w / 2 + 4, ry: f.h / 2 + 4, ...ring }, og);
     else el("rect", { x: -f.w / 2 - 4, y: -f.h / 2 - 4, width: f.w + 8, height: f.h + 8, rx: 12, ...ring }, og);
-    const bp = rotPt(f, -f.w / 2 + 26 + (n - 1) * 54, -f.h / 2 - 4);
-    el("circle", { cx: bp.x, cy: bp.y, r: 24, fill: h.color, opacity: active ? 1 : .25 }, tg);
-    const t = el("text", { x: bp.x, y: bp.y + 9, "text-anchor": "middle", fill: "#10121a", "font-size": 26, "font-weight": 700, "font-family": "system-ui" }, tg);
+    const bp = rotPt(f, -f.w / 2 + 26 * bu + (n - 1) * 54 * bu, -f.h / 2 - 4);
+    el("circle", { cx: bp.x, cy: bp.y, r: 24 * bu, fill: h.color, opacity: active ? 1 : .25 }, tg);
+    const t = el("text", { x: bp.x, y: bp.y + 9 * bu, "text-anchor": "middle", fill: "#10121a", "font-size": 26 * bu, "font-weight": 700, "font-family": "system-ui" }, tg);
     t.textContent = count;
   });
 
   // piles
   const pg = $("#piles"); pg.innerHTML = "";
   S.piles.forEach(p => {
-    const g = el("g", { transform: `translate(${p.x} ${p.y})`, "data-t": "pile", "data-id": p.id, style: mode === "piles" ? "cursor:move" : "pointer-events:none" }, pg);
+    const g = el("g", { transform: `translate(${p.x} ${p.y})`, "data-t": "pile", "data-id": p.id, style: mode === "layout" ? "pointer-events:none" : (mode === "piles" ? "cursor:move" : "cursor:pointer") }, pg);
     const { pos, outer, items } = dotLayout(p);
     const total = S.items.filter(i => i.pileId === p.id).length;
     const fogShare = total === 0 ? 1 : items.length === 0 ? 0 : items.filter(i => !i.homeId || i.homeId === "idk").length / items.length;
     const cleared = total > 0 && items.length === 0;
+    el("circle", { r: outer + 8 * u, fill: "transparent" }, g);   // generous tap target
     if (cleared) {
-      el("circle", { r: 46, fill: "none", stroke: "#6fcf97", "stroke-width": 4, "stroke-dasharray": "8 8", opacity: .7 }, g);
-      const t = el("text", { y: 14, "text-anchor": "middle", fill: "#6fcf97", "font-size": 40 }, g); t.textContent = "✓";
+      el("circle", { r: 46 * u, fill: "none", stroke: "#6fcf97", "stroke-width": 4, "stroke-dasharray": "8 8", opacity: .7 }, g);
+      const t = el("text", { y: 14 * u, "text-anchor": "middle", fill: "#6fcf97", "font-size": 40 * u }, g); t.textContent = "✓";
     } else {
       const cloud = el("g", { filter: "url(#fog)", opacity: Math.max(.12, .12 + fogShare * .62) }, g), h = hash(p.id);
       for (let k = 0; k < 4; k++) el("circle", { cx: ((h >> (k * 3)) % 40) - 20, cy: ((h >> (k * 3 + 5)) % 40) - 20, r: outer * (.62 + k * .1), fill: "#cdd3e6" }, cloud);
       if (total === 0) {
-        el("rect", { x: -30, y: -24, width: 60, height: 48, rx: 8, fill: "#3a3f4d", stroke: "#cdd3e6", "stroke-width": 3 }, g);
-        const q = el("text", { y: 12, "text-anchor": "middle", fill: "#ebe7de", "font-size": 34, "font-weight": 700 }, g); q.textContent = "?";
+        el("rect", { x: -30 * u, y: -24 * u, width: 60 * u, height: 48 * u, rx: 8, fill: "#3a3f4d", stroke: "#cdd3e6", "stroke-width": 3 }, g);
+        const q = el("text", { y: 12 * u, "text-anchor": "middle", fill: "#ebe7de", "font-size": 34 * u, "font-weight": 700 }, g); q.textContent = "?";
       }
     }
     items.forEach(it => {
       const h = homeOf(it.homeId), c = h ? h.color : "#cdd3e6";
-      const dim = mode === "clean" && cleanHome && it.homeId !== cleanHome;
+      const dim = mode === "clean" && cleanHome && it.homeId !== cleanHome || hlKind;
       const hot = mode === "clean" && cleanHome && it.homeId === cleanHome;
-      const d = el("circle", { cx: pos[it.id].x, cy: pos[it.id].y, r: hot ? 17 : 13, fill: c, stroke: h ? "#0008" : "#0009", "stroke-width": 3, opacity: dim ? .15 : 1 }, g);
+      const d = el("circle", { cx: pos[it.id].x, cy: pos[it.id].y, r: (hot ? 17 : 13) * u, fill: c, stroke: "#0009", "stroke-width": 3, opacity: dim ? .15 : 1 }, g);
       if (hot) d.setAttribute("class", "pulse");
       const tt = el("title", {}, d); tt.textContent = it.name + (h ? " → " + h.name : " (no home yet)");
     });
-    const nm = el("text", { y: outer + 34, "text-anchor": "middle", fill: "#ebe7de", "font-size": 30, "font-family": "Georgia,serif", stroke: "#0f1117", "stroke-width": 6, "paint-order": "stroke" }, g);
+    const nm = el("text", { y: outer + 34 * u, "text-anchor": "middle", fill: "#ebe7de", "font-size": 30 * u, "font-family": "Georgia,serif", stroke: "#0f1117", "stroke-width": 6 * u, "paint-order": "stroke" }, g);
     nm.textContent = p.name + (items.length ? " · " + items.length : "");
-    if (sel && sel.type === "pile" && sel.id === p.id) el("circle", { r: outer + 10, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8" }, g);
+    if (sel && sel.type === "pile" && sel.id === p.id) el("circle", { r: outer + 10 * u, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8" }, g);
   });
-  const hint = placing ? "Click the map to drop the pile" : "";
-  svg.style.cursor = placing ? "crosshair" : "";
-  renderProgress(hint);
-}
 
+  // spots: pinned notes with jobs
+  const sg = $("#spots"); sg.innerHTML = "";
+  S.spots.forEach(sp => {
+    const p = spotPos(sp), open = sp.actions.filter(actOpen), k = open[0] ? kindOf(open[0]) : null;
+    const hot = hlKind && open.some(a => a.kind === hlKind), dim = (hlKind && !hot) || (mode === "clean" && cleanHome);
+    const g = el("g", { transform: `translate(${p.x} ${p.y})`, "data-t": "spot", "data-id": sp.id, opacity: dim ? .18 : 1, style: mode === "layout" ? "pointer-events:none" : (mode === "spots" ? "cursor:move" : "cursor:pointer") }, sg);
+    const r = 22 * u * (hot ? 1.25 : 1), c = k ? k.color : (sp.actions.length ? "#6fcf97" : "#98a0b3");
+    const ring = el("circle", { r, fill: "#161922", stroke: c, "stroke-width": 5 * u }, g); if (hot) ring.setAttribute("class", "pulse");
+    const ic = el("text", { y: r * .34, "text-anchor": "middle", "font-size": r * .95, style: "pointer-events:none" }, g);
+    ic.textContent = k ? k.icon : (sp.actions.length ? "✓" : "📝");
+    if (open.length > 1) {
+      el("circle", { cx: r * .8, cy: -r * .8, r: r * .46, fill: c }, g);
+      const b = el("text", { x: r * .8, y: -r * .8 + r * .17, "text-anchor": "middle", "font-size": r * .55, "font-weight": 700, fill: "#10121a", style: "pointer-events:none" }, g); b.textContent = open.length;
+    }
+    const isSel = sel && sel.type === "spot" && sel.id === sp.id;
+    if (isSel) el("circle", { r: r + 10 * u, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8" }, g);
+    if (sp.title && (isSel || scale() > .4)) {
+      const t = el("text", { y: r + 28 * u, "text-anchor": "middle", fill: "#ebe7de", "font-size": 24 * u, "font-family": "system-ui", stroke: "#0f1117", "stroke-width": 5 * u, "paint-order": "stroke", style: "pointer-events:none" }, g); t.textContent = sp.title;
+    }
+  });
+  svg.style.cursor = (placing || placingSpot) ? "crosshair" : "";
+  positionMenu(); renderProgress();
+}
 function renderProgress() {
   const total = S.items.length, done = S.items.filter(i => i.done).length;
   $("#bar").style.width = total ? (100 * done / total) + "%" : "0";
   $("#progtxt").textContent = total ? `${done} of ${total} things put away` : "No things named yet";
 }
 
-/* ---------- map interaction ---------- */
-let drag = null;
+/* ---------- map interaction: tap, drag, pan, pinch ---------- */
+let drag = null, tap = null, pinch = null;
+const ptrs = new Map();
 function pt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+function startPinch() {
+  drag = null; tap = null;
+  const [a, b] = [...ptrs.values()];
+  pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, view0: { ...view }, c0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+}
+function updatePinch() {
+  const [a, b] = [...ptrs.values()]; if (!b) return;
+  const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, r = stageRect(), v0 = pinch.view0;
+  const sx = v0.x + (pinch.c0.x - r.left) * v0.w / r.width, sy = v0.y + (pinch.c0.y - r.top) * v0.h / r.height;
+  const nw = Math.min(3200, Math.max(260, v0.w * pinch.d0 / d));
+  touched = true; view.w = nw; view.x = sx - (c.x - r.left) * nw / r.width; view.y = sy - (c.y - r.top) * nw / r.width;
+  applyView(); renderMap();
+}
 svg.addEventListener("pointerdown", e => {
-  const p = pt(e), t = e.target.closest("[data-t]");
-  const type = t && t.dataset.t, id = t && t.dataset.id;
-  if (mode === "piles" && placing && (!t || type === "bg" || type === "furn")) {
+  try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) { startPinch(); return; }
+  if (ptrs.size > 2) return;
+  const p = pt(e), t = e.target.closest("[data-t]"), type = t && t.dataset.t, id = t && t.dataset.id;
+  tap = { x: e.clientX, y: e.clientY, moved: false, type, id };
+  if (placing && mode === "piles" && (!t || type === "bg" || type === "furn")) {
     const pile = { id: uid(), name: "New pile", x: snap(p.x), y: snap(p.y) };
-    S.piles.push(pile); sel = { type: "pile", id: pile.id }; placing = false; save(); render(); focusName(); return;
+    S.piles.push(pile); sel = { type: "pile", id: pile.id }; placing = false; tap = null; setTimeout(() => $("#sheet").classList.remove("collapsed"), 450); save(); render(); focusId("pname"); return;
+  }
+  if (placingSpot && mode === "spots" && (!t || type === "bg" || type === "furn")) {
+    const sp = { id: uid(), title: "", note: "", x: snap(p.x), y: snap(p.y), furnId: null, dx: 0, dy: 0, actions: [] };
+    attachSpot(sp); S.spots.push(sp); sel = { type: "spot", id: sp.id }; placingSpot = false; tap = null; setTimeout(() => $("#sheet").classList.remove("collapsed"), 450); save(); render(); focusId("stitle"); return;
   }
   const f0 = id && S.furniture.find(x => x.id === id);
   if (type === "resize" && f0) drag = { kind: "resize", f: f0, cx: f0.x + f0.w / 2, cy: f0.y + f0.h / 2 };
   else if (type === "rotate" && f0) drag = { kind: "rotate", f: f0 };
   else if (type === "furn" && mode === "layout") { sel = { type: "furn", id }; drag = { kind: "move", f: f0, dx: p.x - f0.x, dy: p.y - f0.y }; renderPanel(); }
-  else if (type === "pile" && mode === "piles") { const q = S.piles.find(x => x.id === id); sel = { type: "pile", id }; drag = { kind: "pile", q, dx: p.x - q.x, dy: p.y - q.y }; renderPanel(); }
-  else if (mode === "layout" && sel) { sel = null; renderPanel(); }
+  else if (type === "pile" && mode === "piles") { const q = S.piles.find(x => x.id === id); drag = { kind: "pile", q, dx: p.x - q.x, dy: p.y - q.y }; }
+  else if (type === "spot" && mode === "spots") { const q = S.spots.find(x => x.id === id); const sp0 = spotPos(q); drag = { kind: "spot", q, dx: p.x - sp0.x, dy: p.y - sp0.y }; }
+  else if (type === "pile" || type === "spot") { /* a tap opens its menu */ }
+  else drag = { kind: "pan", view0: { ...view } };
   renderMap();
 });
-window.addEventListener("pointermove", e => {
-  if (!drag) return; const p = pt(e);
+svg.addEventListener("pointermove", e => {
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch) { updatePinch(); return; }
+  if (tap && !tap.moved && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap.moved = true;
+  if (!drag) return;
+  const p = pt(e);
+  if (drag.kind === "pan") {
+    if (!tap || !tap.moved) return; const r = stageRect();
+    touched = true; view.x = drag.view0.x - (e.clientX - tap.x) * drag.view0.w / r.width; view.y = drag.view0.y - (e.clientY - tap.y) * drag.view0.w / r.width;
+    applyView(); renderMap(); return;
+  }
   if (drag.kind === "move") { drag.f.x = snap(p.x - drag.dx); drag.f.y = snap(p.y - drag.dy); }
   if (drag.kind === "resize") {
     const f = drag.f, r = (f.rot || 0) * Math.PI / 180, dx = p.x - drag.cx, dy = p.y - drag.cy;
@@ -356,13 +537,124 @@ window.addEventListener("pointermove", e => {
     const m = Math.round(a / 45) * 45; if (Math.abs(a - m) < 6) a = m;
     f.rot = ((Math.round(a / 5) * 5) % 360 + 360) % 360;
   }
-  if (drag.kind === "pile") { drag.q.x = snap(p.x - drag.dx); drag.q.y = snap(p.y - drag.dy); }
+  if (drag.kind === "pile") { if (!tap.moved) return; drag.q.x = snap(p.x - drag.dx); drag.q.y = snap(p.y - drag.dy); }
+  if (drag.kind === "spot") { if (!tap.moved) return; drag.q.furnId = null; drag.q.x = p.x - drag.dx; drag.q.y = p.y - drag.dy; }
   renderMap();
 });
-window.addEventListener("pointerup", () => { if (drag) { drag = null; save(); renderPanel(); } });
+function endPointer(e) {
+  ptrs.delete(e.pointerId);
+  if (pinch) { if (ptrs.size < 2) { pinch = null; drag = null; tap = null; } return; }
+  if (!tap && !drag) return;
+  const wasTap = tap && !tap.moved, d = drag, t = tap; drag = null; tap = null;
+  if (d && d.kind === "spot" && t.moved) { attachSpot(d.q); save(); renderPanel(); renderMap(); }
+  else if (d && (d.kind === "move" || d.kind === "resize" || d.kind === "rotate" || (d.kind === "pile" && t.moved))) { save(); renderPanel(); }
+  if (wasTap && e.type === "pointerup") handleTap(t);
+}
+svg.addEventListener("pointerup", endPointer);
+svg.addEventListener("pointercancel", endPointer);
+function handleTap(t) {
+  if (t.type === "pile") { sel = { type: "pile", id: t.id }; menu = { type: "pile", id: t.id }; renderPanel(); renderMenu(); renderMap(); return; }
+  if (t.type === "spot") {
+    sel = { type: "spot", id: t.id };
+    if (mode === "spots") { menu = null; renderPanel(); renderMenu(); renderMap(); return; }
+    menu = { type: "spot", id: t.id }; renderMenu(); renderMap(); return;
+  }
+  if (t.type === "furn" || t.type === "resize" || t.type === "rotate") return;
+  if (menu) { menu = null; renderMenu(); }
+  if (mode === "layout" && sel) { sel = null; renderPanel(); renderMap(); }
+}
+
+/* ---------- the floating menu (pile contents / spot jobs) ---------- */
+function menuAnchor() {
+  if (!menu) return null;
+  if (menu.type === "pile") { const p = S.piles.find(x => x.id === menu.id); return p && { x: p.x, y: p.y }; }
+  const sp = S.spots.find(x => x.id === menu.id); return sp && spotPos(sp);
+}
+function renderMenu() {
+  const pop = $("#popup");
+  if (!menu || !menuAnchor()) { menu = null; pop.classList.remove("show"); pop.innerHTML = ""; return; }
+  let html = "";
+  if (menu.type === "pile") {
+    const p = S.piles.find(x => x.id === menu.id);
+    const items = S.items.filter(i => i.pileId === p.id && !i.done), total = S.items.filter(i => i.pileId === p.id).length;
+    html = `<div class="pm-head"><b>${esc(p.name)}</b><span class="hint" style="margin:0">${items.length} left</span><button class="small" data-pm="close" aria-label="Close">✕</button></div>`;
+    if (items.length) html += items.map(i => {
+      const h = homeOf(i.homeId), ok = i.homeId && i.homeId !== "idk";
+      return `<div class="pm-item"><span class="sw" style="background:${h ? h.color : "#cdd3e6"}"></span><span>${esc(i.name)}</span>
+        <div class="ctl"><select data-pm="home" data-id="${i.id}">${homeOptions(i.homeId)}</select>
+        <button class="primary" data-pm="done" data-id="${i.id}" ${ok ? "" : "disabled"} title="${ok ? "Put it away" : "Pick a home first"}">Done</button></div></div>`;
+    }).join("");
+    else html += total ? `<p class="good"><b>Everything in this pile is put away ✓</b></p>` : `<p class="hint">This pile is still a closed chest. Type what's in it below.</p>`;
+    html += `<div class="row" style="margin-bottom:0"><input id="pm-add" type="text" placeholder="+ add a thing, then press Enter" enterkeyhint="done"></div>`;
+  } else {
+    const sp = S.spots.find(x => x.id === menu.id);
+    html = `<div class="pm-head"><b>${esc(spotName(sp))}</b><button class="small" data-pm="close" aria-label="Close">✕</button></div>`;
+    if (sp.note) html += `<p class="pm-note">${esc(sp.note)}</p>`;
+    html += sp.actions.length ? sp.actions.map(a => `<div class="act"><span class="ic">${kindOf(a).icon}</span>
+        <span class="nm ${a.done ? "done-txt" : ""}">${esc(actName(a))}<small>${esc(actText(a))}</small></span>
+        ${actOpen(a) ? `<button class="primary" data-pm="adone" data-spot="${sp.id}" data-id="${a.id}">Done</button>` : `<span></span>`}</div>`).join("")
+      : `<p class="hint">No jobs on this spot yet.</p>`;
+    html += `<div class="row" style="margin-bottom:0"><button class="small" data-pm="editspot">Edit this spot</button></div>`;
+  }
+  pop.innerHTML = html; pop.classList.add("show"); positionMenu();
+}
+function positionMenu() {
+  const pop = $("#popup"); if (!menu || !pop.classList.contains("show")) return;
+  if (matchMedia("(max-width:900px)").matches) { pop.style.left = pop.style.top = ""; return; }
+  const a = menuAnchor(); if (!a) return; const r = stageRect();
+  const sx = (a.x - view.x) * r.width / view.w, sy = (a.y - view.y) * r.height / view.h, w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = sx + 50; if (left + w > r.width - 8) left = sx - 50 - w;
+  pop.style.left = Math.max(8, Math.min(r.width - w - 8, left)) + "px";
+  pop.style.top = Math.max(8, Math.min(r.height - h - 8, sy - 40)) + "px";
+}
+$("#popup").addEventListener("click", e => {
+  const b = e.target.closest("[data-pm]"); if (!b) return; const a = b.dataset.pm, id = b.dataset.id;
+  if (a === "close") { menu = null; renderMenu(); return; }
+  if (a === "done") { putAway(id); save(); render(); return; }
+  if (a === "adone") { doAction(b.dataset.spot, id); save(); render(); return; }
+  if (a === "editspot") { sel = { type: "spot", id: menu.id }; menu = null; mode = "spots"; $("#sheet").classList.remove("collapsed"); render(); }
+});
+$("#popup").addEventListener("change", e => {
+  if (e.target.dataset.pm !== "home") return;
+  const it = S.items.find(i => i.id === e.target.dataset.id); if (it) it.homeId = e.target.value || null;
+  save(); render();
+});
+$("#popup").addEventListener("keydown", e => {
+  if (e.key !== "Enter" || e.target.id !== "pm-add") return;
+  const v = e.target.value.trim(); if (!v || !menu) return;
+  v.split("\n").map(s => s.trim()).filter(Boolean).forEach(n => S.items.push({ id: uid(), pileId: menu.id, name: n, homeId: null, done: false }));
+  save(); render(); focusId("pm-add");
+});
+function focusId(id) { const n = document.getElementById(id); if (n) { n.focus(); if (n.select) n.select(); } }
+
+/* ---------- doing things ---------- */
+function fly(from, home) {
+  const u = U(), to = homeCenter(home) || { x: from.x, y: from.y - 90 };
+  const c = el("circle", { cx: from.x, cy: from.y, r: 16 * u, fill: home ? home.color : "#cdd3e6", stroke: "#0008", "stroke-width": 3 }, $("#fx"));
+  const t0 = performance.now(), dur = 700;
+  (function step(t) {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    c.setAttribute("cx", from.x + (to.x - from.x) * e); c.setAttribute("cy", from.y + (to.y - from.y) * e);
+    c.setAttribute("r", 16 * u * (1 - .6 * e)); c.setAttribute("opacity", 1 - .7 * k * k);
+    if (k < 1) requestAnimationFrame(step); else c.remove();
+  })(t0);
+}
+function putAway(id) {
+  const it = S.items.find(i => i.id === id); if (!it) return null;
+  const pile = S.piles.find(p => p.id === it.pileId), h = homeOf(it.homeId);
+  const lay = pile && dotLayout(pile).pos[id];
+  if (lay) fly({ x: pile.x + lay.x, y: pile.y + lay.y }, h);
+  it.done = true; it.doneAt = Date.now(); S.log.push(id);
+  return h;
+}
+function doAction(spotId, aid) {
+  const sp = S.spots.find(x => x.id === spotId), a = sp && sp.actions.find(x => x.id === aid); if (!a) return;
+  a.last = Date.now(); if (!a.every) a.done = true;
+  flash = actName(a) + " done — " + spotName(sp);
+}
 
 /* ---------- panels ---------- */
-const TABS = [["layout","Room"],["piles","Piles"],["sort","Sort"],["clean","Clean"]];
+const TABS = [["layout","Room"],["piles","Piles"],["spots","Spots"],["sort","Sort"],["clean","Clean"]];
 function renderTabs() {
   $("#tabs").innerHTML = TABS.map(([k, n]) => `<button data-tab="${k}" class="${mode === k ? "on" : ""}">${n}</button>`).join("");
 }
@@ -385,7 +677,7 @@ function layoutPanel() {
   return `<h2>Your room</h2>
   <p class="hint">Drag pieces to match your room — or to try a new arrangement. The yellow arrow marks the <b>front</b>. Click a piece for its details.</p>
   <div class="row"><button data-act="addF" data-type="furniture">+ Furniture</button><button data-act="addF" data-type="large">+ Large item</button></div>
-  <label class="chk"><input type="checkbox" data-f="sketch" ${S.showSketch ? "checked" : ""}> Show my sketch faintly underneath</label>
+  ${sketchOK ? `<label class="chk"><input type="checkbox" data-f="sketch" ${S.showSketch ? "checked" : ""}> Show my sketch faintly underneath</label>` : ""}
   ${f ? `<div class="card">
     <label>Name<input data-f="fname" value="${esc(f.name)}"></label>
     <div class="two">
@@ -417,14 +709,17 @@ function layoutPanel() {
     `<label>Pin to a piece<select data-f="hfurn" data-id="${h.id}"><option value="">— not on the map —</option>${placeable.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></label>`}
     ${insideList(h.id)}
   </div>`).join("")}</div>
-  <button data-act="addH">+ Add a home</button>`;
+  <button data-act="addH">+ Add a home</button>
+  <h2 style="margin-top:22px">This layout</h2>
+  <div class="card" style="margin-top:6px"><label>Layout name<input id="lname" data-f="lname" value="${esc((S.layouts.find(l => l.id === S.layoutId) || {}).name)}"></label>
+  ${S.layouts.length > 1 ? `<button class="small danger" data-act="laydel" id="laydel">Delete this layout</button>` : `<p class="hint" style="margin:0">Use “+ New layout” above to copy this one and try a different arrangement.</p>`}</div>`;
 }
 function pilesPanel() {
   const p = sel && sel.type === "pile" && S.piles.find(x => x.id === sel.id);
   const items = p ? S.items.filter(i => i.pileId === p.id && !i.done) : [];
   return `<h2>Piles</h2>
-  <p class="hint">Drop a pile where it sits, then just <b>name</b> what's in it. No deciding yet — naming comes first.</p>
-  <div class="row"><button class="primary" data-act="newPile">${placing ? "Click the map…" : "+ New pile"}</button></div>
+  <p class="hint">Drop a pile where it sits, then just <b>name</b> what's in it. No deciding yet — naming comes first. Tap any pile on the map for a quick menu of what's inside.</p>
+  <div class="row"><button class="primary" data-act="newPile">${placing ? "Tap the map…" : "+ New pile"}</button></div>
   <div class="row">${S.piles.map(q => `<span class="chip ${p && p.id === q.id ? "on" : ""}" data-act="selPile" data-id="${q.id}">${esc(q.name)} <b>${S.items.filter(i => i.pileId === q.id && !i.done).length}</b></span>`).join("")}</div>
   ${p ? `<div class="card">
     <label>Pile name<input id="pname" data-f="pname" value="${esc(p.name)}"></label>
@@ -436,6 +731,28 @@ function pilesPanel() {
       <select data-f="ihome" data-id="${i.id}">${homeOptions(i.homeId)}</select>
       <button class="small danger" data-act="delI" data-id="${i.id}">✕</button></div>`).join("")}</div>
   </div>` : `<p class="hint dim">${S.piles.length ? "Pick a pile above." : "No piles yet."}</p>`}`;
+}
+function spotsPanel() {
+  const sp = sel && sel.type === "spot" && S.spots.find(x => x.id === sel.id);
+  const pinned = sp && sp.furnId && S.furniture.find(f => f.id === sp.furnId);
+  return `<h2>Spots</h2>
+  <p class="hint">Pin a note to a place in the room, then give it jobs — vacuum, dust, spray clean. A spot dropped on a piece sticks to it and moves with it.</p>
+  <div class="row"><button class="primary" data-act="newSpot">${placingSpot ? "Tap the map…" : "+ New spot"}</button></div>
+  <div class="row">${S.spots.map(q => `<span class="chip ${sp && sp.id === q.id ? "on" : ""}" data-act="selSpot" data-id="${q.id}">${esc(spotName(q))} <b>${q.actions.filter(actOpen).length}</b></span>`).join("")}</div>
+  ${sp ? `<div class="card">
+    <label>What is this spot?<input id="stitle" data-f="stitle" value="${esc(sp.title)}" placeholder="Under the bed"></label>
+    <label>Note<textarea class="short" data-f="snote" placeholder="Dust bunnies live here. Needs the long hose.">${esc(sp.note)}</textarea></label>
+    <p class="hint" style="margin:0 0 6px">${pinned ? "Stuck to: <b>" + esc(pinned.name) + "</b>" : "On the floor (not stuck to a piece)"} · drag the pin on the map to move it</p>
+    <div class="hint" style="margin:12px 0 2px"><b>Jobs</b></div>
+    ${sp.actions.map(a => `<div class="act"><span class="ic">${kindOf(a).icon}</span>
+        <span class="nm ${a.done ? "done-txt" : ""}">${esc(actName(a))}<small>${esc(actText(a))}</small></span>
+        <button class="small danger" data-act="adel" data-id="${a.id}" aria-label="Remove job">✕</button>
+        <div class="ctl"><select data-f="aevery" data-id="${a.id}">${EVERY.map(([d, n]) => `<option value="${d}" ${a.every === d ? "selected" : ""}>${n}</option>`).join("")}</select>
+        ${actOpen(a) ? `<button class="primary" data-act="adone" data-spot="${sp.id}" data-id="${a.id}">Done</button>` : (a.done ? `<button data-act="areopen" data-id="${a.id}">Reopen</button>` : `<span class="hint" style="margin:0">resting</span>`)}</div></div>`).join("")}
+    <div class="row">${["vacuum", "dust", "spray", "wipe"].map(k => `<button class="small" data-act="aadd" data-kind="${k}">+ ${KINDS[k].icon} ${KINDS[k].label}</button>`).join("")}</div>
+    <div class="item"><input type="text" id="acustom" placeholder="Something else… (flip the mattress)"><button class="small" data-act="aaddcustom">Add</button></div>
+    <div class="row" style="margin-top:14px"><button class="small danger" data-act="delSpot">Remove this spot</button></div>
+  </div>` : `<p class="hint dim">${S.spots.length ? "Pick a spot above, or tap a pin on the map." : "No spots yet."}</p>`}`;
 }
 function sortQueue() {
   return pending().filter(i => !i.homeId || (revisit && i.homeId === "idk"))
@@ -467,102 +784,121 @@ function cleanPanel() {
   const h = cleanHome && homeOf(cleanHome);
   const list = h ? pending().filter(i => i.homeId === h.id) : [];
   const unsorted = pending().filter(i => !i.homeId).length;
+  const kinds = Object.keys(KINDS).filter(k => S.spots.some(sp => sp.actions.some(a => a.kind === k && actOpen(a))));
+  if (cleanKind && !kinds.includes(cleanKind)) cleanKind = null;
+  const chores = cleanKind ? S.spots.flatMap(sp => sp.actions.filter(a => a.kind === cleanKind && actOpen(a)).map(a => ({ sp, a }))) : [];
+  const countOpen = k => S.spots.reduce((n, sp) => n + sp.actions.filter(a => a.kind === k && actOpen(a)).length, 0);
   return `<h2>Clean trips</h2>
   <p class="hint">Pick one color. Gather everything glowing that color, carry it over, tap it off.</p>
   ${unsorted ? `<p class="hint">${unsorted} thing${unsorted > 1 ? "s haven't" : " hasn't"} been sorted yet — see the Sort tab.</p>` : ""}
   <div class="row">${homes.map(x => `<span class="chip ${cleanHome === x.id ? "on" : ""}" data-act="trip" data-id="${x.id}" style="border-color:${cleanHome === x.id ? "#ebe7de" : x.color}"><span class="sw" style="background:${x.color}"></span>${esc(x.name)} <b>${pending().filter(i => i.homeId === x.id).length}</b></span>`).join("") || `<span class="hint">Nothing is waiting for a trip yet.</span>`}</div>
-  ${flash ? `<p class="good"><b>${esc(flash)}</b></p>` : ""}
   <div class="list">${list.map(i => `<div class="cleanrow"><span class="sw" style="background:${h.color}"></span><div class="nm">${esc(i.name)}<small>${esc((S.piles.find(p => p.id === i.pileId) || {}).name || "")}</small></div>
     <button style="background:${h.color};color:#10121a;border:0" data-act="done" data-id="${i.id}">Done</button></div>`).join("")}</div>
-  ${S.homes.some(h => insideOf(h.id).length) ? `<h2 style="margin-top:20px">Put away</h2>${S.homes.filter(h => insideOf(h.id).length).map(h => `<div class="card" style="margin:6px 0"><div class="item"><span class="sw" style="background:${h.color}"></span><b>${esc(h.name)}</b></div>${insideList(h.id)}</div>`).join("")}` : ""}
+  ${kinds.length ? `<h2 style="margin-top:20px">Chores</h2><p class="hint">Jobs pinned to spots. Pick one kind and the pins glow.</p>
+  <div class="row">${kinds.map(k => `<span class="chip ${cleanKind === k ? "on" : ""}" data-act="kind" data-id="${k}" style="border-color:${cleanKind === k ? "#ebe7de" : KINDS[k].color}">${KINDS[k].icon} ${KINDS[k].label} <b>${countOpen(k)}</b></span>`).join("")}</div>
+  <div class="list">${chores.map(({ sp, a }) => `<div class="cleanrow"><span style="font-size:20px">${kindOf(a).icon}</span><div class="nm">${esc(spotName(sp))}<small>${esc(sp.note ? sp.note.slice(0, 60) : actText(a))}</small></div>
+    <button class="primary" data-act="choredone" data-spot="${sp.id}" data-id="${a.id}">Done</button></div>`).join("")}</div>` : ""}
+  ${flash ? `<p class="good"><b>${esc(flash)}</b></p>` : ""}
+  ${S.homes.some(x => insideOf(x.id).length) ? `<h2 style="margin-top:20px">Put away</h2>${S.homes.filter(x => insideOf(x.id).length).map(x => `<div class="card" style="margin:6px 0"><div class="item"><span class="sw" style="background:${x.color}"></span><b>${esc(x.name)}</b></div>${insideList(x.id)}</div>`).join("")}` : ""}
   ${S.log.length ? `<div class="row"><button class="small" data-act="undo">Undo last</button></div>` : ""}`;
 }
-function renderPanel() {
-  const p = $("#panel");
-  p.innerHTML = { layout: layoutPanel, piles: pilesPanel, sort: sortPanel, clean: cleanPanel }[mode]();
+function footHTML() {
+  return `<div class="foot">Your rooms live in this browser on this device — nothing is sent to a server. To use a room on another device, save a backup here and load it there.
+    <div class="row"><button class="small" data-foot="export">Save backup</button><button class="small" data-foot="import">Load backup</button><button class="small danger" data-foot="reset" id="resetbtn">Start over</button></div></div>`;
 }
-function render() { renderTabs(); renderPanel(); renderBar(); renderMap(); }
-function focusName() { const n = $("#pname"); if (n) { n.focus(); n.select(); } }
+function renderPanel() {
+  $("#panel").innerHTML = { layout: layoutPanel, piles: pilesPanel, spots: spotsPanel, sort: sortPanel, clean: cleanPanel }[mode]() + footHTML();
+}
+function render() { renderTabs(); renderPanel(); renderBar(); renderMenu(); renderMap(); }
 
 /* ---------- panel events ---------- */
 $("#tabs").addEventListener("click", e => {
   const b = e.target.closest("[data-tab]"); if (!b) return;
-  mode = b.dataset.tab; placing = false; flash = "";
+  mode = b.dataset.tab; placing = false; placingSpot = false; flash = ""; $("#sheet").classList.remove("collapsed");
   if (mode === "sort") { const c = sortQueue()[0]; if (c) sel = { type: "pile", id: c.pileId }; }
   render();
 });
-function fly(from, home) {
-  const to = homeCenter(home) || { x: from.x, y: from.y - 90 };
-  const c = el("circle", { cx: from.x, cy: from.y, r: 16, fill: home ? home.color : "#cdd3e6", stroke: "#0008", "stroke-width": 3 }, $("#fx"));
-  const t0 = performance.now(), dur = 700;
-  (function step(t) {
-    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
-    c.setAttribute("cx", from.x + (to.x - from.x) * e); c.setAttribute("cy", from.y + (to.y - from.y) * e);
-    c.setAttribute("r", 16 * (1 - .6 * e)); c.setAttribute("opacity", 1 - .7 * k * k);
-    if (k < 1) requestAnimationFrame(step); else c.remove();
-  })(t0);
-}
+$("#grab").addEventListener("click", () => $("#sheet").classList.toggle("collapsed"));
 $("#panel").addEventListener("click", e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, id = b.dataset.id;
   const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
+  const sp = sel && sel.type === "spot" && S.spots.find(x => x.id === sel.id);
+  if (act === "laydel") {
+    if (!layDelArmed) { layDelArmed = true; b.textContent = "Really delete?"; setTimeout(() => { layDelArmed = false; const d = $("#laydel"); if (d) d.textContent = "Delete this layout"; }, 4000); return; }
+    layDelArmed = false;
+    const rest = S.layouts.filter(l => l.id !== S.layoutId); S.layouts = rest; S.layoutId = rest[0].id; S.furniture = rest[0].furniture; S.prevId = null; sel = null; save(); render(); return;
+  }
   if (act === "addF") { const ty = b.dataset.type, f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: 400, y: 400, w: 120, h: 120, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
   if (act === "makehome" && fu) S.homes.splice(S.homes.length - 1, 0, { id: uid(), name: fu.name, color: nextColor(), furnId: fu.id });
   if (act === "unhome") { S.items.forEach(i => { if (i.homeId === id) i.homeId = null; }); S.homes = S.homes.filter(h => h.id !== id); }
   if (act === "rot90" && fu) fu.rot = ((fu.rot || 0) + 90) % 360;
   if (act === "flip" && fu) fu.face = ((fu.face || 0) + 2) % 4;
   if (act === "turnarrow" && fu) fu.face = ((fu.face || 0) + 1) % 4;
-  if (act === "delF") { S.homes.forEach(h => { if (h.furnId === sel.id) h.furnId = null; }); S.furniture = S.furniture.filter(f => f.id !== sel.id); sel = null; }
+  if (act === "delF") { S.homes.forEach(h => { if (h.furnId === sel.id) h.furnId = null; }); S.furniture = S.furniture.filter(f => f.id !== sel.id); S.spots.forEach(s => { if (s.furnId === sel.id) { s.furnId = null; } }); sel = null; }
   if (act === "addH") S.homes.splice(S.homes.length - 1, 0, { id: uid(), name: "New home", color: "#4dd0c8", furnId: null });
   if (act === "delH") { S.items.forEach(i => { if (i.homeId === id) i.homeId = null; }); S.homes = S.homes.filter(h => h.id !== id); }
-  if (act === "newPile") { placing = !placing; }
+  if (act === "newPile") { placing = !placing; placingSpot = false; }
   if (act === "selPile") { sel = { type: "pile", id }; }
-  if (act === "delPile") { S.items = S.items.filter(i => i.pileId !== sel.id); S.piles = S.piles.filter(p => p.id !== sel.id); sel = null; }
+  if (act === "delPile") { S.items = S.items.filter(i => i.pileId !== sel.id); S.piles = S.piles.filter(p => p.id !== sel.id); if (menu && menu.id === sel.id) menu = null; sel = null; }
   if (act === "unpack") {
     const lines = $("#dump").value.split("\n").map(s => s.trim()).filter(Boolean);
     lines.forEach(n => S.items.push({ id: uid(), pileId: sel.id, name: n, homeId: null, done: false }));
   }
   if (act === "delI") S.items = S.items.filter(i => i.id !== id);
+  if (act === "newSpot") { placingSpot = !placingSpot; placing = false; }
+  if (act === "selSpot") sel = { type: "spot", id };
+  if (act === "delSpot" && sp) { S.spots = S.spots.filter(s => s.id !== sp.id); if (menu && menu.id === sp.id) menu = null; sel = null; }
+  if (act === "aadd" && sp) sp.actions.push({ id: uid(), kind: b.dataset.kind, label: "", every: 0, last: null, done: false });
+  if (act === "aaddcustom" && sp) { const v = $("#acustom").value.trim(); if (v) sp.actions.push({ id: uid(), kind: "other", label: v, every: 0, last: null, done: false }); }
+  if (act === "adel" && sp) sp.actions = sp.actions.filter(a => a.id !== id);
+  if (act === "areopen" && sp) { const a = sp.actions.find(x => x.id === id); if (a) { a.done = false; } }
+  if (act === "adone") { doAction(b.dataset.spot, id); }
+  if (act === "choredone") { doAction(b.dataset.spot, id); }
+  if (act === "kind") { cleanKind = cleanKind === id ? null : id; cleanHome = null; flash = ""; }
   if (act === "home") { const cur = sortQueue()[0]; if (cur) { cur.homeId = id; delete skips[cur.id]; } const nx = sortQueue()[0]; sel = nx ? { type: "pile", id: nx.pileId } : sel; }
   if (act === "skip") { const cur = sortQueue()[0]; if (cur) skips[cur.id] = (skips[cur.id] || 0) + 1; const nx = sortQueue()[0]; if (nx) sel = { type: "pile", id: nx.pileId }; }
   if (act === "revisit") { revisit = true; S.items.forEach(i => { if (i.homeId === "idk") i.homeId = null; }); revisit = false; const nx = sortQueue()[0]; if (nx) sel = { type: "pile", id: nx.pileId }; }
-  if (act === "trip") { cleanHome = cleanHome === id ? null : id; flash = ""; }
+  if (act === "trip") { cleanHome = cleanHome === id ? null : id; cleanKind = null; flash = ""; }
   if (act === "done") {
-    const it = S.items.find(i => i.id === id), pile = S.piles.find(p => p.id === it.pileId), h = homeOf(it.homeId);
-    const lay = dotLayout(pile).pos[id];
-    if (lay) fly({ x: pile.x + lay.x, y: pile.y + lay.y }, h);
-    it.done = true; it.doneAt = Date.now(); S.log.push(id);
-    flash = pending().some(i => i.homeId === h.id) ? "" : h.name + " trip cleared!";
+    const h = putAway(id);
+    flash = h && !pending().some(i => i.homeId === h.id) ? h.name + " trip cleared!" : "";
   }
   if (act === "takeout") { const it = S.items.find(i => i.id === id); if (it) { it.done = false; S.log = S.log.filter(x => x !== id); } flash = ""; }
   if (act === "undo") { const last = S.log.pop(); const it = S.items.find(i => i.id === last); if (it) it.done = false; flash = ""; }
   save(); render();
-  if (act === "newPile") { /* wait for map click */ }
   if (act === "unpack") { const d = $("#dump"); if (d) d.focus(); }
+  if (act === "aaddcustom") focusId("acustom");
 });
 $("#panel").addEventListener("input", e => {
   const f = e.target.dataset.f, id = e.target.dataset.id, v = e.target.value;
   const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
   const pl = sel && sel.type === "pile" && S.piles.find(x => x.id === sel.id);
+  const sp = sel && sel.type === "spot" && S.spots.find(x => x.id === sel.id);
   if (f === "fname" && fu) { fu.name = v; S.homes.forEach(h => { if (h.furnId === fu.id) { h.name = v; document.querySelectorAll('[data-f=hname]').forEach(n => { if (n.dataset.id === h.id) n.value = v; }); } }); }
   else if (f === "fw" && fu) { const c = fu.x + fu.w / 2; fu.w = Math.max(30, +v || 30); fu.x = c - fu.w / 2; }
   else if (f === "fh" && fu) { const c = fu.y + fu.h / 2; fu.h = Math.max(30, +v || 30); fu.y = c - fu.h / 2; }
   else if (f === "frot" && fu) fu.rot = (((+v || 0) % 360) + 360) % 360;
   else if (f === "pname" && pl) pl.name = v;
+  else if (f === "lname") { const cur = S.layouts.find(l => l.id === S.layoutId); if (cur) { cur.name = v; const n = document.querySelector(".lay.on .nm"); if (n) n.textContent = v; } }
+  else if (f === "stitle" && sp) sp.title = v;
+  else if (f === "snote" && sp) sp.note = v;
   else if (f === "iname") { const it = S.items.find(i => i.id === id); if (it) it.name = v; }
   else if (f === "hname") { const h = homeOf(id); if (h) h.name = v; }
   else if (f === "hcolor") { const h = homeOf(id); if (h) h.color = v; }
   else return;
-  save(); renderMap();
+  save(); renderMap(); if (menu) renderMenu();
 });
 $("#panel").addEventListener("change", e => {
   const f = e.target.dataset.f, id = e.target.dataset.id, v = e.target.value;
+  const sp = sel && sel.type === "spot" && S.spots.find(x => x.id === sel.id);
   if (f === "sketch") S.showSketch = e.target.checked;
   else if (f === "fshape") S.furniture.find(x => x.id === sel.id).shape = v;
   else if (f === "ftype") S.furniture.find(x => x.id === sel.id).type = v;
   else if (f === "flock") S.furniture.find(x => x.id === sel.id).locked = e.target.checked;
   else if (f === "ihome") { const it = S.items.find(i => i.id === id); it.homeId = v || null; }
   else if (f === "hfurn") homeOf(id).furnId = v || null;
+  else if (f === "aevery" && sp) { const a = sp.actions.find(x => x.id === id); if (a) { a.every = +v; if (a.every) a.done = false; } }
   else return;
   save(); render();
 });
@@ -570,7 +906,7 @@ $("#panel").addEventListener("change", e => {
 /* ---------- layouts ---------- */
 const otherLayout = () => S.layouts.find(l => l.id === S.prevId && l.id !== S.layoutId) || S.layouts.find(l => l.id !== S.layoutId);
 const sameSpot = (a, b) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && (a.rot || 0) === (b.rot || 0);
-function renderGhost() {
+function renderGhost(u = 1) {
   const g = $("#ghost"); g.innerHTML = ""; let moved = 0; const o = otherLayout();
   if (o) o.furniture.forEach(of => {
     if (of.kind === "post" || of.kind === "window") return;
@@ -584,17 +920,15 @@ function renderGhost() {
     if (of.shape === "ellipse") el("ellipse", { rx: of.w / 2, ry: of.h / 2, ...st }, og);
     else el("rect", { x: -of.w / 2, y: -of.h / 2, width: of.w, height: of.h, rx: 10, ...st }, og);
     if (cur) el("line", { x1: cx, y1: cy, x2: cur.x + cur.w / 2, y2: cur.y + cur.h / 2, stroke: "#f2b84b", "stroke-width": 3, opacity: .5, "stroke-dasharray": "2 9", "stroke-linecap": "round" }, g);
-    const t = el("text", { x: cx, y: cy + 8, "text-anchor": "middle", fill: "#f2b84b", "font-size": 24, opacity: .7 }, g); t.textContent = of.name;
+    const t = el("text", { x: cx, y: cy + 8, "text-anchor": "middle", fill: "#f2b84b", "font-size": 24 * Math.min(u, 1.6), opacity: .7 }, g); t.textContent = of.name;
   });
   const m = $("#moved"); if (m) m.textContent = o ? `${moved} piece${moved === 1 ? "" : "s"} sit differently than in “${o.name}”` : "";
 }
 function renderBar() {
-  const L = S.layouts, cur = L.find(l => l.id === S.layoutId), o = otherLayout();
+  const L = S.layouts, o = otherLayout();
   $("#layoutbar").innerHTML = `<div class="lays">${L.map((l, i) => `<button class="lay ${l.id === S.layoutId ? "on" : ""}" data-lay="${l.id}"><kbd>${i + 1}</kbd> <span class="nm">${esc(l.name)}</span></button>`).join("")}
     <button class="small" data-lay-act="new" title="Copy this layout so you can try changes">+ New layout</button></div>
-    <div class="laytools"><input type="text" id="layname" value="${esc(cur.name)}" aria-label="Layout name">
-    ${o ? `<label class="chk"><input type="checkbox" id="ghostchk" ${S.ghost ? "checked" : ""}> Ghost of “${esc(o.name)}” <kbd>G</kbd></label>` : ""}
-    ${L.length > 1 ? `<button class="small danger" data-lay-act="del" id="laydel">Delete layout</button>` : ""}
+    <div class="laytools">${o ? `<label class="chk"><input type="checkbox" id="ghostchk" ${S.ghost ? "checked" : ""}> Ghost of “${esc(o.name)}” <kbd>G</kbd></label>` : ""}
     <span id="moved" class="hint" style="margin:0"></span></div>`;
 }
 function switchLayout(id) {
@@ -608,25 +942,14 @@ $("#layoutbar").addEventListener("click", e => {
   if (a.dataset.layAct === "new") {
     syncLayout();
     const nl = { id: uid(), name: "Layout " + (S.layouts.length + 1), furniture: JSON.parse(JSON.stringify(S.furniture)) };
-    S.layouts.push(nl); switchLayout(nl.id); S.ghost = true; save(); render();
-    const n = $("#layname"); if (n) { n.focus(); n.select(); }
+    S.layouts.push(nl); switchLayout(nl.id); S.ghost = true; mode = "layout"; save(); render(); focusId("lname");
   }
-  if (a.dataset.layAct === "del") {
-    if (!layDelArmed) { layDelArmed = true; a.textContent = "Really delete?"; setTimeout(() => { layDelArmed = false; const b = $("#laydel"); if (b) b.textContent = "Delete layout"; }, 4000); return; }
-    layDelArmed = false;
-    const rest = S.layouts.filter(l => l.id !== S.layoutId); S.layouts = rest; S.layoutId = rest[0].id; S.furniture = rest[0].furniture; S.prevId = null; sel = null; save(); render();
-  }
-});
-$("#layoutbar").addEventListener("input", e => {
-  if (e.target.id !== "layname") return;
-  const cur = S.layouts.find(l => l.id === S.layoutId); cur.name = e.target.value;
-  const n = document.querySelector(".lay.on .nm"); if (n) n.textContent = e.target.value; save();
 });
 $("#layoutbar").addEventListener("change", e => {
   if (e.target.id === "ghostchk") { S.ghost = e.target.checked; save(); e.target.blur(); renderMap(); }
-  if (e.target.id === "layname") { renderBar(); renderMap(); }
 });
 document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && menu) { menu = null; renderMenu(); return; }
   if (e.target.matches && e.target.matches("input,textarea,select") || e.ctrlKey || e.metaKey || e.altKey) return;
   const n = +e.key; if (n >= 1 && n <= S.layouts.length) switchLayout(S.layouts[n - 1].id);
   if (e.key === "g" || e.key === "G") { if (otherLayout()) { S.ghost = !S.ghost; save(); render(); } }
@@ -634,25 +957,27 @@ document.addEventListener("keydown", e => {
 
 /* ---------- backup / reset ---------- */
 let resetArmed = false;
-document.querySelector("footer").addEventListener("click", e => {
-  const b = e.target.closest("[data-act]"); if (!b) return;
-  if (b.dataset.act === "export") {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
-    a.download = "room-quest-backup.json"; a.click();
+$("#panel").addEventListener("click", e => {
+  const b = e.target.closest("[data-foot]"); if (!b) return; const a = b.dataset.foot;
+  if (a === "export") {
+    syncLayout();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
+    link.download = "room-quest-backup.json"; link.click();
   }
-  if (b.dataset.act === "import") $("#file").click();
-  if (b.dataset.act === "reset") {
-    if (!resetArmed) { resetArmed = true; b.textContent = "Really start over?"; setTimeout(() => { resetArmed = false; b.textContent = "Start over"; }, 4000); return; }
-    S = defaults(); migrate(); sel = null; cleanHome = null; save(); resetArmed = false; b.textContent = "Start over"; render();
+  if (a === "import") $("#file").click();
+  if (a === "reset") {
+    if (!resetArmed) { resetArmed = true; b.textContent = "Really start over?"; setTimeout(() => { resetArmed = false; const r = $("#resetbtn"); if (r) r.textContent = "Start over"; }, 4000); return; }
+    S = defaults(); migrate(); sel = null; menu = null; cleanHome = null; cleanKind = null; save(); resetArmed = false; render(); fitView(); renderMap();
   }
 });
 $("#file").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) return;
-  f.text().then(t => { try { S = JSON.parse(t); migrate(); save(); sel = null; render(); } catch (err) { alert("That file didn't look like a backup."); } });
+  f.text().then(t => { try { S = JSON.parse(t); migrate(); save(); sel = null; menu = null; render(); } catch (err) { alert("That file didn't look like a backup."); } });
+  e.target.value = "";
 });
 
-drawWalls(); render();
+drawWalls(); fitView(); render();
 </script>
 </body>
 </html>
