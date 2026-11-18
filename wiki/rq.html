@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Room Quest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1b1e27">
 <title>Room Quest</title>
@@ -13,6 +15,7 @@
   --accent:#f2b84b; --danger:#e5707e; --furn:#262b39; --furn-line:#5b6482;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:#13151b}
 html,body{height:100%;margin:0;overscroll-behavior:none}
 body{height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;-webkit-text-size-adjust:100%}
 header{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);padding-top:max(10px,env(safe-area-inset-top))}
@@ -129,11 +132,41 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
   #popup{position:fixed;left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none;max-height:58vh}
   .zoomctl{bottom:8px;right:8px}
 }
+/* undo bar */
+.undo{display:flex;gap:6px;align-items:stretch}
+.ubtn{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:4px 12px;min-width:44px;line-height:1.15;font-weight:700}
+.ubtn small{font:11px system-ui;color:var(--mute);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}
+.ubtn.r{align-items:center;font-size:18px}
+.ubtn.r b{font:600 11px system-ui;color:var(--mute)}
+.ubtn:not(:disabled){border-color:var(--accent)}
+#undoBtn:not(:disabled){color:var(--accent)}
+#history{position:fixed;z-index:60;left:12px;width:min(380px,calc(100vw - 24px));max-height:60vh;overflow:auto;background:var(--panel);border:1px solid var(--furn-line);border-radius:14px;box-shadow:0 12px 40px #000a;padding:12px;display:none}
+#history.show{display:block}
+#history .hh{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+#history .hh b{font:600 16px Georgia,serif}
+#history .hrow{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;margin:4px 0}
+#history .hrow small{color:var(--mute);white-space:nowrap}
+#toast{position:fixed;z-index:70;left:50%;transform:translateX(-50%);top:calc(70px + env(safe-area-inset-top,0px));display:none;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;background:#2b3046;border:1px solid var(--accent);border-radius:999px;box-shadow:0 8px 28px #000a}
+#toast.show{display:flex}
+#toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:900px){
+  header{flex-wrap:wrap;row-gap:6px}
+  .prog{order:5;flex-basis:100%;max-width:none;margin-left:0}
+  .prog span{display:none}
+  .prog .bar{height:6px}
+  .ubtn small{max-width:92px}
+  .undo{margin-left:auto}
+}
 </style>
 </head>
 <body>
 <header>
   <h1>Room Quest<small>name it · give it a home · clear the fog</small></h1>
+  <div class="undo" id="undobar">
+    <button id="undoBtn" class="ubtn" title="Undo (Ctrl+Z)" disabled><span>↶ Undo</span><small id="undoLabel">nothing yet</small></button>
+    <button id="redoBtn" class="ubtn r" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
+    <button id="histBtn" class="ubtn r" title="Recent changes" aria-label="Recent changes" disabled>🕘<b id="histN"></b></button>
+  </div>
   <div class="prog"><div class="bar"><i id="bar"></i></div><span id="progtxt"></span></div>
 </header>
 <main>
@@ -170,6 +203,8 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
   </aside>
 </main>
 <input type="file" id="file" accept=".json,application/json" hidden>
+<div id="history" role="dialog" aria-label="Recent changes"></div>
+<div id="toast" role="status"></div>
 
 <script>
 "use strict";
@@ -191,9 +226,9 @@ const EVERY = [[0, "Once"], [7, "Weekly"], [14, "Every 2 weeks"], [30, "Monthly"
 
 /* ---------- starting data, traced from the sketch ---------- */
 function defaults() {
-  const F = (name, x, y, w, h, shape = "rect", kind = "furn") => ({ id: uid(), name, x, y, w, h, shape, kind, type: "furniture", rot: 0, face: 0, locked: false });
+  const F = (name, x, y, w, h, shape = "rect", kind = "furn") => ({ id: uid(), name, x, y, w, h, shape, kind, type: "furniture", rot: 0, face: 0, locked: false, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 });
   const furniture = [
-    F("Lofted bed", 690, 615, 940, 515, "rect", "loft"),
+    F("Lofted bed", 690, 615, 940, 515, "rect", "furn"),
     F("Closet", 990, 200, 700, 270, "rect", "closet"),
     F("Desk + computer", 820, 570, 500, 250),
     F("Bean bag", 790, 870, 340, 340, "ellipse"),
@@ -210,6 +245,7 @@ function defaults() {
   ];
   [[715,655],[1585,625],[715,1125],[1620,1110],[1165,870]].forEach((p, i) =>
     furniture.push(F("Post " + (i + 1), p[0] - 36, p[1] - 36, 72, 72, "ellipse", "post")));
+  furniture[0].level = "over";
   const byName = n => furniture.find(f => f.name === n).id;
   const homes = [
     { id: "closet", name: "Closet", color: "#5b9cf6", furnId: byName("Closet") },
@@ -227,13 +263,112 @@ function save() { syncLayout(); try { const c = { ...S }; delete c.furniture; lo
 function migrate() {
   if (!S.layouts) { S.layouts = [{ id: uid(), name: "Current room", furniture: S.furniture }]; S.layoutId = S.layouts[0].id; }
   const L = S.layouts.find(l => l.id === S.layoutId) || S.layouts[0]; S.layoutId = L.id; S.furniture = L.furniture;
-  S.layouts.forEach(l => l.furniture.forEach(f => { if (f.type == null) f.type = "furniture"; if (f.rot == null) f.rot = 0; if (f.face == null) f.face = 0; if (f.locked == null) f.locked = false; }));
+  S.layouts.forEach(l => l.furniture.forEach(f => { if (f.type == null) f.type = "furniture"; if (f.rot == null) f.rot = 0; if (f.face == null) f.face = 0; if (f.locked == null) f.locked = false;
+    if (f.kind === "loft") { f.kind = "furn"; if (!f.level) f.level = "over"; }
+    if (!f.level || f.kind === "post" || f.kind === "window") f.level = "floor";
+    if (f.level !== "on") f.onId = null; else { f.odx = f.odx || 0; f.ody = f.ody || 0; f.orot = f.orot || 0; if (f.onId === undefined) f.onId = null; } }));
   if (!S.spots) S.spots = [];
   S.spots.forEach(sp => { if (!sp.actions) sp.actions = []; if (sp.note == null) sp.note = ""; if (sp.title == null) sp.title = ""; });
 }
 migrate();
 const PALETTE = ["#5b9cf6","#6fcf97","#b58cf0","#f2b84b","#e5707e","#4dd0c8","#f08a4b","#d36fd0","#a3d65c","#6fa8dc"];
 const nextColor = () => PALETTE.find(c => !S.homes.some(h => h.color.toLowerCase() === c)) || PALETTE[Math.floor(Math.random() * PALETTE.length)];
+
+/* ---------- undo / redo ----------
+   Every change is compared against a snapshot taken just before it. If something really changed, it goes on the list. */
+const UKEY = "roomquest.undo.v1";
+let undoStack = [], redoStack = [], pre = null, typing = null, dragBefore = null, histOpen = false, toastT = 0, persistT = 0;
+try { const r = JSON.parse(localStorage.getItem(UKEY) || "[]"); if (Array.isArray(r)) undoStack = r.filter(e => e && typeof e.before === "string" && e.label).slice(-40); } catch (e) {}
+function snapshot() { syncLayout(); const c = { ...S }; delete c.furniture; return JSON.stringify(c); }
+function flushUndo() { for (const n of [10, 5, 2, 0]) { try { localStorage.setItem(UKEY, JSON.stringify(undoStack.slice(-n))); return; } catch (e) {} } }
+function persistUndo() { clearTimeout(persistT); persistT = setTimeout(flushUndo, 700); }
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushUndo(); });
+function pushUndo(label, before, quiet) {
+  if (snapshot() === before) return false;
+  undoStack.push({ label, before, lay: S.layoutId, t: Date.now() }); if (undoStack.length > 40) undoStack.shift();
+  redoStack = []; persistUndo(); renderUndo(); if (!quiet) toast(label, "undo"); return true;
+}
+function flushTyping() { if (typing) { const t = typing; typing = null; pushUndo(t.label, t.before, true); } }
+function commitUndo() { if (pre) { const p = pre; pre = null; pushUndo(p.label, p.before); } }
+function restore(str, lay) {
+  const keep = { layoutId: S.layoutId, prevId: S.prevId, ghost: S.ghost, showSketch: S.showSketch };
+  S = JSON.parse(str); migrate();
+  const has = id => id && S.layouts.some(l => l.id === id);
+  const want = has(lay) ? lay : has(S.layoutId) ? S.layoutId : S.layouts[0].id;
+  const L = S.layouts.find(l => l.id === want); S.layoutId = L.id; S.furniture = L.furniture;
+  S.prevId = has(keep.prevId) && keep.prevId !== S.layoutId ? keep.prevId : null; S.ghost = keep.ghost; S.showSketch = keep.showSketch;
+  if (sel && !({ furn: S.furniture, pile: S.piles, spot: S.spots }[sel.type] || []).some(x => x.id === sel.id)) sel = null;
+  placing = false; placingSpot = false; drag = null; tap = null;
+  save(); render();
+}
+function undoOnce(quiet) {
+  flushTyping(); const e = undoStack.pop(); if (!e) return false;
+  const cur = snapshot(); restore(e.before, e.lay);
+  redoStack.push({ label: e.label, after: cur, lay: e.lay, t: e.t }); persistUndo(); renderUndo();
+  if (!quiet) toast("Undid: " + e.label, "redo"); return true;
+}
+function redoOnce() {
+  flushTyping(); const e = redoStack.pop(); if (!e) return;
+  const cur = snapshot(); restore(e.after, e.lay);
+  undoStack.push({ label: e.label, before: cur, lay: e.lay, t: e.t }); persistUndo(); renderUndo();
+  toast("Redid: " + e.label, "undo");
+}
+function undoTo(k) { const n = k + 1, label = undoStack[undoStack.length - n] && undoStack[undoStack.length - n].label; for (let i = 0; i < n; i++) undoOnce(true); toast(n > 1 ? `Went back ${n} changes (to before “${label}”)` : "Undid: " + label, "redo"); }
+function toast(msg, kind) {
+  const t = $("#toast"); t.innerHTML = `<span>${esc(msg)}</span><button class="small" data-tk="${kind}">${kind === "undo" ? "Undo" : "Redo"}</button>`;
+  t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 6000);
+}
+const agoShort = t => { if (!t) return ""; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
+function renderHist() {
+  const h = $("#history"); h.style.top = ($("header").getBoundingClientRect().bottom + 6) + "px";
+  h.innerHTML = `<div class="hh"><b>Recent changes</b><button class="small" data-h="close" aria-label="Close">✕</button></div>
+    <p class="hint" style="margin:0 0 6px">Tap a change to go back to just before it.</p>` +
+    undoStack.slice().reverse().map((e, k) => `<button class="hrow" data-h="${k}"><span>↶ ${esc(e.label)}</span><small>${agoShort(e.t)}</small></button>`).join("");
+}
+function setHist(on) { histOpen = on && undoStack.length > 0; $("#history").classList.toggle("show", histOpen); if (histOpen) renderHist(); }
+function renderUndo() {
+  const top = undoStack[undoStack.length - 1];
+  $("#undoBtn").disabled = !top; $("#redoBtn").disabled = !redoStack.length; $("#histBtn").disabled = !undoStack.length;
+  $("#undoLabel").textContent = top ? top.label : "nothing yet"; $("#undoBtn").title = top ? "Undo: " + top.label + " (Ctrl+Z)" : "Nothing to undo yet";
+  $("#histN").textContent = undoStack.length ? undoStack.length : "";
+  if (histOpen) { if (undoStack.length) renderHist(); else setHist(false); }
+}
+$("#undoBtn").addEventListener("click", () => undoOnce());
+$("#redoBtn").addEventListener("click", redoOnce);
+$("#histBtn").addEventListener("click", () => setHist(!histOpen));
+$("#history").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (!b) return; if (b.dataset.h === "close") return setHist(false); undoTo(+b.dataset.h); setHist(false); });
+$("#toast").addEventListener("click", e => { const b = e.target.closest("[data-tk]"); if (!b) return; $("#toast").classList.remove("show"); b.dataset.tk === "undo" ? undoOnce() : redoOnce(); });
+document.addEventListener("click", e => { commitUndo(); if (histOpen && !e.target.closest("#history,#histBtn")) setHist(false); });
+document.addEventListener("change", () => { flushTyping(); commitUndo(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && histOpen) { setHist(false); return; }
+  if (e.key === "Enter") commitUndo();
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || (e.target.matches && e.target.matches("input,textarea,select"))) return;
+  const k = e.key.toLowerCase();
+  if (k === "z" && !e.shiftKey) { e.preventDefault(); undoOnce(); } else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redoOnce(); }
+});
+document.addEventListener("focusout", e => { if (e.target.matches && e.target.matches("input,textarea")) flushTyping(); });
+/* arm a snapshot just before the existing handlers run (capture phase); it is committed after they finish */
+const ACT_LBL = { addF: "Add piece", makehome: "Make a home", unhome: "Remove home", rot90: "Turn 90°", flip: "Flip front/back", turnarrow: "Turn arrow", delF: "Remove piece",
+  addH: "Add home", delH: "Delete home", delPile: "Remove pile", unpack: "Unpack things", delI: "Remove thing", delSpot: "Remove spot", aadd: "Add job", aaddcustom: "Add job",
+  adel: "Remove job", areopen: "Reopen job", adone: "Job done", choredone: "Job done", home: "Pick a home", revisit: "Re-sort “not sure” things", done: "Put away",
+  takeout: "Take out", laydel: "Delete layout" };
+const FOOT_LBL = { reset: "Start over", import: "Load backup", export: "Save backup" };
+const FIELD_LBL = { fname: "Rename piece", fw: "Piece width", fh: "Piece height", frot: "Piece angle", pname: "Rename pile", lname: "Rename layout", stitle: "Spot title", snote: "Spot note",
+  iname: "Rename thing", hname: "Rename home", hcolor: "Home color", sketch: "Sketch on/off", fshape: "Piece shape", ftype: "Piece type", flock: "Lock size", ihome: "Change home",
+  hfurn: "Pin home to piece", aevery: "Job repeat", flevel: "Piece level", fon: "Sits on…", pickf: "" };
+const POP_LBL = { done: "Put away", adone: "Job done", editspot: "" };
+$("#panel").addEventListener("click", e => { flushTyping(); const b = e.target.closest("[data-act],[data-foot]"); if (b) pre = { before: snapshot(), label: b.dataset.foot ? (FOOT_LBL[b.dataset.foot] || "Change") : (ACT_LBL[b.dataset.act] || "Change") }; }, true);
+$("#panel").addEventListener("input", e => {
+  const t = e.target; if (!t.matches("input:not([type=checkbox]),textarea")) return;
+  const key = (t.dataset.f || t.id || "") + (t.dataset.id || ""); if (typing && typing.key !== key) flushTyping();
+  if (!typing) typing = { key, before: snapshot(), label: FIELD_LBL[t.dataset.f] || "Edit text" };
+}, true);
+$("#panel").addEventListener("change", e => { flushTyping(); if (e.target.matches("select,input[type=checkbox]")) pre = { before: snapshot(), label: FIELD_LBL[e.target.dataset.f] || "Change" }; }, true);
+$("#popup").addEventListener("click", e => { const b = e.target.closest("[data-pm]"); if (b) pre = { before: snapshot(), label: POP_LBL[b.dataset.pm] || "Change" }; }, true);
+$("#popup").addEventListener("change", e => { pre = { before: snapshot(), label: "Change home" }; }, true);
+$("#popup").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "pm-add") pre = { before: snapshot(), label: "Add things to pile" }; }, true);
+$("#layoutbar").addEventListener("click", e => { if (e.target.closest("[data-lay-act]")) pre = { before: snapshot(), label: "New layout" }; }, true);
 
 /* ---------- UI state ---------- */
 let mode = "layout";            // layout | piles | spots | sort | clean
@@ -338,18 +473,49 @@ function spotPos(sp) {
   const f = sp.furnId && S.furniture.find(x => x.id === sp.furnId);
   return f ? rotPt(f, sp.dx || 0, sp.dy || 0) : { x: sp.x, y: sp.y };
 }
+/* ---------- levels: on the floor, raised (floor free beneath, like a loft), or sitting on another piece ---------- */
+const lvl = f => f.level || "floor";
+const lvRank = f => ({ over: 0, floor: 1, on: 2 }[lvl(f)] ?? 1);
+const drawOrder = () => S.furniture.slice().sort((a, b) => lvRank(a) - lvRank(b));
+function localIn(f, x, y) {
+  const r = -(f.rot || 0) * Math.PI / 180, dx = x - (f.x + f.w / 2), dy = y - (f.y + f.h / 2);
+  const lx = dx * Math.cos(r) - dy * Math.sin(r), ly = dx * Math.sin(r) + dy * Math.cos(r);
+  const ok = f.shape === "ellipse" ? (lx * lx) / ((f.w / 2) ** 2) + (ly * ly) / ((f.h / 2) ** 2) <= 1 : Math.abs(lx) <= f.w / 2 && Math.abs(ly) <= f.h / 2;
+  return { lx, ly, ok };
+}
+function isDesc(p, f) { let c = p, n = 0; while (c && c.onId && n++ < 12) { if (c.onId === f.id) return true; c = S.furniture.find(x => x.id === c.onId); } return false; }
+function findParent(f) {
+  const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
+  return drawOrder().reverse().find(p => p !== f && p.kind !== "post" && p.kind !== "window" && !isDesc(p, f) && localIn(p, cx, cy).ok) || null;
+}
+function attachRider(f, keep) {       // remember where a sitting-on piece is relative to what it sits on
+  let p = f.onId && S.furniture.find(x => x.id === f.onId);
+  if (p && !(keep || localIn(p, f.x + f.w / 2, f.y + f.h / 2).ok)) p = null;
+  if (!p) p = findParent(f);
+  if (!p) { f.onId = null; return; }
+  const q = localIn(p, f.x + f.w / 2, f.y + f.h / 2);
+  f.onId = p.id; f.odx = q.lx; f.ody = q.ly; f.orot = (((f.rot || 0) - (p.rot || 0)) % 360 + 360) % 360;
+}
+function applyRiders() {              // riders follow whatever they sit on
+  for (let pass = 0; pass < 3; pass++) S.furniture.forEach(f => {
+    if (lvl(f) !== "on" || !f.onId) return;
+    if (drag && drag.f === f && (drag.kind === "move" || drag.kind === "resize" || drag.kind === "rotate")) return;
+    const p = S.furniture.find(x => x.id === f.onId); if (!p || p === f) { f.onId = null; return; }
+    const c = rotPt(p, f.odx || 0, f.ody || 0); f.x = c.x - f.w / 2; f.y = c.y - f.h / 2; f.rot = (((p.rot || 0) + (f.orot || 0)) % 360 + 360) % 360;
+  });
+}
 function attachSpot(sp) {     // a spot dropped on a piece sticks to it and follows it around
   sp.furnId = null;
-  for (let i = S.furniture.length - 1; i >= 0; i--) {
-    const f = S.furniture[i]; if (f.kind === "loft" || f.kind === "post" || f.kind === "window") continue;
-    const r = -(f.rot || 0) * Math.PI / 180, dx = sp.x - (f.x + f.w / 2), dy = sp.y - (f.y + f.h / 2);
-    const lx = dx * Math.cos(r) - dy * Math.sin(r), ly = dx * Math.sin(r) + dy * Math.cos(r);
-    const inside = f.shape === "ellipse" ? (lx * lx) / ((f.w / 2) ** 2) + (ly * ly) / ((f.h / 2) ** 2) <= 1 : Math.abs(lx) <= f.w / 2 && Math.abs(ly) <= f.h / 2;
-    if (inside) { sp.furnId = f.id; sp.dx = lx; sp.dy = ly; return; }
+  const ord = drawOrder();
+  for (let i = ord.length - 1; i >= 0; i--) {
+    const f = ord[i]; if (lvl(f) === "over" || f.kind === "post" || f.kind === "window") continue;
+    const q = localIn(f, sp.x, sp.y);
+    if (q.ok) { sp.furnId = f.id; sp.dx = q.lx; sp.dy = q.ly; return; }
   }
 }
 
 function renderMap() {
+  applyRiders();
   const u = U(), bu = Math.min(u, 1.8), showSk = S.showSketch && sketchOK;
   $("#sketch").setAttribute("display", showSk ? "" : "none");
   const dl = $("#doorlabel"); if (dl) dl.setAttribute("display", showSk ? "none" : "");
@@ -357,16 +523,21 @@ function renderMap() {
   const fg = $("#furn"); fg.innerHTML = "";
   const hl = mode === "clean" && cleanHome ? homeOf(cleanHome) : null;
   const hlKind = mode === "clean" && cleanKind ? cleanKind : null;
-  S.furniture.forEach(f => {
-    const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
+  drawOrder().forEach(f => {
+    const cx = f.x + f.w / 2, cy = f.y + f.h / 2, lv = lvl(f);
     const g = el("g", { "data-t": "furn", "data-id": f.id, transform: `translate(${cx} ${cy}) rotate(${f.rot || 0})`, style: mode === "layout" ? "cursor:move" : "pointer-events:none" }, fg);
-    const loft = f.kind === "loft", post = f.kind === "post", win = f.kind === "window", large = f.type === "large";
+    const over = lv === "over", on = lv === "on", post = f.kind === "post", win = f.kind === "window", large = f.type === "large";
     const style = {
-      fill: loft ? "#c9c98a" : win ? "#3c6f78" : post ? "#1b1e27" : large ? "#2d2a3d" : "#262b39",
-      "fill-opacity": loft ? .13 : 1,
-      stroke: loft ? "#c9c98a" : win ? "#6aa9b4" : large ? "#9a8fd0" : "#5b6482",
-      "stroke-width": 4, "stroke-dasharray": loft ? "16 10" : large ? "12 7" : ""
+      fill: over ? "#c9c98a" : win ? "#3c6f78" : post ? "#1b1e27" : on ? "#333b55" : large ? "#2d2a3d" : "#262b39",
+      "fill-opacity": over ? .13 : 1,
+      stroke: over ? "#c9c98a" : win ? "#6aa9b4" : on ? "#a9b8ea" : large ? "#9a8fd0" : "#5b6482",
+      "stroke-width": 4, "stroke-dasharray": over ? "16 10" : large ? "12 7" : ""
     };
+    if (on) {   // a soft shadow so it reads as sitting on top
+      const sh = { fill: "#000", opacity: .35, style: "pointer-events:none" };
+      if (f.shape === "ellipse") el("ellipse", { cx: 7, cy: 9, rx: f.w / 2, ry: f.h / 2, ...sh }, g);
+      else el("rect", { x: -f.w / 2 + 7, y: -f.h / 2 + 9, width: f.w, height: f.h, rx: 10, ...sh }, g);
+    }
     if (f.shape === "ellipse") el("ellipse", { cx: 0, cy: 0, rx: f.w / 2, ry: f.h / 2, ...style }, g);
     else el("rect", { x: -f.w / 2, y: -f.h / 2, width: f.w, height: f.h, rx: 10, ...style }, g);
     if (post) el("circle", { r: 10, fill: "#5b6482" }, g);
@@ -376,20 +547,23 @@ function renderMap() {
       el("path", { d: `M0 ${-d + 8 * k} L${-14 * k} ${-d + 30 * k} L${14 * k} ${-d + 30 * k} Z`, fill: "#f2b84b" }, a);
       el("line", { x1: 0, y1: -d + 30 * k, x2: 0, y2: -d + 52 * k, stroke: "#f2b84b", "stroke-width": 5 * k + 1, "stroke-linecap": "round" }, a);
     }
-    if (mode === "layout" && sel && sel.type === "furn" && sel.id === f.id) {
-      el("rect", { x: -f.w / 2 - 6, y: -f.h / 2 - 6, width: f.w + 12, height: f.h + 12, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8", rx: 12, style: "pointer-events:none" }, g);
-      el("line", { x1: 0, y1: -f.h / 2 - 6, x2: 0, y2: -f.h / 2 - 28 * u - 16, stroke: "#f2b84b", "stroke-width": 4 }, g);
-      el("circle", { "data-t": "rotate", "data-id": f.id, cx: 0, cy: -f.h / 2 - 28 * u - 16, r: 18 * u, fill: "#13151b", stroke: "#f2b84b", "stroke-width": 5, style: "cursor:grab" }, g);
-      if (f.locked) { const l = el("text", { x: f.w / 2, y: f.h / 2 + 8, "text-anchor": "middle", "font-size": 34 * u, style: "pointer-events:none" }, g); l.textContent = "🔒"; }
-      else el("circle", { "data-t": "resize", "data-id": f.id, cx: f.w / 2, cy: f.h / 2, r: 20 * u, fill: "#f2b84b", style: "cursor:nwse-resize" }, g);
-    }
   });
-  S.furniture.forEach(f => {   // labels last, so nothing covers them
+  drawOrder().forEach(f => {   // labels, so nothing covers them
     if (f.kind === "post" || f.kind === "window" || f.w <= 70) return;
-    const lp = f.kind === "loft" ? rotPt(f, 60, f.h / 2 - 24) : rotPt(f, 0, 10);
-    const t = el("text", { x: lp.x, y: lp.y, "text-anchor": "middle", fill: f.kind === "loft" ? "#c9c98a" : "#b9c0d6", "font-size": Math.min(34 * u, f.w / Math.max(5, f.name.length * .55)), "font-family": "system-ui", style: "pointer-events:none" }, fg);
+    const over = lvl(f) === "over", lp = over ? rotPt(f, 60, f.h / 2 - 24) : rotPt(f, 0, 10);
+    const t = el("text", { x: lp.x, y: lp.y, "text-anchor": "middle", fill: over ? "#c9c98a" : "#b9c0d6", "font-size": Math.min(34 * u, f.w / Math.max(5, f.name.length * .55)), "font-family": "system-ui", style: "pointer-events:none" }, fg);
     t.textContent = f.name;
   });
+  // the selected piece's handles sit on top of everything, so a piece buried under others can still be turned or resized
+  const sf = mode === "layout" && sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
+  if (sf) {
+    const f = sf, g = el("g", { transform: `translate(${f.x + f.w / 2} ${f.y + f.h / 2}) rotate(${f.rot || 0})` }, fg);
+    el("rect", { x: -f.w / 2 - 6, y: -f.h / 2 - 6, width: f.w + 12, height: f.h + 12, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8", rx: 12, style: "pointer-events:none" }, g);
+    el("line", { x1: 0, y1: -f.h / 2 - 6, x2: 0, y2: -f.h / 2 - 28 * u - 16, stroke: "#f2b84b", "stroke-width": 4 }, g);
+    el("circle", { "data-t": "rotate", "data-id": f.id, cx: 0, cy: -f.h / 2 - 28 * u - 16, r: 18 * u, fill: "#13151b", stroke: "#f2b84b", "stroke-width": 5, style: "cursor:grab" }, g);
+    if (f.locked) { const l = el("text", { x: f.w / 2, y: f.h / 2 + 8, "text-anchor": "middle", "font-size": 34 * u, style: "pointer-events:none" }, g); l.textContent = "🔒"; }
+    else el("circle", { "data-t": "resize", "data-id": f.id, cx: f.w / 2, cy: f.h / 2, r: 20 * u, fill: "#f2b84b", style: "cursor:nwse-resize" }, g);
+  }
 
   // home color tags on the furniture they live in
   const tg = $("#tags"); tg.innerHTML = "";
@@ -477,7 +651,7 @@ let drag = null, tap = null, pinch = null;
 const ptrs = new Map();
 function pt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
 function startPinch() {
-  drag = null; tap = null;
+  drag = null; tap = null; dragBefore = null;
   const [a, b] = [...ptrs.values()];
   pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, view0: { ...view }, c0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
 }
@@ -498,11 +672,11 @@ svg.addEventListener("pointerdown", e => {
   tap = { x: e.clientX, y: e.clientY, moved: false, type, id };
   if (placing && mode === "piles" && (!t || type === "bg" || type === "furn")) {
     const pile = { id: uid(), name: "New pile", x: snap(p.x), y: snap(p.y) };
-    S.piles.push(pile); sel = { type: "pile", id: pile.id }; placing = false; tap = null; setTimeout(() => $("#sheet").classList.remove("collapsed"), 450); save(); render(); focusId("pname"); return;
+    const b4 = snapshot(); S.piles.push(pile); pushUndo("Add pile", b4); sel = { type: "pile", id: pile.id }; placing = false; tap = null; setTimeout(() => $("#sheet").classList.remove("collapsed"), 450); save(); render(); focusId("pname"); return;
   }
   if (placingSpot && mode === "spots" && (!t || type === "bg" || type === "furn")) {
     const sp = { id: uid(), title: "", note: "", x: snap(p.x), y: snap(p.y), furnId: null, dx: 0, dy: 0, actions: [] };
-    attachSpot(sp); S.spots.push(sp); sel = { type: "spot", id: sp.id }; placingSpot = false; tap = null; setTimeout(() => $("#sheet").classList.remove("collapsed"), 450); save(); render(); focusId("stitle"); return;
+    const b4 = snapshot(); attachSpot(sp); S.spots.push(sp); pushUndo("Add spot", b4); sel = { type: "spot", id: sp.id }; placingSpot = false; tap = null; setTimeout(() => $("#sheet").classList.remove("collapsed"), 450); save(); render(); focusId("stitle"); return;
   }
   const f0 = id && S.furniture.find(x => x.id === id);
   if (type === "resize" && f0) drag = { kind: "resize", f: f0, cx: f0.x + f0.w / 2, cy: f0.y + f0.h / 2 };
@@ -512,6 +686,7 @@ svg.addEventListener("pointerdown", e => {
   else if (type === "spot" && mode === "spots") { const q = S.spots.find(x => x.id === id); const sp0 = spotPos(q); drag = { kind: "spot", q, dx: p.x - sp0.x, dy: p.y - sp0.y }; }
   else if (type === "pile" || type === "spot") { /* a tap opens its menu */ }
   else drag = { kind: "pan", view0: { ...view } };
+  dragBefore = drag && drag.kind !== "pan" ? snapshot() : null;
   renderMap();
 });
 svg.addEventListener("pointermove", e => {
@@ -547,7 +722,15 @@ function endPointer(e) {
   if (!tap && !drag) return;
   const wasTap = tap && !tap.moved, d = drag, t = tap; drag = null; tap = null;
   if (d && d.kind === "spot" && t.moved) { attachSpot(d.q); save(); renderPanel(); renderMap(); }
-  else if (d && (d.kind === "move" || d.kind === "resize" || d.kind === "rotate" || (d.kind === "pile" && t.moved))) { save(); renderPanel(); }
+  else if (d && (d.kind === "move" || d.kind === "resize" || d.kind === "rotate" || (d.kind === "pile" && t.moved))) {
+    if (d.f && lvl(d.f) === "on") attachRider(d.f, d.kind !== "move");
+    save(); renderPanel();
+  }
+  if (d && dragBefore) {
+    const nm = d.f ? d.f.name : d.q ? (d.q.name || spotName(d.q)) : "";
+    pushUndo({ move: "Moved ", resize: "Resized ", rotate: "Turned ", pile: "Moved pile ", spot: "Moved spot " }[d.kind] + nm, dragBefore);
+  }
+  dragBefore = null;
   if (wasTap && e.type === "pointerup") handleTap(t);
 }
 svg.addEventListener("pointerup", endPointer);
@@ -674,9 +857,13 @@ function layoutPanel() {
   const off = S.homes.filter(h => !S.furniture.some(x => x.id === h.furnId));
   const placeable = S.furniture.filter(x => x.kind !== "post" && x.kind !== "window");
   const dis = f && f.locked ? "disabled" : "";
+  const canLevel = f && f.kind !== "post" && f.kind !== "window";
+  const parentCands = canLevel ? S.furniture.filter(x => x !== f && x.kind !== "post" && x.kind !== "window" && !isDesc(x, f)) : [];
+  const lvTag = x => lvl(x) === "over" ? " · raised" : lvl(x) === "on" ? " · on top" : "";
   return `<h2>Your room</h2>
   <p class="hint">Drag pieces to match your room — or to try a new arrangement. The yellow arrow marks the <b>front</b>. Click a piece for its details.</p>
   <div class="row"><button data-act="addF" data-type="furniture">+ Furniture</button><button data-act="addF" data-type="large">+ Large item</button></div>
+  <label>Pick any piece (even one hiding under another)<select data-f="pickf"><option value="">— choose a piece —</option>${S.furniture.map(x => `<option value="${x.id}" ${f && f.id === x.id ? "selected" : ""}>${esc(x.name)}${lvTag(x)}</option>`).join("")}</select></label>
   ${sketchOK ? `<label class="chk"><input type="checkbox" data-f="sketch" ${S.showSketch ? "checked" : ""}> Show my sketch faintly underneath</label>` : ""}
   ${f ? `<div class="card">
     <label>Name<input data-f="fname" value="${esc(f.name)}"></label>
@@ -684,6 +871,13 @@ function layoutPanel() {
       <label>Type<select data-f="ftype"><option value="furniture" ${f.type === "furniture" ? "selected" : ""}>Furniture</option><option value="large" ${f.type === "large" ? "selected" : ""}>Large item</option></select></label>
       <label>Shape<select data-f="fshape"><option value="rect" ${f.shape === "rect" ? "selected" : ""}>Rectangle</option><option value="ellipse" ${f.shape === "ellipse" ? "selected" : ""}>Round</option></select></label>
     </div>
+    ${canLevel ? `<label>Level<select data-f="flevel">
+        <option value="floor" ${lvl(f) === "floor" ? "selected" : ""}>On the floor</option>
+        <option value="over" ${lvl(f) === "over" ? "selected" : ""}>Raised — floor is free underneath (loft, shelf above)</option>
+        <option value="on" ${lvl(f) === "on" ? "selected" : ""}>Sitting on another piece</option></select></label>
+      ${lvl(f) === "over" ? `<p class="hint" style="margin:-2px 0 8px">Drawn faintly so you can see what's beneath it. Things beneath stay tappable.</p>` : ""}
+      ${lvl(f) === "on" ? `<label>Sitting on<select data-f="fon"><option value="">— nothing yet (drag it onto a piece) —</option>${parentCands.map(x => `<option value="${x.id}" ${f.onId === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
+      <p class="hint" style="margin:-2px 0 8px">It moves and turns with the piece it sits on. Drag it to another piece to move it there.</p>` : ""}` : ""}
     <div class="two">
       <label>Width<input type="number" step="10" data-f="fw" value="${Math.round(f.w)}" ${dis}></label>
       <label>Height<input type="number" step="10" data-f="fh" value="${Math.round(f.h)}" ${dis}></label>
@@ -799,11 +993,10 @@ function cleanPanel() {
   <div class="list">${chores.map(({ sp, a }) => `<div class="cleanrow"><span style="font-size:20px">${kindOf(a).icon}</span><div class="nm">${esc(spotName(sp))}<small>${esc(sp.note ? sp.note.slice(0, 60) : actText(a))}</small></div>
     <button class="primary" data-act="choredone" data-spot="${sp.id}" data-id="${a.id}">Done</button></div>`).join("")}</div>` : ""}
   ${flash ? `<p class="good"><b>${esc(flash)}</b></p>` : ""}
-  ${S.homes.some(x => insideOf(x.id).length) ? `<h2 style="margin-top:20px">Put away</h2>${S.homes.filter(x => insideOf(x.id).length).map(x => `<div class="card" style="margin:6px 0"><div class="item"><span class="sw" style="background:${x.color}"></span><b>${esc(x.name)}</b></div>${insideList(x.id)}</div>`).join("")}` : ""}
-  ${S.log.length ? `<div class="row"><button class="small" data-act="undo">Undo last</button></div>` : ""}`;
+  ${S.homes.some(x => insideOf(x.id).length) ? `<h2 style="margin-top:20px">Put away</h2>${S.homes.filter(x => insideOf(x.id).length).map(x => `<div class="card" style="margin:6px 0"><div class="item"><span class="sw" style="background:${x.color}"></span><b>${esc(x.name)}</b></div>${insideList(x.id)}</div>`).join("")}` : ""}`;
 }
 function footHTML() {
-  return `<div class="foot">Your rooms live in this browser on this device — nothing is sent to a server. To use a room on another device, save a backup here and load it there.
+  return `<div class="foot">Your rooms live in this browser on this device — nothing is sent to a server. To use a room on another device, save a backup here and load it there. (The Home Screen app keeps its own copy, separate from Safari — load a backup into it once.)
     <div class="row"><button class="small" data-foot="export">Save backup</button><button class="small" data-foot="import">Load backup</button><button class="small danger" data-foot="reset" id="resetbtn">Start over</button></div></div>`;
 }
 function renderPanel() {
@@ -829,13 +1022,13 @@ $("#panel").addEventListener("click", e => {
     layDelArmed = false;
     const rest = S.layouts.filter(l => l.id !== S.layoutId); S.layouts = rest; S.layoutId = rest[0].id; S.furniture = rest[0].furniture; S.prevId = null; sel = null; save(); render(); return;
   }
-  if (act === "addF") { const ty = b.dataset.type, f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: 400, y: 400, w: 120, h: 120, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
+  if (act === "addF") { const ty = b.dataset.type, f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: 400, y: 400, w: 120, h: 120, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
   if (act === "makehome" && fu) S.homes.splice(S.homes.length - 1, 0, { id: uid(), name: fu.name, color: nextColor(), furnId: fu.id });
   if (act === "unhome") { S.items.forEach(i => { if (i.homeId === id) i.homeId = null; }); S.homes = S.homes.filter(h => h.id !== id); }
-  if (act === "rot90" && fu) fu.rot = ((fu.rot || 0) + 90) % 360;
+  if (act === "rot90" && fu) { fu.rot = ((fu.rot || 0) + 90) % 360; if (lvl(fu) === "on") attachRider(fu, true); }
   if (act === "flip" && fu) fu.face = ((fu.face || 0) + 2) % 4;
   if (act === "turnarrow" && fu) fu.face = ((fu.face || 0) + 1) % 4;
-  if (act === "delF") { S.homes.forEach(h => { if (h.furnId === sel.id) h.furnId = null; }); S.furniture = S.furniture.filter(f => f.id !== sel.id); S.spots.forEach(s => { if (s.furnId === sel.id) { s.furnId = null; } }); sel = null; }
+  if (act === "delF") { S.homes.forEach(h => { if (h.furnId === sel.id) h.furnId = null; }); S.furniture.forEach(f => { if (f.onId === sel.id) { f.onId = null; f.level = "floor"; } }); S.furniture = S.furniture.filter(f => f.id !== sel.id); S.spots.forEach(s => { if (s.furnId === sel.id) { s.furnId = null; } }); sel = null; }
   if (act === "addH") S.homes.splice(S.homes.length - 1, 0, { id: uid(), name: "New home", color: "#4dd0c8", furnId: null });
   if (act === "delH") { S.items.forEach(i => { if (i.homeId === id) i.homeId = null; }); S.homes = S.homes.filter(h => h.id !== id); }
   if (act === "newPile") { placing = !placing; placingSpot = false; }
@@ -865,7 +1058,6 @@ $("#panel").addEventListener("click", e => {
     flash = h && !pending().some(i => i.homeId === h.id) ? h.name + " trip cleared!" : "";
   }
   if (act === "takeout") { const it = S.items.find(i => i.id === id); if (it) { it.done = false; S.log = S.log.filter(x => x !== id); } flash = ""; }
-  if (act === "undo") { const last = S.log.pop(); const it = S.items.find(i => i.id === last); if (it) it.done = false; flash = ""; }
   save(); render();
   if (act === "unpack") { const d = $("#dump"); if (d) d.focus(); }
   if (act === "aaddcustom") focusId("acustom");
@@ -887,12 +1079,20 @@ $("#panel").addEventListener("input", e => {
   else if (f === "hname") { const h = homeOf(id); if (h) h.name = v; }
   else if (f === "hcolor") { const h = homeOf(id); if (h) h.color = v; }
   else return;
+  if (fu && lvl(fu) === "on" && (f === "fw" || f === "fh" || f === "frot")) attachRider(fu, true);
   save(); renderMap(); if (menu) renderMenu();
 });
 $("#panel").addEventListener("change", e => {
   const f = e.target.dataset.f, id = e.target.dataset.id, v = e.target.value;
   const sp = sel && sel.type === "spot" && S.spots.find(x => x.id === sel.id);
+  const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
   if (f === "sketch") S.showSketch = e.target.checked;
+  else if (f === "pickf") { if (v) { sel = { type: "furn", id: v }; } }
+  else if (f === "flevel" && fu) { fu.level = v; fu.onId = null; if (v === "on") attachRider(fu); }
+  else if (f === "fon" && fu) {
+    const p = S.furniture.find(x => x.id === v);
+    if (p) { if (!localIn(p, fu.x + fu.w / 2, fu.y + fu.h / 2).ok) { fu.x = p.x + p.w / 2 - fu.w / 2; fu.y = p.y + p.h / 2 - fu.h / 2; } fu.onId = p.id; attachRider(fu, true); } else fu.onId = null;
+  }
   else if (f === "fshape") S.furniture.find(x => x.id === sel.id).shape = v;
   else if (f === "ftype") S.furniture.find(x => x.id === sel.id).type = v;
   else if (f === "flock") S.furniture.find(x => x.id === sel.id).locked = e.target.checked;
@@ -973,11 +1173,17 @@ $("#panel").addEventListener("click", e => {
 });
 $("#file").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) return;
-  f.text().then(t => { try { S = JSON.parse(t); migrate(); save(); sel = null; menu = null; render(); } catch (err) { alert("That file didn't look like a backup."); } });
+  f.text().then(t => {
+    const b4 = snapshot();
+    try {
+      const n = JSON.parse(t); if (!n || !Array.isArray(n.homes) || !Array.isArray(n.items) || !Array.isArray(n.piles)) throw new Error("not a backup");
+      S = n; migrate(); save(); sel = null; menu = null; pushUndo("Load backup", b4); render(); fitView(); renderMap();
+    } catch (err) { try { S = JSON.parse(b4); migrate(); } catch (e2) {} alert("That file didn't look like a backup."); render(); }
+  });
   e.target.value = "";
 });
 
-drawWalls(); fitView(); render();
+drawWalls(); fitView(); render(); renderUndo();
 </script>
 </body>
 </html>
