@@ -173,10 +173,9 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
       <svg id="map" viewBox="90 140 1720 1240" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <filter id="fog" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter>
-          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1b1f2b" stroke-width="2"/></pattern>
+          <pattern id="grid" width="120" height="120" patternUnits="userSpaceOnUse"><path d="M120 0H0V120" fill="none" stroke="#1b1f2b" stroke-width="2"/></pattern>
         </defs>
         <rect x="-1500" y="-1500" width="6000" height="6000" fill="url(#grid)" data-t="bg"/>
-        <image id="sketch" href="sketch.png" x="0" y="0" width="2208" height="1656" opacity=".2" style="pointer-events:none"/>
         <g id="walls" style="pointer-events:none"></g>
         <g id="ghost" style="pointer-events:none"></g>
         <g id="furn"></g>
@@ -220,38 +219,65 @@ const KINDS = {
 };
 const EVERY = [[0, "Once"], [7, "Weekly"], [14, "Every 2 weeks"], [30, "Monthly"], [90, "Every 3 months"]];
 
-/* ---------- starting data, traced from the sketch ---------- */
+/* ---------- rooms: a shape drawn in inches (1 inch = 10 map units) ---------- */
+const OFF = 200;                                   // where the room's top-left corner sits on the map
+const inU = v => v * 10 + OFF;                     // room inches -> map units
+const outU = v => (v - OFF) / 10;                  // map units -> room inches
+const rp = p => ({ x: inU(p.x), y: inU(p.y) });
+const hyp = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+const inch = u => +(u / 10).toFixed(1);
+const ftin = u => { const i = Math.round(u / 10 * 2) / 2, ft = Math.floor(i / 12), r = +(i - ft * 12).toFixed(1); return ft ? `${ft}′ ${r}″` : `${r}″`; };
+function templatePts(kind, p) {
+  const w = p.w || 144, l = p.l || 120;
+  if (kind === "L") { const cw = Math.min(p.cw || 48, w - 12), cl = Math.min(p.cl || 48, l - 12); return [[0,0],[w-cw,0],[w-cw,cl],[w,cl],[w,l],[0,l]]; }
+  if (kind === "nook") { const nw = p.nw || 60, nd = p.nd || 30, no = Math.min(p.no == null ? 40 : p.no, w - nw); return [[0,nd],[no,nd],[no,0],[no+nw,0],[no+nw,nd],[w,nd],[w,nd+l],[0,nd+l]]; }
+  return [[0,0],[w,0],[w,l],[0,l]];
+}
+function justinRoom() {   // measured with a tape: 133 left wall, 155 window wall, 130 right wall, 72 closet wall, 21 stub, 44.5 door wall, 44 angled wall
+  const pts = [[0,30],[21,30],[54,0],[83,33],[89,33],[89,6],[149,6],[149,33],[155,33],[155,163],[0,163]].map(([x, y]) => ({ x, y }));
+  return { name: "Justin's room", ceiling: 97, pts, openings: [
+    { id: uid(), type: "door", edge: 1, at: 7, w: 35, h: 83.5, sill: 0 },
+    { id: uid(), type: "window", edge: 9, at: 58.5, w: 38, h: 40, sill: 30 } ] };
+}
+function makeRoom(kind, p) {
+  if (kind === "justin") return justinRoom();
+  return { name: p.name || "My room", ceiling: p.ceil || 96, pts: templatePts(kind, p).map(([x, y]) => ({ x, y })), openings: [] };
+}
+let legacyConverted = false;
+/* the first version drew the room from a sketch that was stretched about 1.5x too wide. This maps old sketch units to real inches, once. */
+function convertLegacy() {
+  const kx = 10 * 155 / 1600, ky = 10 * 133 / 830;
+  const mx = x => inU(0) + (x - 140) * kx, my = y => inU(33) + (y - 480) * ky;
+  const ratio = {};
+  S.layouts.forEach(l => {
+    l.furniture = l.furniture.filter(f => f.kind !== "window");
+    l.furniture.forEach(f => {
+      const r = ((f.rot || 0) % 360 + 360) % 360, odd = r % 90 !== 0, sw = r % 180 === 90, g = Math.sqrt(kx * ky);
+      const sx = odd ? g : sw ? ky : kx, sy = odd ? g : sw ? kx : ky, w0 = f.w, h0 = f.h;
+      const cx = mx(f.x + w0 / 2), cy = my(f.y + h0 / 2);
+      f.w = Math.max(30, Math.round(w0 * sx / 5) * 5); f.h = Math.max(30, Math.round(h0 * sy / 5) * 5);
+      if (f.shape === "ellipse" && !odd && Math.abs(w0 - h0) / Math.max(w0, h0) < .12) { f.w = f.h = Math.round((f.w + f.h) / 2 / 5) * 5; }   // round things stay round
+      if (f.kind === "post") { f.w = 40; f.h = 40; }
+      if (f.kind === "closet") { f.w = 600; f.h = 270; f.rot = 0; f.x = inU(89); f.y = inU(6); }
+      else { f.x = Math.round((cx - f.w / 2) / 5) * 5; f.y = Math.round((cy - f.h / 2) / 5) * 5; }
+      if (!ratio[f.id]) ratio[f.id] = [f.w / w0, f.h / h0];
+    });
+  });
+  S.spots.forEach(sp => {
+    const rt = sp.furnId && ratio[sp.furnId];
+    if (rt) { sp.dx = (sp.dx || 0) * rt[0]; sp.dy = (sp.dy || 0) * rt[1]; }
+    else { sp.furnId = null; sp.x = Math.round(mx(sp.x)); sp.y = Math.round(my(sp.y)); }
+  });
+  S.piles.forEach(p => { p.x = Math.round(mx(p.x) / 10) * 10; p.y = Math.round(my(p.y) / 10) * 10; });
+  S.homes.forEach(h => { if (h.furnId && !S.layouts.some(l => l.furniture.some(f => f.id === h.furnId))) h.furnId = null; });
+}
 function defaults() {
-  const F = (name, x, y, w, h, shape = "rect", kind = "furn") => ({ id: uid(), name, x, y, w, h, shape, kind, type: "furniture", rot: 0, face: 0, locked: false, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 });
-  const furniture = [
-    F("Lofted bed", 690, 615, 940, 515, "rect", "furn"),
-    F("Closet", 990, 200, 700, 270, "rect", "closet"),
-    F("Desk + computer", 820, 570, 500, 250),
-    F("Bean bag", 790, 870, 340, 340, "ellipse"),
-    F("Cabinet?", 1380, 860, 240, 270),
-    F("Top-right shelf?", 1430, 470, 290, 130),
-    F("Corner stack?", 1400, 1150, 340, 180),
-    F("Table?", 480, 605, 150, 215),
-    F("Left wall A", 150, 530, 120, 180),
-    F("Left wall B", 175, 730, 95, 95, "ellipse"),
-    F("Left wall C", 170, 835, 100, 75),
-    F("Left wall D", 160, 930, 90, 190),
-    F("Left wall E", 175, 1170, 90, 130, "ellipse"),
-    F("Window", 530, 1295, 440, 30, "rect", "window"),
-  ];
-  [[715,655],[1585,625],[715,1125],[1620,1110],[1165,870]].forEach((p, i) =>
-    furniture.push(F("Post " + (i + 1), p[0] - 36, p[1] - 36, 72, 72, "ellipse", "post")));
-  furniture[0].level = "over";
-  const byName = n => furniture.find(f => f.name === n).id;
-  const homes = [
-    { id: "closet", name: "Closet", color: "#5b9cf6", furnId: byName("Closet") },
-    { id: "desk",   name: "Desk",   color: "#6fcf97", furnId: byName("Desk + computer") },
+  return { furniture: [], room: null, homes: [
     { id: "shelf",  name: "Shelf",  color: "#b58cf0", furnId: null },
     { id: "donate", name: "Donate", color: "#f2b84b", furnId: null },
     { id: "trash",  name: "Trash",  color: "#e5707e", furnId: null },
     { id: "idk",    name: "Not sure yet", color: "#8a8f9c", furnId: null, special: true },
-  ];
-  return { furniture, homes, piles: [], items: [], spots: [], log: [], showSketch: true };
+  ], piles: [], items: [], spots: [], log: [] };
 }
 let S = (() => { try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) {} return defaults(); })();
 function syncLayout() { const L = S.layouts && S.layouts.find(l => l.id === S.layoutId); if (L) L.furniture = S.furniture; }
@@ -264,6 +290,14 @@ function migrate() {
     if (!f.level || f.kind === "post" || f.kind === "window") f.level = "floor";
     if (f.level !== "on") f.onId = null; else { f.odx = f.odx || 0; f.ody = f.ody || 0; f.orot = f.orot || 0; if (f.onId === undefined) f.onId = null; } }));
   if (!S.spots) S.spots = [];
+  if (S.room === undefined) {
+    if (S.layouts.some(l => l.furniture.length)) {
+      try { localStorage.setItem("roomquest.pre-inches", JSON.stringify(S)); } catch (e) {}   // safety copy of the old sketch-based version
+      convertLegacy(); S.room = justinRoom(); legacyConverted = true;
+      const L2 = S.layouts.find(l => l.id === S.layoutId) || S.layouts[0]; S.layoutId = L2.id; S.furniture = L2.furniture;
+    } else S.room = null;
+  }
+  if (S.room) { S.room.pts = S.room.pts || []; S.room.openings = S.room.openings || []; S.room.ceiling = S.room.ceiling || 96; S.room.openings.forEach(o => { if (!o.id) o.id = uid(); }); }
   S.spots.forEach(sp => { if (!sp.actions) sp.actions = []; if (sp.note == null) sp.note = ""; if (sp.title == null) sp.title = ""; });
 }
 migrate();
@@ -275,6 +309,7 @@ const nextColor = () => PALETTE.find(c => !S.homes.some(h => h.color.toLowerCase
 const UKEY = "roomquest.undo.v1";
 let undoStack = [], redoStack = [], pre = null, typing = null, dragBefore = null, histOpen = false, toastT = 0, persistT = 0;
 try { const r = JSON.parse(localStorage.getItem(UKEY) || "[]"); if (Array.isArray(r)) undoStack = r.filter(e => e && typeof e.before === "string" && e.label).slice(-40); } catch (e) {}
+if (legacyConverted) undoStack = [];
 function snapshot() { syncLayout(); const c = { ...S }; delete c.furniture; return JSON.stringify(c); }
 function flushUndo() { for (const n of [10, 5, 2, 0]) { try { localStorage.setItem(UKEY, JSON.stringify(undoStack.slice(-n))); return; } catch (e) {} } }
 function persistUndo() { clearTimeout(persistT); persistT = setTimeout(flushUndo, 700); }
@@ -342,11 +377,11 @@ document.addEventListener("focusout", e => { if (e.target.matches && e.target.ma
 const ACT_LBL = { addF: "Add piece", makehome: "Make a home", unhome: "Remove home", rot90: "Turn 90°", flip: "Flip front/back", turnarrow: "Turn arrow", delF: "Remove piece",
   addH: "Add home", delH: "Delete home", delPile: "Remove pile", unpack: "Unpack things", delI: "Remove thing", delSpot: "Remove spot", aadd: "Add job", aaddcustom: "Add job",
   adel: "Remove job", areopen: "Reopen job", adone: "Job done", choredone: "Job done", home: "Pick a home", revisit: "Re-sort “not sure” things", done: "Put away",
-  takeout: "Take out", laydel: "Delete layout" };
+  takeout: "Take out", laydel: "Delete layout", mkroom: "Set the room shape", addvert: "Add a corner", delvert: "Delete a corner", addopen: "Add a door or window", delopen: "Remove a door or window", tpl: "", chshape: "", cancelsetup: "", editwalls: "" };
 const FOOT_LBL = { reset: "Start over", import: "Load backup", export: "Save backup" };
 const FIELD_LBL = { fname: "Rename piece", fw: "Piece width", fh: "Piece height", frot: "Piece angle", pname: "Rename pile", lname: "Rename layout", stitle: "Spot title", snote: "Spot note",
   iname: "Rename thing", hname: "Rename home", hcolor: "Home color", sketch: "Sketch on/off", fshape: "Piece shape", ftype: "Piece type", flock: "Lock size", ihome: "Change home",
-  hfurn: "Pin home to piece", aevery: "Job repeat", flevel: "Piece level", fon: "Sits on…", pickf: "" };
+  hfurn: "Pin home to piece", aevery: "Job repeat", flevel: "Piece level", fon: "Sits on…", pickf: "", rname: "Rename room", rceil: "Ceiling height", vx: "Move a corner", vy: "Move a corner", oat: "Move door/window", owid: "Resize door/window", ohgt: "Door/window height", osill: "Window sill", oedge: "Move door/window", tp: "" };
 const POP_LBL = { done: "Put away", adone: "Job done", editspot: "" };
 $("#panel").addEventListener("click", e => { flushTyping(); const b = e.target.closest("[data-act],[data-foot]"); if (b) pre = { before: snapshot(), label: b.dataset.foot ? (FOOT_LBL[b.dataset.foot] || "Change") : (ACT_LBL[b.dataset.act] || "Change") }; }, true);
 $("#panel").addEventListener("input", e => {
@@ -361,6 +396,8 @@ $("#popup").addEventListener("keydown", e => { if (e.key === "Enter" && e.target
 $("#layoutbar").addEventListener("click", e => { if (e.target.closest("[data-lay-act]")) pre = { before: snapshot(), label: "New layout" }; }, true);
 
 /* ---------- UI state ---------- */
+let setupOpen = false, editWalls = false;
+const tplP = { kind: "rect", name: "My room", w: 144, l: 120, cw: 48, cl: 48, nw: 60, nd: 30, no: 40, ceil: 96 };
 let mode = "layout";            // layout | piles | spots | sort | clean
 let sel = null;                 // {type:'furn'|'pile'|'spot', id}
 let placing = false;            // next map tap drops a new pile
@@ -387,35 +424,38 @@ function actText(a) {
 }
 const spotName = sp => sp.title || "Untitled spot";
 
-/* the probe tells us if the optional sketch backdrop exists (it won't on a shared site) */
-(() => { const p = new Image(); p.onerror = () => { sketchOK = false; try { render(); } catch (e) {} }; p.src = "sketch.png"; })();
 
 /* ---------- map + view ---------- */
 const svg = $("#map"), stage = $("#stage");
 const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
-const BASE = { cx: 950, cy: 750, w: 1720, h: 1240 };
 let view = { x: 90, y: 140, w: 1720, h: 1240 };
 let touched = false;           // true once the person zooms or pans; until then we keep re-fitting the room
 const stageRect = () => stage.getBoundingClientRect();
 const scale = () => { const w = stage.clientWidth; return w ? w / view.w : .57; };
 const U = () => Math.max(1, .5 / scale());          // markers grow on small screens so they stay tappable
+function roomBox() {
+  const pts = S.room && S.room.pts.length ? S.room.pts.map(rp) : [{ x: 200, y: 200 }, { x: 1800, y: 1400 }];
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
 function applyView() {
   const r = stageRect(); if (r.width) view.h = view.w * r.height / r.width;
-  view.w = Math.min(3200, Math.max(260, view.w)); if (r.width) view.h = view.w * r.height / r.width;
-  const cx = Math.min(2100, Math.max(-100, view.x + view.w / 2)), cy = Math.min(1800, Math.max(-100, view.y + view.h / 2));
+  view.w = Math.min(9000, Math.max(260, view.w)); if (r.width) view.h = view.w * r.height / r.width;
+  const bx = roomBox();
+  const cx = Math.min(bx.x + bx.w + 1500, Math.max(bx.x - 1500, view.x + view.w / 2)), cy = Math.min(bx.y + bx.h + 1500, Math.max(bx.y - 1500, view.y + view.h / 2));
   view.x = cx - view.w / 2; view.y = cy - view.h / 2;
   svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
 }
 function fitView() {
   const r = stageRect(); if (!r.width) return;
-  const ar = r.height / r.width, w = Math.max(BASE.w, BASE.h / ar);
-  view = { w, h: w * ar, x: BASE.cx - w / 2, y: BASE.cy - w * ar / 2 }; touched = false; applyView();
+  const bx = roomBox(), pad = 150, ar = r.height / r.width, w = Math.max(bx.w + pad * 2, (bx.h + pad * 2) / ar);
+  view = { w, h: w * ar, x: bx.x + bx.w / 2 - w / 2, y: bx.y + bx.h / 2 - w * ar / 2 }; touched = false; applyView();
 }
 function zoomAt(f, px, py) {
   const r = stageRect(); if (!r.width) return;
   const sx = view.x + (px - r.left) * view.w / r.width, sy = view.y + (py - r.top) * view.h / r.height;
   touched = true;
-  const nw = Math.min(3200, Math.max(260, view.w / f)), k = nw / view.w;
+  const nw = Math.min(9000, Math.max(260, view.w / f)), k = nw / view.w;
   view.x = sx - (sx - view.x) * k; view.y = sy - (sy - view.y) * k; view.w = nw;
   applyView(); renderMap();
 }
@@ -427,13 +467,21 @@ document.querySelector(".zoomctl").addEventListener("click", e => {
 new ResizeObserver(() => { if (!touched) fitView(); else applyView(); renderMap(); }).observe(stage);
 
 function drawWalls() {
-  const g = $("#walls"); g.innerHTML = "";
-  const L = (x1, y1, x2, y2, c = "#7d86a6", w = 10) => el("line", { x1, y1, x2, y2, stroke: c, "stroke-width": w, "stroke-linecap": "round" }, g);
-  L(140,190,1740,190); L(1740,190,1740,1310); L(1740,1310,140,1310); L(140,1310,140,190);
-  L(140,480,340,480); L(830,480,990,480); L(990,190,990,480);
-  L(350,470,540,215,"#d9625a",14);
-  el("line", { x1:540, y1:215, x2:910, y2:470, stroke:"#d9625a", "stroke-width":4, "stroke-dasharray":"14 12", opacity:.6 }, g);
-  const n = el("text", { x: 190, y: 330, fill: "#d9625a", "font-size": 40, "font-family": "Georgia,serif", opacity: .85, id: "doorlabel" }, g); n.textContent = "door";
+  const g = $("#walls"); g.innerHTML = ""; const R = S.room; if (!R || R.pts.length < 3) return;
+  const P = R.pts.map(rp), u = U(), pts = P.map(p => p.x + "," + p.y).join(" ");
+  const area = P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + (p.x * q.y - q.x * p.y); }, 0), sgn = area >= 0 ? 1 : -1;
+  el("polygon", { points: pts, fill: "#1a1d28", stroke: "none" }, g);
+  el("polygon", { points: pts, fill: "none", stroke: "#7d86a6", "stroke-width": 10, "stroke-linejoin": "round" }, g);
+  (R.openings || []).forEach(o => {
+    const a = P[o.edge], b = P[(o.edge + 1) % P.length]; if (!a || !b) return;
+    const L = hyp(a, b) || 1, ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, s0 = Math.max(0, o.at * 10), e0 = Math.min(L, (o.at + o.w) * 10); if (e0 <= s0) return;
+    el("line", { x1: a.x + ux * s0, y1: a.y + uy * s0, x2: a.x + ux * e0, y2: a.y + uy * e0, stroke: o.type === "window" ? "#6aa9b4" : "#d9625a", "stroke-width": o.type === "window" ? 16 : 14 }, g);
+  });
+  if (editWalls) P.forEach((a, i) => {
+    const b = P[(i + 1) % P.length], L = hyp(a, b), nx = (b.y - a.y) / (L || 1) * sgn, ny = -(b.x - a.x) / (L || 1) * sgn;
+    const t = el("text", { x: (a.x + b.x) / 2 + nx * 34 * u, y: (a.y + b.y) / 2 + ny * 34 * u + 8 * u, "text-anchor": "middle", fill: "#f2b84b", "font-size": 24 * u, "font-family": "system-ui", stroke: "#0f1117", "stroke-width": 5 * u, "paint-order": "stroke" }, g);
+    t.textContent = `${i + 1} · ${inch(L)}″`;
+  });
 }
 
 function dotLayout(pile) {
@@ -506,9 +554,8 @@ function attachSpot(sp) {     // a spot dropped on a piece sticks to it and foll
 
 function renderMap() {
   applyRiders();
-  const u = U(), bu = Math.min(u, 1.8), showSk = S.showSketch && sketchOK;
-  $("#sketch").setAttribute("display", showSk ? "" : "none");
-  const dl = $("#doorlabel"); if (dl) dl.setAttribute("display", showSk ? "none" : "");
+  const u = U(), bu = Math.min(u, 1.8);
+  drawWalls();
   renderGhost(u);
   const fg = $("#furn"); fg.innerHTML = "";
   const hl = mode === "clean" && cleanHome ? homeOf(cleanHome) : null;
@@ -554,6 +601,9 @@ function renderMap() {
     if (f.locked) { const l = el("text", { x: f.w / 2, y: f.h / 2 + 8, "text-anchor": "middle", "font-size": 34 * u, style: "pointer-events:none" }, g); l.textContent = "🔒"; }
     else el("circle", { "data-t": "resize", "data-id": f.id, cx: f.w / 2, cy: f.h / 2, r: 20 * u, fill: "#f2b84b", style: "cursor:nwse-resize" }, g);
   }
+  if (editWalls && mode === "layout" && S.room) S.room.pts.forEach((p, i) => {     // drag a corner to reshape the room
+    const q = rp(p); el("circle", { "data-t": "vert", "data-id": i, cx: q.x, cy: q.y, r: 20 * u, fill: "#f2b84b", stroke: "#13151b", "stroke-width": 5, style: "cursor:move" }, fg);
+  });
 
   // home color tags on the furniture they live in
   const tg = $("#tags"); tg.innerHTML = "";
@@ -649,7 +699,7 @@ function updatePinch() {
   const [a, b] = [...ptrs.values()]; if (!b) return;
   const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, r = stageRect(), v0 = pinch.view0;
   const sx = v0.x + (pinch.c0.x - r.left) * v0.w / r.width, sy = v0.y + (pinch.c0.y - r.top) * v0.h / r.height;
-  const nw = Math.min(3200, Math.max(260, v0.w * pinch.d0 / d));
+  const nw = Math.min(9000, Math.max(260, v0.w * pinch.d0 / d));
   touched = true; view.w = nw; view.x = sx - (c.x - r.left) * nw / r.width; view.y = sy - (c.y - r.top) * nw / r.width;
   applyView(); renderMap();
 }
@@ -669,7 +719,8 @@ svg.addEventListener("pointerdown", e => {
     const b4 = snapshot(); attachSpot(sp); S.spots.push(sp); pushUndo("Add spot", b4); sel = { type: "spot", id: sp.id }; placingSpot = false; tap = null; setTimeout(() => $("#sheet").classList.remove("collapsed"), 450); save(); render(); focusId("stitle"); return;
   }
   const f0 = id && S.furniture.find(x => x.id === id);
-  if (type === "resize" && f0) drag = { kind: "resize", f: f0, cx: f0.x + f0.w / 2, cy: f0.y + f0.h / 2 };
+  if (type === "vert") drag = { kind: "vert", i: +id };
+  else if (type === "resize" && f0) drag = { kind: "resize", f: f0, cx: f0.x + f0.w / 2, cy: f0.y + f0.h / 2 };
   else if (type === "rotate" && f0) drag = { kind: "rotate", f: f0 };
   else if (type === "furn" && mode === "layout") { sel = { type: "furn", id }; drag = { kind: "move", f: f0, dx: p.x - f0.x, dy: p.y - f0.y }; renderPanel(); }
   else if (type === "pile" && mode === "piles") { const q = S.piles.find(x => x.id === id); drag = { kind: "pile", q, dx: p.x - q.x, dy: p.y - q.y }; }
@@ -702,6 +753,7 @@ svg.addEventListener("pointermove", e => {
     const m = Math.round(a / 45) * 45; if (Math.abs(a - m) < 6) a = m;
     f.rot = ((Math.round(a / 5) * 5) % 360 + 360) % 360;
   }
+  if (drag.kind === "vert") { const v = S.room.pts[drag.i]; v.x = Math.round(outU(p.x)); v.y = Math.round(outU(p.y)); }
   if (drag.kind === "pile") { if (!tap.moved) return; drag.q.x = snap(p.x - drag.dx); drag.q.y = snap(p.y - drag.dy); }
   if (drag.kind === "spot") { if (!tap.moved) return; drag.q.furnId = null; drag.q.x = p.x - drag.dx; drag.q.y = p.y - drag.dy; }
   renderMap();
@@ -712,13 +764,13 @@ function endPointer(e) {
   if (!tap && !drag) return;
   const wasTap = tap && !tap.moved, d = drag, t = tap; drag = null; tap = null;
   if (d && d.kind === "spot" && t.moved) { attachSpot(d.q); save(); renderPanel(); renderMap(); }
-  else if (d && (d.kind === "move" || d.kind === "resize" || d.kind === "rotate" || (d.kind === "pile" && t.moved))) {
+  else if (d && (d.kind === "move" || d.kind === "resize" || d.kind === "rotate" || d.kind === "vert" || (d.kind === "pile" && t.moved))) {
     if (d.f && lvl(d.f) === "on") attachRider(d.f, d.kind !== "move");
     save(); renderPanel();
   }
   if (d && dragBefore) {
     const nm = d.f ? d.f.name : d.q ? (d.q.name || spotName(d.q)) : "";
-    pushUndo({ move: "Moved ", resize: "Resized ", rotate: "Turned ", pile: "Moved pile ", spot: "Moved spot " }[d.kind] + nm, dragBefore);
+    pushUndo({ move: "Moved ", resize: "Resized ", rotate: "Turned ", pile: "Moved pile ", spot: "Moved spot ", vert: "Moved a corner" }[d.kind] + nm, dragBefore);
   }
   dragBefore = null;
   if (wasTap && e.type === "pointerup") handleTap(t);
@@ -732,7 +784,7 @@ function handleTap(t) {
     if (mode === "spots") { menu = null; renderPanel(); renderMenu(); renderMap(); return; }
     menu = { type: "spot", id: t.id }; renderMenu(); renderMap(); return;
   }
-  if (t.type === "furn" || t.type === "resize" || t.type === "rotate") return;
+  if (t.type === "furn" || t.type === "resize" || t.type === "rotate" || t.type === "vert") return;
   if (menu) { menu = null; renderMenu(); }
   if (mode === "layout" && sel) { sel = null; renderPanel(); renderMap(); }
 }
@@ -827,6 +879,45 @@ function doAction(spotId, aid) {
 }
 
 /* ---------- panels ---------- */
+function setupPanel() {
+  const k = tplP.kind, T = [["rect", "Rectangle"], ["L", "L-shape"], ["nook", "Room with a nook"], ["justin", "Justin's room"]];
+  const fld = (key, label) => `<label>${label}<input type="number" inputmode="decimal" step="1" data-f="tp" data-k="${key}" value="${tplP[key]}"></label>`;
+  let fields = "";
+  if (k === "justin") fields = `<p class="hint" style="margin:0">The room with the pointed entry nook and the closet, measured with a tape. A good example of a room that isn't a rectangle.</p>`;
+  else {
+    fields = `<label>Room name<input data-f="tp" data-k="name" value="${esc(tplP.name)}"></label><div class="two">${fld("w", "Width (inches)")}${fld("l", k === "nook" ? "Main length (inches)" : "Length (inches)")}</div>`;
+    if (k === "L") fields += `<div class="two">${fld("cw", "Corner cut-out width")}${fld("cl", "Corner cut-out length")}</div><p class="hint" style="margin:0">The cut-out is the missing top-right corner.</p>`;
+    if (k === "nook") fields += `<div class="two">${fld("nw", "Nook width")}${fld("nd", "Nook depth")}</div>${fld("no", "Nook starts this far from the left wall")}`;
+    fields += fld("ceil", "Ceiling height (inches)");
+  }
+  return `<h2>${S.room ? "Change the room shape" : "Welcome — what shape is your room?"}</h2>
+  <p class="hint">Pick the closest shape and type your measurements in inches (12 inches = 1 foot). You can fine-tune every corner afterward, and add doors and windows. ${S.room ? "Your furniture, piles and spots stay exactly where they are." : ""}</p>
+  <div class="row">${T.map(([id, n]) => `<span class="chip ${k === id ? "on" : ""}" data-act="tpl" data-id="${id}">${n}</span>`).join("")}</div>
+  <div class="card">${fields}</div>
+  <div class="row"><button class="primary" data-act="mkroom">${S.room ? "Use this shape" : "Create my room"}</button>${S.room ? `<button data-act="cancelsetup">Cancel</button>` : ""}</div>`;
+}
+const wallLen = (R, i) => inch(hyp(R.pts[i], R.pts[(i + 1) % R.pts.length]) * 10);
+function roomCard() {
+  const R = S.room; if (!R) return "";
+  const P = R.pts, ar = Math.abs(P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + (p.x * q.y - q.x * p.y); }, 0)) / 2 / 144;
+  const wallOpts = sel => P.map((p, i) => `<option value="${i}" ${sel === i ? "selected" : ""}>Wall ${i + 1} · ${wallLen(R, i)}″</option>`).join("");
+  return `<h2 style="margin-top:22px">The room</h2>
+  <div class="card" style="margin-top:6px">
+    <label>Room name<input data-f="rname" value="${esc(R.name)}"></label>
+    <label>Ceiling height (inches) · ${ftin(R.ceiling * 10)}<input type="number" inputmode="decimal" data-f="rceil" value="${R.ceiling}"></label>
+    <p class="hint" style="margin:0 0 8px">${P.length} walls · about ${Math.round(ar)} sq ft</p>
+    <div class="row"><button data-act="chshape">Change shape…</button><button data-act="editwalls" class="${editWalls ? "primary" : ""}">${editWalls ? "Done with corners" : "Edit corners"}</button></div>
+    ${editWalls ? `<p class="hint">Drag the gold dots on the map, or type distances (inches from the room's top-left). Wall numbers are shown on the map.</p>
+      ${P.map((p, i) => `<div class="item"><span class="hint" style="margin:0;width:22px">${i + 1}</span><input type="number" inputmode="decimal" data-f="vx" data-id="${i}" value="${p.x}"><input type="number" inputmode="decimal" data-f="vy" data-id="${i}" value="${p.y}">
+        <button class="small" data-act="addvert" data-id="${i}" title="Add a corner after this one">＋</button><button class="small danger" data-act="delvert" data-id="${i}" ${P.length <= 3 ? "disabled" : ""} aria-label="Delete corner">✕</button></div>
+        <p class="hint" style="margin:0 0 6px 28px">wall to next corner: ${wallLen(R, i)}″</p>`).join("")}` : ""}
+    <div class="hint" style="margin:14px 0 2px"><b>Doors &amp; windows</b></div>
+    ${R.openings.map(o => `<div class="card" style="margin:6px 0"><div class="item"><b style="min-width:62px">${o.type === "window" ? "Window" : "Door"}</b><select data-f="oedge" data-id="${o.id}">${wallOpts(o.edge)}</select><button class="small danger" data-act="delopen" data-id="${o.id}" aria-label="Remove">✕</button></div>
+      <div class="two"><label>Starts (in from wall start)<input type="number" inputmode="decimal" data-f="oat" data-id="${o.id}" value="${o.at}"></label><label>Width (in)<input type="number" inputmode="decimal" data-f="owid" data-id="${o.id}" value="${o.w}"></label></div>
+      <div class="two"><label>Height (in)<input type="number" inputmode="decimal" data-f="ohgt" data-id="${o.id}" value="${o.h}"></label>${o.type === "window" ? `<label>Sill height (in)<input type="number" inputmode="decimal" data-f="osill" data-id="${o.id}" value="${o.sill || 0}"></label>` : "<span></span>"}</div></div>`).join("") || `<p class="hint" style="margin:0">None yet.</p>`}
+    <div class="row"><button class="small" data-act="addopen" data-type="door">+ Door</button><button class="small" data-act="addopen" data-type="window">+ Window</button></div>
+  </div>`;
+}
 const TABS = [["layout","Room"],["piles","Piles"],["spots","Spots"],["sort","Sort"],["clean","Clean"]];
 function renderTabs() {
   $("#tabs").innerHTML = TABS.map(([k, n]) => `<button data-tab="${k}" class="${mode === k ? "on" : ""}">${n}</button>`).join("");
@@ -854,7 +945,6 @@ function layoutPanel() {
   <p class="hint">Drag pieces to match your room — or to try a new arrangement. The yellow arrow marks the <b>front</b>. Click a piece for its details.</p>
   <div class="row"><button data-act="addF" data-type="furniture">+ Furniture</button><button data-act="addF" data-type="large">+ Large item</button></div>
   <label>Pick any piece (even one hiding under another)<select data-f="pickf"><option value="">— choose a piece —</option>${S.furniture.map(x => `<option value="${x.id}" ${f && f.id === x.id ? "selected" : ""}>${esc(x.name)}${lvTag(x)}</option>`).join("")}</select></label>
-  ${sketchOK ? `<label class="chk"><input type="checkbox" data-f="sketch" ${S.showSketch ? "checked" : ""}> Show my sketch faintly underneath</label>` : ""}
   ${f ? `<div class="card">
     <label>Name<input data-f="fname" value="${esc(f.name)}"></label>
     <div class="two">
@@ -869,8 +959,8 @@ function layoutPanel() {
       ${lvl(f) === "on" ? `<label>Sitting on<select data-f="fon"><option value="">— nothing yet (drag it onto a piece) —</option>${parentCands.map(x => `<option value="${x.id}" ${f.onId === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
       <p class="hint" style="margin:-2px 0 8px">It moves and turns with the piece it sits on. Drag it to another piece to move it there.</p>` : ""}` : ""}
     <div class="two">
-      <label>Width<input type="number" step="10" data-f="fw" value="${Math.round(f.w)}" ${dis}></label>
-      <label>Height<input type="number" step="10" data-f="fh" value="${Math.round(f.h)}" ${dis}></label>
+      <label>Width (in) · ${ftin(f.w)}<input type="number" inputmode="decimal" step="0.5" data-f="fw" value="${inch(f.w)}" ${dis}></label>
+      <label>Depth (in) · ${ftin(f.h)}<input type="number" inputmode="decimal" step="0.5" data-f="fh" value="${inch(f.h)}" ${dis}></label>
     </div>
     <label class="chk"><input type="checkbox" data-f="flock" ${f.locked ? "checked" : ""}> Lock size (so it keeps its real dimensions)</label>
     <div class="row"><button data-act="rot90">Turn 90°</button><button data-act="flip">Flip front ⇄ back</button><button data-act="turnarrow">Turn arrow</button></div>
@@ -896,7 +986,8 @@ function layoutPanel() {
   <button data-act="addH">+ Add a home</button>
   <h2 style="margin-top:22px">This layout</h2>
   <div class="card" style="margin-top:6px"><label>Layout name<input id="lname" data-f="lname" value="${esc((S.layouts.find(l => l.id === S.layoutId) || {}).name)}"></label>
-  ${S.layouts.length > 1 ? `<button class="small danger" data-act="laydel" id="laydel">Delete this layout</button>` : `<p class="hint" style="margin:0">Use “+ New layout” above to copy this one and try a different arrangement.</p>`}</div>`;
+  ${S.layouts.length > 1 ? `<button class="small danger" data-act="laydel" id="laydel">Delete this layout</button>` : `<p class="hint" style="margin:0">Use “+ New layout” above to copy this one and try a different arrangement.</p>`}</div>
+  ${roomCard()}`;
 }
 function pilesPanel() {
   const p = sel && sel.type === "pile" && S.piles.find(x => x.id === sel.id);
@@ -990,14 +1081,18 @@ function footHTML() {
     <div class="row"><button class="small" data-foot="export">Save backup</button><button class="small" data-foot="import">Load backup</button><button class="small danger" data-foot="reset" id="resetbtn">Start over</button></div></div>`;
 }
 function renderPanel() {
-  $("#panel").innerHTML = { layout: layoutPanel, piles: pilesPanel, spots: spotsPanel, sort: sortPanel, clean: cleanPanel }[mode]() + footHTML();
+  $("#panel").innerHTML = { setup: setupPanel, layout: layoutPanel, piles: pilesPanel, spots: spotsPanel, sort: sortPanel, clean: cleanPanel }[mode]() + footHTML();
 }
-function render() { renderTabs(); renderPanel(); renderBar(); renderMenu(); renderMap(); }
+function render() {
+  if (!S.room) mode = "setup"; else if (mode === "setup" && !setupOpen) mode = "layout";
+  if (mode !== "layout") editWalls = false;
+  renderTabs(); renderPanel(); renderBar(); renderMenu(); renderMap(); }
 
 /* ---------- panel events ---------- */
 $("#tabs").addEventListener("click", e => {
   const b = e.target.closest("[data-tab]"); if (!b) return;
-  mode = b.dataset.tab; placing = false; placingSpot = false; flash = ""; $("#sheet").classList.remove("collapsed");
+  if (!S.room) return;
+  setupOpen = false; mode = b.dataset.tab; placing = false; placingSpot = false; flash = ""; $("#sheet").classList.remove("collapsed");
   if (mode === "sort") { const c = sortQueue()[0]; if (c) sel = { type: "pile", id: c.pileId }; }
   render();
 });
@@ -1012,7 +1107,20 @@ $("#panel").addEventListener("click", e => {
     layDelArmed = false;
     const rest = S.layouts.filter(l => l.id !== S.layoutId); S.layouts = rest; S.layoutId = rest[0].id; S.furniture = rest[0].furniture; S.prevId = null; sel = null; save(); render(); return;
   }
-  if (act === "addF") { const ty = b.dataset.type, f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: 400, y: 400, w: 120, h: 120, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
+  if (act === "addF") { const ty = b.dataset.type, bx = roomBox(), f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: Math.round((bx.x + bx.w / 2 - 150) / 10) * 10, y: Math.round((bx.y + bx.h / 2 - 150) / 10) * 10, w: 300, h: 300, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
+  if (act === "tpl") { tplP.kind = id; }
+  if (act === "mkroom") { S.room = makeRoom(tplP.kind, tplP); setupOpen = false; mode = "layout"; sel = null; editWalls = false; }
+  if (act === "chshape") { setupOpen = true; mode = "setup"; tplP.name = S.room ? S.room.name : tplP.name; }
+  if (act === "cancelsetup") { setupOpen = false; mode = "layout"; }
+  if (act === "editwalls") editWalls = !editWalls;
+  if (act === "addvert" && S.room) { const i = +id, a = S.room.pts[i], b2 = S.room.pts[(i + 1) % S.room.pts.length]; S.room.pts.splice(i + 1, 0, { x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2) }); S.room.openings.forEach(o => { if (o.edge > i) o.edge++; }); }
+  if (act === "delvert" && S.room && S.room.pts.length > 3) { const i = +id; S.room.pts.splice(i, 1); S.room.openings = S.room.openings.filter(o => o.edge !== i); S.room.openings.forEach(o => { if (o.edge > i) o.edge--; }); }
+  if (act === "addopen" && S.room) {
+    const R = S.room; let best = 0; R.pts.forEach((p, i) => { if (wallLen(R, i) > wallLen(R, best)) best = i; });
+    const win = b.dataset.type === "window", w = win ? 36 : 32, len = wallLen(R, best);
+    R.openings.push({ id: uid(), type: win ? "window" : "door", edge: best, at: Math.max(0, Math.round((len - w) / 2)), w, h: win ? 48 : 80, sill: win ? 30 : 0 });
+  }
+  if (act === "delopen" && S.room) S.room.openings = S.room.openings.filter(o => o.id !== id);
   if (act === "makehome" && fu) S.homes.splice(S.homes.length - 1, 0, { id: uid(), name: fu.name, color: nextColor(), furnId: fu.id });
   if (act === "unhome") { S.items.forEach(i => { if (i.homeId === id) i.homeId = null; }); S.homes = S.homes.filter(h => h.id !== id); }
   if (act === "rot90" && fu) { fu.rot = ((fu.rot || 0) + 90) % 360; if (lvl(fu) === "on") attachRider(fu, true); }
@@ -1049,6 +1157,7 @@ $("#panel").addEventListener("click", e => {
   }
   if (act === "takeout") { const it = S.items.find(i => i.id === id); if (it) { it.done = false; S.log = S.log.filter(x => x !== id); } flash = ""; }
   save(); render();
+  if (act === "mkroom") { fitView(); renderMap(); }
   if (act === "unpack") { const d = $("#dump"); if (d) d.focus(); }
   if (act === "aaddcustom") focusId("acustom");
 });
@@ -1057,9 +1166,15 @@ $("#panel").addEventListener("input", e => {
   const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
   const pl = sel && sel.type === "pile" && S.piles.find(x => x.id === sel.id);
   const sp = sel && sel.type === "spot" && S.spots.find(x => x.id === sel.id);
-  if (f === "fname" && fu) { fu.name = v; S.homes.forEach(h => { if (h.furnId === fu.id) { h.name = v; document.querySelectorAll('[data-f=hname]').forEach(n => { if (n.dataset.id === h.id) n.value = v; }); } }); }
-  else if (f === "fw" && fu) { const c = fu.x + fu.w / 2; fu.w = Math.max(30, +v || 30); fu.x = c - fu.w / 2; }
-  else if (f === "fh" && fu) { const c = fu.y + fu.h / 2; fu.h = Math.max(30, +v || 30); fu.y = c - fu.h / 2; }
+  if (f === "tp") { const k = e.target.dataset.k; tplP[k] = k === "name" ? v : (+v || 0); return; }
+  const R = S.room, op = R && R.openings.find(o => o.id === id);
+  if (f === "rname" && R) R.name = v;
+  else if (f === "rceil" && R) R.ceiling = +v || 96;
+  else if ((f === "vx" || f === "vy") && R && R.pts[+id]) R.pts[+id][f === "vx" ? "x" : "y"] = +v || 0;
+  else if (op && (f === "oat" || f === "owid" || f === "ohgt" || f === "osill")) op[{ oat: "at", owid: "w", ohgt: "h", osill: "sill" }[f]] = +v || 0;
+  else if (f === "fname" && fu) { fu.name = v; S.homes.forEach(h => { if (h.furnId === fu.id) { h.name = v; document.querySelectorAll('[data-f=hname]').forEach(n => { if (n.dataset.id === h.id) n.value = v; }); } }); }
+  else if (f === "fw" && fu) { const c = fu.x + fu.w / 2; fu.w = Math.max(30, Math.round((+v || 3) * 10)); fu.x = c - fu.w / 2; }
+  else if (f === "fh" && fu) { const c = fu.y + fu.h / 2; fu.h = Math.max(30, Math.round((+v || 3) * 10)); fu.y = c - fu.h / 2; }
   else if (f === "frot" && fu) fu.rot = (((+v || 0) % 360) + 360) % 360;
   else if (f === "pname" && pl) pl.name = v;
   else if (f === "lname") { const cur = S.layouts.find(l => l.id === S.layoutId); if (cur) { cur.name = v; const n = document.querySelector(".lay.on .nm"); if (n) n.textContent = v; } }
@@ -1076,7 +1191,7 @@ $("#panel").addEventListener("change", e => {
   const f = e.target.dataset.f, id = e.target.dataset.id, v = e.target.value;
   const sp = sel && sel.type === "spot" && S.spots.find(x => x.id === sel.id);
   const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
-  if (f === "sketch") S.showSketch = e.target.checked;
+  if (f === "oedge" && S.room) { const o = S.room.openings.find(x => x.id === id); if (o) o.edge = +v; }
   else if (f === "pickf") { if (v) { sel = { type: "furn", id: v }; } }
   else if (f === "flevel" && fu) { fu.level = v; fu.onId = null; if (v === "on") attachRider(fu); }
   else if (f === "fon" && fu) {
@@ -1115,6 +1230,7 @@ function renderGhost(u = 1) {
   const m = $("#moved"); if (m) m.textContent = o ? `${moved} piece${moved === 1 ? "" : "s"} sit differently than in “${o.name}”` : "";
 }
 function renderBar() {
+  if (!S.room) { $("#layoutbar").innerHTML = ""; return; }
   const L = S.layouts, o = otherLayout();
   $("#layoutbar").innerHTML = `<div class="lays">${L.map((l, i) => `<button class="lay ${l.id === S.layoutId ? "on" : ""}" data-lay="${l.id}"><kbd>${i + 1}</kbd> <span class="nm">${esc(l.name)}</span></button>`).join("")}
     <button class="small" data-lay-act="new" title="Copy this layout so you can try changes">+ New layout</button></div>
@@ -1158,7 +1274,7 @@ $("#panel").addEventListener("click", e => {
   if (a === "import") $("#file").click();
   if (a === "reset") {
     if (!resetArmed) { resetArmed = true; b.textContent = "Really start over?"; setTimeout(() => { resetArmed = false; const r = $("#resetbtn"); if (r) r.textContent = "Start over"; }, 4000); return; }
-    S = defaults(); migrate(); sel = null; menu = null; cleanHome = null; cleanKind = null; save(); resetArmed = false; render(); fitView(); renderMap();
+    S = defaults(); migrate(); sel = null; menu = null; cleanHome = null; cleanKind = null; editWalls = false; save(); resetArmed = false; render(); fitView(); renderMap();
   }
 });
 $("#file").addEventListener("change", e => {
@@ -1177,7 +1293,7 @@ $("#file").addEventListener("change", e => {
 /* temporary: open rq.html?debug to find what blurs the header in the iPhone Home Screen app */
 if (/[?&]debug\b/.test(location.search)) {
   const tests = [
-    ["A · hide the big grid + sketch", "rect[data-t=bg],#sketch{display:none!important}"],
+    ["A · hide the big grid", "rect[data-t=bg]{display:none!important}"],
     ["B · no safe-area padding", "header{padding-top:10px!important}"],
     ["C · header on its own layer", "header{position:relative;z-index:5;transform:translateZ(0);isolation:isolate}"],
     ["D · hide the whole map", "#map{display:none!important}"],
@@ -1195,7 +1311,7 @@ if (/[?&]debug\b/.test(location.search)) {
     e.target.checked ? on.add(+i) : on.delete(+i); st.textContent = [...on].map(k => tests[k][1]).join("\n");
   });
 }
-drawWalls(); fitView(); render(); renderUndo();
+fitView(); render(); renderUndo();
 </script>
 </body>
 </html>
