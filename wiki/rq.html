@@ -146,9 +146,6 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 #history .hh b{font:600 16px Georgia,serif}
 #history .hrow{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;margin:4px 0}
 #history .hrow small{color:var(--mute);white-space:nowrap}
-#toast{position:fixed;z-index:70;left:50%;transform:translateX(-50%);top:calc(70px + env(safe-area-inset-top,0px));display:none;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;background:#2b3046;border:1px solid var(--accent);border-radius:999px;box-shadow:0 8px 28px #000a}
-#toast.show{display:flex}
-#toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:900px){
   header{flex-wrap:wrap;row-gap:6px}
   .prog{order:5;flex-basis:100%;max-width:none;margin-left:0}
@@ -204,7 +201,6 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 </main>
 <input type="file" id="file" accept=".json,application/json" hidden>
 <div id="history" role="dialog" aria-label="Recent changes"></div>
-<div id="toast" role="status"></div>
 
 <script>
 "use strict";
@@ -286,7 +282,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) flush
 function pushUndo(label, before, quiet) {
   if (snapshot() === before) return false;
   undoStack.push({ label, before, lay: S.layoutId, t: Date.now() }); if (undoStack.length > 40) undoStack.shift();
-  redoStack = []; persistUndo(); renderUndo(); if (!quiet) toast(label, "undo"); return true;
+  redoStack = []; persistUndo(); renderUndo(); return true;
 }
 function flushTyping() { if (typing) { const t = typing; typing = null; pushUndo(t.label, t.before, true); } }
 function commitUndo() { if (pre) { const p = pre; pre = null; pushUndo(p.label, p.before); } }
@@ -305,19 +301,14 @@ function undoOnce(quiet) {
   flushTyping(); const e = undoStack.pop(); if (!e) return false;
   const cur = snapshot(); restore(e.before, e.lay);
   redoStack.push({ label: e.label, after: cur, lay: e.lay, t: e.t }); persistUndo(); renderUndo();
-  if (!quiet) toast("Undid: " + e.label, "redo"); return true;
+  return true;
 }
 function redoOnce() {
   flushTyping(); const e = redoStack.pop(); if (!e) return;
   const cur = snapshot(); restore(e.after, e.lay);
   undoStack.push({ label: e.label, before: cur, lay: e.lay, t: e.t }); persistUndo(); renderUndo();
-  toast("Redid: " + e.label, "undo");
 }
-function undoTo(k) { const n = k + 1, label = undoStack[undoStack.length - n] && undoStack[undoStack.length - n].label; for (let i = 0; i < n; i++) undoOnce(true); toast(n > 1 ? `Went back ${n} changes (to before “${label}”)` : "Undid: " + label, "redo"); }
-function toast(msg, kind) {
-  const t = $("#toast"); t.innerHTML = `<span>${esc(msg)}</span><button class="small" data-tk="${kind}">${kind === "undo" ? "Undo" : "Redo"}</button>`;
-  t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 6000);
-}
+function undoTo(k) { const n = k + 1, label = undoStack[undoStack.length - n] && undoStack[undoStack.length - n].label; for (let i = 0; i < n; i++) undoOnce(true); }
 const agoShort = t => { if (!t) return ""; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
 function renderHist() {
   const h = $("#history"); h.style.top = ($("header").getBoundingClientRect().bottom + 6) + "px";
@@ -329,7 +320,7 @@ function setHist(on) { histOpen = on && undoStack.length > 0; $("#history").clas
 function renderUndo() {
   const top = undoStack[undoStack.length - 1];
   $("#undoBtn").disabled = !top; $("#redoBtn").disabled = !redoStack.length; $("#histBtn").disabled = !undoStack.length;
-  $("#undoLabel").textContent = top ? top.label : "nothing yet"; $("#undoBtn").title = top ? "Undo: " + top.label + " (Ctrl+Z)" : "Nothing to undo yet";
+  $("#undoLabel").textContent = top ? top.label : "nothing yet"; const rt = redoStack[redoStack.length - 1]; $("#redoBtn").title = rt ? "Redo: " + rt.label : "Nothing to redo"; $("#undoBtn").title = top ? "Undo: " + top.label + " (Ctrl+Z)" : "Nothing to undo yet";
   $("#histN").textContent = undoStack.length ? undoStack.length : "";
   if (histOpen) { if (undoStack.length) renderHist(); else setHist(false); }
 }
@@ -337,7 +328,6 @@ $("#undoBtn").addEventListener("click", () => undoOnce());
 $("#redoBtn").addEventListener("click", redoOnce);
 $("#histBtn").addEventListener("click", () => setHist(!histOpen));
 $("#history").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (!b) return; if (b.dataset.h === "close") return setHist(false); undoTo(+b.dataset.h); setHist(false); });
-$("#toast").addEventListener("click", e => { const b = e.target.closest("[data-tk]"); if (!b) return; $("#toast").classList.remove("show"); b.dataset.tk === "undo" ? undoOnce() : redoOnce(); });
 document.addEventListener("click", e => { commitUndo(); if (histOpen && !e.target.closest("#history,#histBtn")) setHist(false); });
 document.addEventListener("change", () => { flushTyping(); commitUndo(); });
 document.addEventListener("keydown", e => {
@@ -1183,6 +1173,28 @@ $("#file").addEventListener("change", e => {
   e.target.value = "";
 });
 
+
+/* temporary: open rq.html?debug to find what blurs the header in the iPhone Home Screen app */
+if (/[?&]debug\b/.test(location.search)) {
+  const tests = [
+    ["A · hide the big grid + sketch", "rect[data-t=bg],#sketch{display:none!important}"],
+    ["B · no safe-area padding", "header{padding-top:10px!important}"],
+    ["C · header on its own layer", "header{position:relative;z-index:5;transform:translateZ(0);isolation:isolate}"],
+    ["D · hide the whole map", "#map{display:none!important}"],
+    ["E · solid header, no border", "header{background:#1b1e27!important;border:0!important}"],
+  ];
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:999;background:#000d;border:1px solid #f2b84b;border-radius:10px;padding:8px 10px;font:13px system-ui;color:#fff;max-width:240px";
+  box.innerHTML = "<b>Blur test</b>" + tests.map((t, i) => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0;color:#fff"><input type="checkbox" data-i="${i}" style="width:20px;height:20px;margin:0"> ${t[0]}</label>`).join("") +
+    `<label style="display:flex;gap:8px;align-items:center;margin:4px 0;color:#fff"><input type="checkbox" data-i="tc" style="width:20px;height:20px;margin:0"> F · drop theme-color</label>`;
+  document.body.appendChild(box);
+  const st = document.createElement("style"); document.head.appendChild(st);
+  const on = new Set(), tc = document.querySelector('meta[name=theme-color]');
+  box.addEventListener("change", e => {
+    const i = e.target.dataset.i; if (i === "tc") { e.target.checked ? tc && tc.remove() : tc && document.head.appendChild(tc); return; }
+    e.target.checked ? on.add(+i) : on.delete(+i); st.textContent = [...on].map(k => tests[k][1]).join("\n");
+  });
+}
 drawWalls(); fitView(); render(); renderUndo();
 </script>
 </body>
