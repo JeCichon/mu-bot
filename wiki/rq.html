@@ -1304,11 +1304,17 @@ if (/[?&]debug\b/.test(location.search)) {
     ["C · header on its own layer", "header{position:relative;z-index:5;transform:translateZ(0);isolation:isolate}"],
     ["D · hide the whole map", "#map{display:none!important}"],
     ["E · solid header, no border", "header{background:#1b1e27!important;border:0!important}"],
+    ["G · header fixed to the top (opaque)", "header{position:fixed!important;top:0;left:0;right:0;z-index:50} body{padding-top:var(--hh,80px)!important}"],
+    ["H · header sticky at the top", "header{position:sticky!important;top:0;z-index:50}"],
+    ["I · extra 48px of empty space on top", "body{padding-top:48px!important}"],
   ];
+  const setHH = () => document.documentElement.style.setProperty("--hh", document.querySelector("header").offsetHeight + "px");
+  setHH(); new ResizeObserver(setHH).observe(document.querySelector("header"));
   const box = document.createElement("div");
   box.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:999;background:#000d;border:1px solid #f2b84b;border-radius:10px;padding:8px 10px;font:13px system-ui;color:#fff;max-width:240px";
   box.innerHTML = "<b>Blur test</b>" + tests.map((t, i) => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0;color:#fff"><input type="checkbox" data-i="${i}" style="width:20px;height:20px;margin:0"> ${t[0]}</label>`).join("") +
     `<label style="display:flex;gap:8px;align-items:center;margin:4px 0;color:#fff"><input type="checkbox" data-i="tc" style="width:20px;height:20px;margin:0"> F · drop theme-color</label>`;
+  box.style.maxHeight = "70vh"; box.style.overflow = "auto";
   document.body.appendChild(box);
   const st = document.createElement("style"); document.head.appendChild(st);
   const on = new Set(), tc = document.querySelector('meta[name=theme-color]');
