@@ -13,7 +13,8 @@
 html{background:#13151b}
 html,body{height:100%;margin:0;overscroll-behavior:none}
 body{height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;-webkit-text-size-adjust:100%}
-header{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);padding-top:max(10px,env(safe-area-inset-top))}
+/* sticky + opaque: iOS 26 skips its Liquid Glass blur over a header pinned to the top edge (tested on iPhone 17 Pro, iOS 27.2) */
+header{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);padding-top:max(10px,env(safe-area-inset-top))}
 header h1{font:600 20px Georgia,"Times New Roman",serif;margin:0;letter-spacing:.02em}
 header h1 small{display:block;font:12px system-ui;color:var(--mute);letter-spacing:0}
 .prog{flex:1;max-width:420px;margin-left:auto}
@@ -1296,33 +1297,6 @@ $("#file").addEventListener("change", e => {
 });
 
 
-/* temporary: open rq.html?debug to find what blurs the header in the iPhone Home Screen app */
-if (/[?&]debug\b/.test(location.search)) {
-  const tests = [
-    ["A · hide the big grid", "rect[data-t=bg]{display:none!important}"],
-    ["B · no safe-area padding", "header{padding-top:10px!important}"],
-    ["C · header on its own layer", "header{position:relative;z-index:5;transform:translateZ(0);isolation:isolate}"],
-    ["D · hide the whole map", "#map{display:none!important}"],
-    ["E · solid header, no border", "header{background:#1b1e27!important;border:0!important}"],
-    ["G · header fixed to the top (opaque)", "header{position:fixed!important;top:0;left:0;right:0;z-index:50} body{padding-top:var(--hh,80px)!important}"],
-    ["H · header sticky at the top", "header{position:sticky!important;top:0;z-index:50}"],
-    ["I · extra 48px of empty space on top", "body{padding-top:48px!important}"],
-  ];
-  const setHH = () => document.documentElement.style.setProperty("--hh", document.querySelector("header").offsetHeight + "px");
-  setHH(); new ResizeObserver(setHH).observe(document.querySelector("header"));
-  const box = document.createElement("div");
-  box.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:999;background:#000d;border:1px solid #f2b84b;border-radius:10px;padding:8px 10px;font:13px system-ui;color:#fff;max-width:240px";
-  box.innerHTML = "<b>Blur test</b>" + tests.map((t, i) => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0;color:#fff"><input type="checkbox" data-i="${i}" style="width:20px;height:20px;margin:0"> ${t[0]}</label>`).join("") +
-    `<label style="display:flex;gap:8px;align-items:center;margin:4px 0;color:#fff"><input type="checkbox" data-i="tc" style="width:20px;height:20px;margin:0"> F · drop theme-color</label>`;
-  box.style.maxHeight = "70vh"; box.style.overflow = "auto";
-  document.body.appendChild(box);
-  const st = document.createElement("style"); document.head.appendChild(st);
-  const on = new Set(), tc = document.querySelector('meta[name=theme-color]');
-  box.addEventListener("change", e => {
-    const i = e.target.dataset.i; if (i === "tc") { e.target.checked ? tc && tc.remove() : tc && document.head.appendChild(tc); return; }
-    e.target.checked ? on.add(+i) : on.delete(+i); st.textContent = [...on].map(k => tests[k][1]).join("\n");
-  });
-}
 fitView(); render(); renderUndo();
 </script>
 </body>
