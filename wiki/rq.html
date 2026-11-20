@@ -283,6 +283,8 @@ function migrate() {
   S.layouts.forEach(l => l.furniture.forEach(f => { if (f.type == null) f.type = "furniture"; if (f.rot == null) f.rot = 0; if (f.face == null) f.face = 0; if (f.locked == null) f.locked = false;
     if (f.kind === "loft") { f.kind = "furn"; if (!f.level) f.level = "over"; }
     if (!f.level || f.kind === "post" || f.kind === "window") f.level = "floor";
+    if (f.ht == null) f.ht = f.kind === "post" ? 66 : f.kind === "closet" ? 87 : f.type === "large" ? 36 : 30;
+    if (f.z == null) f.z = f.level === "over" ? 60 : 0;
     if (f.level !== "on") f.onId = null; else { f.odx = f.odx || 0; f.ody = f.ody || 0; f.orot = f.orot || 0; if (f.onId === undefined) f.onId = null; } }));
   if (!S.spots) S.spots = [];
   if (S.room === undefined) {
@@ -376,7 +378,7 @@ const ACT_LBL = { addF: "Add piece", makehome: "Make a home", unhome: "Remove ho
 const FOOT_LBL = { reset: "Start over", import: "Load backup", export: "Save backup" };
 const FIELD_LBL = { fname: "Rename piece", fw: "Piece width", fh: "Piece height", frot: "Piece angle", pname: "Rename pile", lname: "Rename layout", stitle: "Spot title", snote: "Spot note",
   iname: "Rename thing", hname: "Rename home", hcolor: "Home color", sketch: "Sketch on/off", fshape: "Piece shape", ftype: "Piece type", flock: "Lock size", ihome: "Change home",
-  hfurn: "Pin home to piece", aevery: "Job repeat", flevel: "Piece level", fon: "Sits on…", pickf: "", rname: "Rename room", rceil: "Ceiling height", vx: "Move a corner", vy: "Move a corner", oat: "Move door/window", owid: "Resize door/window", ohgt: "Door/window height", osill: "Window sill", oedge: "Move door/window", tp: "" };
+  hfurn: "Pin home to piece", aevery: "Job repeat", flevel: "Piece level", fht: "Piece height", fz: "Piece elevation", fon: "Sits on…", pickf: "", rname: "Rename room", rceil: "Ceiling height", vx: "Move a corner", vy: "Move a corner", oat: "Move door/window", owid: "Resize door/window", ohgt: "Door/window height", osill: "Window sill", oedge: "Move door/window", tp: "" };
 const POP_LBL = { done: "Put away", adone: "Job done", editspot: "" };
 $("#panel").addEventListener("click", e => { flushTyping(); const b = e.target.closest("[data-act],[data-foot]"); if (b) pre = { before: snapshot(), label: b.dataset.foot ? (FOOT_LBL[b.dataset.foot] || "Change") : (ACT_LBL[b.dataset.act] || "Change") }; }, true);
 $("#panel").addEventListener("input", e => {
@@ -534,7 +536,7 @@ function applyRiders() {              // riders follow whatever they sit on
     if (lvl(f) !== "on" || !f.onId) return;
     if (drag && drag.f === f && (drag.kind === "move" || drag.kind === "resize" || drag.kind === "rotate")) return;
     const p = S.furniture.find(x => x.id === f.onId); if (!p || p === f) { f.onId = null; return; }
-    const c = rotPt(p, f.odx || 0, f.ody || 0); f.x = c.x - f.w / 2; f.y = c.y - f.h / 2; f.rot = (((p.rot || 0) + (f.orot || 0)) % 360 + 360) % 360;
+    const c = rotPt(p, f.odx || 0, f.ody || 0); f.x = c.x - f.w / 2; f.y = c.y - f.h / 2; f.rot = (((p.rot || 0) + (f.orot || 0)) % 360 + 360) % 360; f.z = (p.z || 0) + (p.ht || 0);
   });
 }
 function attachSpot(sp) {     // a spot dropped on a piece sticks to it and follows it around
@@ -874,6 +876,10 @@ function doAction(spotId, aid) {
 }
 
 /* ---------- panels ---------- */
+function htNote(f) {
+  const top = Math.round(((f.z || 0) + (f.ht || 0)) * 10) / 10, ceil = S.room ? S.room.ceiling : 0;
+  return `Top is ${top}″ off the floor${ceil && top > ceil ? ` — <b style="color:#e5707e">taller than the ${ceil}″ ceiling</b>` : ceil ? ` · ${Math.round((ceil - top) * 10) / 10}″ below the ceiling` : ""}.${lvl(f) === "on" ? " It stands on top of the piece it sits on." : ""}`;
+}
 function setupPanel() {
   const k = tplP.kind, T = [["rect", "Rectangle"], ["L", "L-shape"], ["nook", "Room with a nook"], ["justin", "Justin's room"]];
   const fld = (key, label) => `<label>${label}<input type="number" inputmode="decimal" step="1" data-f="tp" data-k="${key}" value="${tplP[key]}"></label>`;
@@ -953,6 +959,9 @@ function layoutPanel() {
       ${lvl(f) === "over" ? `<p class="hint" style="margin:-2px 0 8px">Drawn faintly so you can see what's beneath it. Things beneath stay tappable.</p>` : ""}
       ${lvl(f) === "on" ? `<label>Sitting on<select data-f="fon"><option value="">— nothing yet (drag it onto a piece) —</option>${parentCands.map(x => `<option value="${x.id}" ${f.onId === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
       <p class="hint" style="margin:-2px 0 8px">It moves and turns with the piece it sits on. Drag it to another piece to move it there.</p>` : ""}` : ""}
+    ${f.kind !== "window" ? (() => { return `<div class="two"><label>Height (in) · ${ftin(f.ht * 10)}<input type="number" inputmode="decimal" step="0.5" data-f="fht" value="${f.ht}"></label>
+      ${lvl(f) === "over" ? `<label>Bottom is (in) off the floor<input type="number" inputmode="decimal" step="0.5" data-f="fz" value="${f.z}"></label>` : `<label>Bottom (in) off the floor<input value="${Math.round((f.z || 0) * 10) / 10}" disabled></label>`}</div>
+      <p class="hint" id="htnote" style="margin:-2px 0 8px">${htNote(f)}</p>`; })() : ""}
     <div class="two">
       <label>Width (in) · ${ftin(f.w)}<input type="number" inputmode="decimal" step="0.5" data-f="fw" value="${inch(f.w)}" ${dis}></label>
       <label>Depth (in) · ${ftin(f.h)}<input type="number" inputmode="decimal" step="0.5" data-f="fh" value="${inch(f.h)}" ${dis}></label>
@@ -1102,7 +1111,7 @@ $("#panel").addEventListener("click", e => {
     layDelArmed = false;
     const rest = S.layouts.filter(l => l.id !== S.layoutId); S.layouts = rest; S.layoutId = rest[0].id; S.furniture = rest[0].furniture; S.prevId = null; sel = null; save(); render(); return;
   }
-  if (act === "addF") { const ty = b.dataset.type, bx = roomBox(), f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: Math.round((bx.x + bx.w / 2 - 150) / 10) * 10, y: Math.round((bx.y + bx.h / 2 - 150) / 10) * 10, w: 300, h: 300, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
+  if (act === "addF") { const ty = b.dataset.type, bx = roomBox(), f = { id: uid(), name: ty === "large" ? "New large item" : "New furniture", x: Math.round((bx.x + bx.w / 2 - 150) / 10) * 10, y: Math.round((bx.y + bx.h / 2 - 150) / 10) * 10, w: 300, h: 300, shape: "rect", kind: "furn", type: ty, rot: 0, face: 0, locked: false, ht: ty === "large" ? 36 : 30, z: 0, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }; S.furniture.push(f); sel = { type: "furn", id: f.id }; }
   if (act === "tpl") { tplP.kind = id; }
   if (act === "mkroom") { S.room = makeRoom(tplP.kind, tplP); setupOpen = false; mode = "layout"; sel = null; editWalls = false; }
   if (act === "chshape") { setupOpen = true; mode = "setup"; tplP.name = S.room ? S.room.name : tplP.name; }
@@ -1168,6 +1177,8 @@ $("#panel").addEventListener("input", e => {
   else if ((f === "vx" || f === "vy") && R && R.pts[+id]) R.pts[+id][f === "vx" ? "x" : "y"] = +v || 0;
   else if (op && (f === "oat" || f === "owid" || f === "ohgt" || f === "osill")) op[{ oat: "at", owid: "w", ohgt: "h", osill: "sill" }[f]] = +v || 0;
   else if (f === "fname" && fu) { fu.name = v; S.homes.forEach(h => { if (h.furnId === fu.id) { h.name = v; document.querySelectorAll('[data-f=hname]').forEach(n => { if (n.dataset.id === h.id) n.value = v; }); } }); }
+  else if (f === "fht" && fu) { fu.ht = Math.max(1, +v || 1); const n = $("#htnote"); if (n) n.innerHTML = htNote(fu); }
+  else if (f === "fz" && fu) { fu.z = Math.max(0, +v || 0); const n = $("#htnote"); if (n) n.innerHTML = htNote(fu); }
   else if (f === "fw" && fu) { const c = fu.x + fu.w / 2; fu.w = Math.max(30, Math.round((+v || 3) * 10)); fu.x = c - fu.w / 2; }
   else if (f === "fh" && fu) { const c = fu.y + fu.h / 2; fu.h = Math.max(30, Math.round((+v || 3) * 10)); fu.y = c - fu.h / 2; }
   else if (f === "frot" && fu) fu.rot = (((+v || 0) % 360) + 360) % 360;
@@ -1188,7 +1199,7 @@ $("#panel").addEventListener("change", e => {
   const fu = sel && sel.type === "furn" && S.furniture.find(x => x.id === sel.id);
   if (f === "oedge" && S.room) { const o = S.room.openings.find(x => x.id === id); if (o) o.edge = +v; }
   else if (f === "pickf") { if (v) { sel = { type: "furn", id: v }; } }
-  else if (f === "flevel" && fu) { fu.level = v; fu.onId = null; if (v === "on") attachRider(fu); }
+  else if (f === "flevel" && fu) { fu.level = v; fu.onId = null; if (v === "over" && !fu.z) fu.z = 60; if (v === "floor") fu.z = 0; if (v === "on") attachRider(fu); }
   else if (f === "fon" && fu) {
     const p = S.furniture.find(x => x.id === v);
     if (p) { if (!localIn(p, fu.x + fu.w / 2, fu.y + fu.h / 2).ok) { fu.x = p.x + p.w / 2 - fu.w / 2; fu.y = p.y + p.h / 2 - fu.h / 2; } fu.onId = p.id; attachRider(fu, true); } else fu.onId = null;
