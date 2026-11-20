@@ -3,11 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Room Quest">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#1b1e27">
 <title>Room Quest</title>
 <style>
 :root{
@@ -890,7 +885,7 @@ function setupPanel() {
     if (k === "nook") fields += `<div class="two">${fld("nw", "Nook width")}${fld("nd", "Nook depth")}</div>${fld("no", "Nook starts this far from the left wall")}`;
     fields += fld("ceil", "Ceiling height (inches)");
   }
-  return `<h2>${S.room ? "Change the room shape" : "Welcome — what shape is your room?"}</h2>
+  return `<h2>${S.room ? "Swap in a different room shape" : "Welcome — what shape is your room?"}</h2>
   <p class="hint">Pick the closest shape and type your measurements in inches (12 inches = 1 foot). You can fine-tune every corner afterward, and add doors and windows. ${S.room ? "Your furniture, piles and spots stay exactly where they are." : ""}</p>
   <div class="row">${T.map(([id, n]) => `<span class="chip ${k === id ? "on" : ""}" data-act="tpl" data-id="${id}">${n}</span>`).join("")}</div>
   <div class="card">${fields}</div>
@@ -906,7 +901,7 @@ function roomCard() {
     <label>Room name<input data-f="rname" value="${esc(R.name)}"></label>
     <label>Ceiling height (inches) · ${ftin(R.ceiling * 10)}<input type="number" inputmode="decimal" data-f="rceil" value="${R.ceiling}"></label>
     <p class="hint" style="margin:0 0 8px">${P.length} walls · about ${Math.round(ar)} sq ft</p>
-    <div class="row"><button data-act="chshape">Change shape…</button><button data-act="editwalls" class="${editWalls ? "primary" : ""}">${editWalls ? "Done with corners" : "Edit corners"}</button></div>
+    <div class="row"><button data-act="chshape">Swap in a template…</button><button data-act="editwalls" class="${editWalls ? "primary" : ""}">${editWalls ? "Done with corners" : "Edit corners"}</button></div>
     ${editWalls ? `<p class="hint">Drag the gold dots on the map, or type distances (inches from the room's top-left). Wall numbers are shown on the map.</p>
       ${P.map((p, i) => `<div class="item"><span class="hint" style="margin:0;width:22px">${i + 1}</span><input type="number" inputmode="decimal" data-f="vx" data-id="${i}" value="${p.x}"><input type="number" inputmode="decimal" data-f="vy" data-id="${i}" value="${p.y}">
         <button class="small" data-act="addvert" data-id="${i}" title="Add a corner after this one">＋</button><button class="small danger" data-act="delvert" data-id="${i}" ${P.length <= 3 ? "disabled" : ""} aria-label="Delete corner">✕</button></div>
