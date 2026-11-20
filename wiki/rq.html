@@ -1369,11 +1369,30 @@ function renderIso() {
       poly([scr(m(t0), z0), scr(m(t1), z0), scr(m(t1), z1), scr(m(t0), z1)], { fill: col, "fill-opacity": .35, stroke: col, "stroke-width": 2.5 * k });
     });
   }
-  const dk = (it, n = 0) => { const par = it.f.level === "on" && it.f.onId && n < 6 && items.find(i => i.f.id === it.f.onId); return par ? dk(par, n + 1) + .001 * (n + 1) : it.depth; };
-  items.sort((p, q) => (p.f.level === "over") - (q.f.level === "over") || dk(p) - dk(q) || p.z0 - q.z0).forEach(it => {
+  /* draw order: for every pair, work out which one is nearer the camera, then sort so nearer pieces come later */
+  const E = .5, rel = (A, B) => {                       // -1: A first, 1: B first, 0: doesn't matter
+    let best = null;
+    for (const ring of [A.ring, B.ring]) for (let i = 0; i < ring.length; i++) {
+      const p = ring[i], q = ring[(i + 1) % ring.length], L = Math.hypot(q.x - p.x, q.y - p.y); if (L < 1e-6) continue;
+      const nx = (q.y - p.y) / L, ny = -(q.x - p.x) / L, pr = r => r.reduce((m, v) => { const d = v.x * nx + v.y * ny; return [Math.min(m[0], d), Math.max(m[1], d)]; }, [1e9, -1e9]), a = pr(A.ring), b = pr(B.ring);
+      let w; if (a[1] <= b[0] + E) w = nx + ny; else if (b[1] <= a[0] + E) w = -(nx + ny); else continue;   // w > 0: B is nearer the camera
+      if (!best || Math.abs(w) > Math.abs(best.w)) best = { w };
+    }
+    if (best) return Math.abs(best.w) < 1e-6 ? 0 : best.w > 0 ? -1 : 1;
+    // footprints overlap: one is stacked on the other (or inside the closet)
+    const ca = A.f.kind === "closet", cb = B.f.kind === "closet"; if (ca !== cb) return ca ? 1 : -1;
+    if (B.f.onId === A.f.id) return -1; if (A.f.onId === B.f.id) return 1;
+    if (Math.abs(A.z0 - B.z0) > 1) return A.z0 < B.z0 ? -1 : 1;
+    if (Math.abs(A.z1 - B.z1) > 1) return A.z1 < B.z1 ? -1 : 1; return 0;
+  };
+  const start = [...items].sort((p, q) => p.depth - q.depth), before = new Map(start.map(it => [it, []]));
+  for (let i = 0; i < start.length; i++) for (let j = i + 1; j < start.length; j++) { const r = rel(start[i], start[j]); if (r < 0) before.get(start[j]).push(start[i]); else if (r > 0) before.get(start[i]).push(start[j]); }
+  const ordered = [], seen = new Set(), visit = it => { if (seen.has(it)) return; seen.add(it); before.get(it).forEach(visit); ordered.push(it); };
+  start.forEach(visit);
+  ordered.forEach(it => {
     const f = it.f, over = f.level === "over", tall = it.z1 > ceil + 1, isSel = sel && sel.type === "furn" && sel.id === f.id;
     const base = over ? [201, 201, 138] : f.type === "large" ? [120, 106, 180] : f.level === "on" ? [128, 150, 220] : [100, 112, 150];
-    const col = m => `rgb(${base.map(v => Math.round(Math.min(255, v * m))).join(",")})`, op = over ? .45 : 1;
+    const col = m => `rgb(${base.map(v => Math.round(Math.min(255, v * m))).join(",")})`, op = over ? .45 : f.kind === "closet" ? .32 : 1;
     const g = el("g", { "data-t": "ifurn", "data-id": f.id, style: "cursor:pointer" }, svg), n = it.ring.length;
     const stroke = isSel ? "#f2b84b" : tall ? "#e5707e" : "#0f1117", sw = (isSel || tall ? 3 : 1) * k;
     const faces = [];
