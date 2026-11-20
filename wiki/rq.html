@@ -25,6 +25,14 @@ main{flex:1;display:flex;min-height:0}
 #mapwrap{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
 #stage{position:relative;flex:1;min-height:0}
 #map{position:absolute;inset:0;width:100%;height:100%;background:#0f1117;border:1px solid var(--line);border-radius:12px;touch-action:none;user-select:none;-webkit-user-select:none}
+#side{position:absolute;inset:0;width:100%;height:100%;display:none;background:#0f1117;border:1px solid var(--line);border-radius:12px;touch-action:none;user-select:none;-webkit-user-select:none}
+#stage.side #side{display:block}
+#stage.side #map,#stage.side .zoomctl,#stage.side #popup{display:none!important}
+.viewsw{position:absolute;left:8px;top:8px;z-index:6;display:flex;flex-direction:column;gap:4px;align-items:flex-start;max-width:calc(100% - 16px)}
+.viewsw .seg{display:flex;background:#13151bd9;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.viewsw .seg button{border:0;border-radius:0;background:transparent;padding:6px 11px;font:600 13px system-ui;min-height:36px}
+.viewsw .seg button.on{background:var(--accent);color:#13151b}
+.viewsw small{background:#13151bcc;border-radius:6px;padding:2px 7px;color:var(--mute);font:11px system-ui}
 .zoomctl{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;z-index:5}
 .zoomctl button{width:40px;height:40px;padding:0;font-size:20px;background:#1b1e27e6}
 aside{width:390px;max-width:44vw;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
@@ -180,6 +188,10 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
         <g id="spots"></g>
         <g id="fx" style="pointer-events:none"></g>
       </svg>
+      <svg id="side" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="viewsw" id="viewsw"><div class="seg">
+        <button data-view="top" class="on">Top</button><button data-view="front">Front</button><button data-view="right">Right</button><button data-view="back">Back</button><button data-view="left">Left</button>
+      </div><small id="viewcap" hidden></small></div>
       <div class="zoomctl">
         <button data-zoom="in" aria-label="Zoom in">+</button>
         <button data-zoom="out" aria-label="Zoom out">−</button>
@@ -394,7 +406,7 @@ $("#popup").addEventListener("keydown", e => { if (e.key === "Enter" && e.target
 $("#layoutbar").addEventListener("click", e => { if (e.target.closest("[data-lay-act]")) pre = { before: snapshot(), label: "New layout" }; }, true);
 
 /* ---------- UI state ---------- */
-let setupOpen = false, editWalls = false;
+let setupOpen = false, editWalls = false, viewMode = "top";
 const tplP = { kind: "rect", name: "My room", w: 144, l: 120, cw: 48, cl: 48, nw: 60, nd: 30, no: 40, ceil: 96 };
 let mode = "layout";            // layout | piles | spots | sort | clean
 let sel = null;                 // {type:'furn'|'pile'|'spot', id}
@@ -1236,6 +1248,100 @@ function renderGhost(u = 1) {
   });
   const m = $("#moved"); if (m) m.textContent = o ? `${moved} piece${moved === 1 ? "" : "s"} sit differently than in “${o.name}”` : "";
 }
+/* ---------- side views: the room seen from one wall, with every piece at its real height ---------- */
+const SIDE_AX = {
+  front: { h: (x, y) => x,  cap: "Front — standing at the bottom of the map, looking up", d: (x, y) => y },
+  back:  { h: (x, y) => -x, cap: "Back — standing at the top of the map, looking down", d: (x, y) => -y },
+  left:  { h: (x, y) => y,  cap: "Left — standing at the left wall, looking right", d: (x, y) => -x },
+  right: { h: (x, y) => -y, cap: "Right — standing at the right wall, looking left", d: (x, y) => x },
+};
+function outline(f) {
+  if (f.shape === "ellipse") return Array.from({ length: 24 }, (_, i) => rotPt(f, Math.cos(i / 12 * Math.PI) * f.w / 2, Math.sin(i / 12 * Math.PI) * f.h / 2));
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => rotPt(f, a * f.w / 2, b * f.h / 2));
+}
+function renderSide() {
+  const side = $("#side"), R = S.room, ax = SIDE_AX[viewMode]; if (!R || !ax) return;
+  applyRiders();
+  const kpx = Math.max(1, $("#stage").clientWidth || 360);
+  const P = R.pts.map(rp), rh = P.map(p => ax.h(p.x, p.y)), rmin = Math.min(...rh), rmax = Math.max(...rh), ceil = R.ceiling * 10;
+  const items = S.furniture.filter(f => f.kind !== "window").map(f => {
+    const o = outline(f), hs = o.map(p => ax.h(p.x, p.y)), c = rotPt(f, 0, 0);
+    return { f, h0: Math.min(...hs), h1: Math.max(...hs), z0: (f.z || 0) * 10, z1: ((f.z || 0) + (f.ht || 0)) * 10, depth: ax.d(c.x, c.y) };
+  });
+  const hmin = Math.min(rmin, ...items.map(i => i.h0)), hmax = Math.max(rmax, ...items.map(i => i.h1)), top = Math.max(ceil, ...items.map(i => i.z1));
+  const x0 = hmin - 300, x1 = hmax + 140, y1 = 230; let y0 = -top - 170;
+  const vw = x1 - x0, k = vw / kpx; y0 -= 84 * k;            // headroom under the view switcher
+  const vh = y1 - y0;           // map units per screen pixel
+  side.setAttribute("viewBox", `${x0} ${y0} ${vw} ${vh}`); side.innerHTML = "";
+  const fs = Math.max(20, 12 * k);
+  el("rect", { x: x0, y: 0, width: vw, height: y1, fill: "#13161e" }, side);
+  el("rect", { x: rmin, y: -ceil, width: rmax - rmin, height: ceil, fill: "#1a1d28" }, side);
+  for (let z = 120; z <= top + 1; z += 120) {                    // a faint line and a label every foot
+    el("line", { x1: x0 + 200, y1: -z, x2: x1, y2: -z, stroke: "#232837", "stroke-width": 2 }, side);
+    const t = el("text", { x: x0 + 190, y: -z + fs * .35, "text-anchor": "end", fill: "#6f7790", "font-size": fs, "font-family": "system-ui" }, side); t.textContent = z / 120 + "′";
+  }
+  el("line", { x1: rmin, y1: -ceil, x2: rmax, y2: -ceil, stroke: "#7d86a6", "stroke-width": 4, "stroke-dasharray": "18 12" }, side);
+  const ct = el("text", { x: rmax, y: -ceil - fs * .5, "text-anchor": "end", fill: "#98a0b3", "font-size": fs, "font-family": "system-ui" }, side); ct.textContent = `ceiling ${R.ceiling}″`;
+  el("line", { x1: x0 + 200, y1: 0, x2: x1, y2: 0, stroke: "#7d86a6", "stroke-width": 6 }, side);
+  (R.openings || []).forEach(o => {                              // doors and windows, behind the furniture
+    const a = P[o.edge], b = P[(o.edge + 1) % P.length]; if (!a || !b) return;
+    const L = hyp(a, b) || 1, ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, s0 = Math.max(0, o.at * 10), e0 = Math.min(L, (o.at + o.w) * 10); if (e0 <= s0) return;
+    const ha = ax.h(a.x + ux * s0, a.y + uy * s0), hb = ax.h(a.x + ux * e0, a.y + uy * e0), z0 = (o.type === "window" ? o.sill || 0 : 0) * 10, z1 = z0 + (o.h || 0) * 10, col = o.type === "window" ? "#6aa9b4" : "#d9625a";
+    el("rect", { x: Math.min(ha, hb), y: -z1, width: Math.abs(hb - ha) || 6, height: z1 - z0, fill: col, "fill-opacity": .22, stroke: col, "stroke-width": 3, "stroke-dasharray": "10 8" }, side);
+  });
+  const depthKey = (it, n = 0) => { const p = it.f.level === "on" && it.f.onId && n < 6 && items.find(i => i.f.id === it.f.onId); return p ? depthKey(p, n + 1) + .001 * (n + 1) : it.depth; };
+  items.sort((p, q) => depthKey(p) - depthKey(q) || p.z0 - q.z0).forEach(it => {   // far pieces first, near pieces on top
+    const f = it.f, over = f.level === "over", on = f.level === "on", tall = it.z1 > ceil + 1;
+    const r = el("rect", { "data-t": "sfurn", "data-id": f.id, x: it.h0, y: -it.z1, width: Math.max(8, it.h1 - it.h0), height: Math.max(8, it.z1 - it.z0), rx: 6,
+      fill: over ? "#c9c98a" : on ? "#333b55" : f.type === "large" ? "#2d2a3d" : "#262b39", "fill-opacity": over ? .2 : .92,
+      stroke: tall ? "#e5707e" : over ? "#c9c98a" : on ? "#a9b8ea" : f.type === "large" ? "#9a8fd0" : "#5b6482", "stroke-width": tall ? 6 : 4, "stroke-dasharray": over ? "16 10" : "", style: "cursor:pointer" }, side);
+    if (it.h1 - it.h0 > f.name.length * fs * .55 && it.z1 - it.z0 > fs * 1.6) {
+      const t = el("text", { x: (it.h0 + it.h1) / 2, y: -(it.z0 + it.z1) / 2 + fs * .35, "text-anchor": "middle", fill: over ? "#c9c98a" : "#c8cee0", "font-size": fs, "font-family": "system-ui", style: "pointer-events:none" }, side); t.textContent = f.name;
+    }
+  });
+  const sf = sel && sel.type === "furn" && items.find(i => i.f.id === sel.id);                 // the selected piece: outline + height handles
+  if (sf) {
+    const f = sf.f, cx = (sf.h0 + sf.h1) / 2, rad = 13 * k;
+    el("rect", { x: sf.h0 - 6, y: -sf.z1 - 6, width: sf.h1 - sf.h0 + 12, height: sf.z1 - sf.z0 + 12, rx: 8, fill: "none", stroke: "#f2b84b", "stroke-width": 4, "stroke-dasharray": "10 8", style: "pointer-events:none" }, side);
+    const lab = el("text", { x: cx, y: -sf.z1 - rad * 2.3, "text-anchor": "middle", fill: "#f2b84b", "font-size": fs, "font-family": "system-ui", stroke: "#0f1117", "stroke-width": 5, "paint-order": "stroke", style: "pointer-events:none" }, side);
+    lab.textContent = `${f.name} · ${f.ht}″ tall` + (f.z ? ` · bottom ${Math.round(f.z * 10) / 10}″` : "");
+    if (!f.locked) {
+      el("circle", { "data-t": "htop", "data-id": f.id, cx, cy: -sf.z1, r: rad, fill: "#f2b84b", stroke: "#13151b", "stroke-width": 4, style: "cursor:ns-resize" }, side);
+      if (f.level === "over") el("circle", { "data-t": "hbot", "data-id": f.id, cx, cy: -sf.z0, r: rad, fill: "#13151b", stroke: "#f2b84b", "stroke-width": 5, style: "cursor:ns-resize" }, side);
+    }
+  }
+}
+let sdrag = null;
+const sideZ = e => { const side = $("#side"), pt = side.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return -pt.matrixTransform(side.getScreenCTM().inverse()).y / 10; };
+$("#side").addEventListener("pointerdown", e => {
+  const t = e.target.closest("[data-t]"), kind = t && t.dataset.t, f = t && S.furniture.find(x => x.id === t.dataset.id);
+  if ((kind === "htop" || kind === "hbot") && f) { sdrag = { kind, f, before: snapshot() }; $("#side").setPointerCapture(e.pointerId); e.preventDefault(); return; }
+  sel = kind === "sfurn" && f ? { type: "furn", id: f.id } : null; mode = "layout"; menu = null; render();
+});
+$("#side").addEventListener("pointermove", e => {
+  if (!sdrag) return; const f = sdrag.f, z = sideZ(e);
+  if (sdrag.kind === "htop") f.ht = Math.min(400, Math.max(1, Math.round(z - (f.z || 0))));
+  else f.z = Math.min(400, Math.max(0, Math.round(z)));
+  const n = $("#htnote"); if (n) n.innerHTML = htNote(f);
+  const a = document.querySelector("[data-f=fht]"), b = document.querySelector("[data-f=fz]"); if (a) a.value = f.ht; if (b) b.value = f.z;
+  renderSide();
+});
+const endSideDrag = () => { if (!sdrag) return; const d = sdrag; sdrag = null; pushUndo((d.kind === "htop" ? "Changed height of " : "Raised ") + d.f.name, d.before); save(); renderPanel(); renderSide(); };
+$("#side").addEventListener("pointerup", endSideDrag); $("#side").addEventListener("pointercancel", endSideDrag);
+function setView(v) {
+  viewMode = S.room ? v : "top"; menu = null; placing = false; placingSpot = false;
+  $("#stage").classList.toggle("side", viewMode !== "top");
+  document.querySelectorAll("#viewsw [data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === viewMode));
+  const cap = $("#viewcap"); cap.hidden = viewMode === "top"; cap.textContent = viewMode === "top" ? "" : SIDE_AX[viewMode].cap;
+  $("#viewsw").style.display = S.room ? "" : "none";
+  render();
+}
+$("#viewsw").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (b) setView(b.dataset.view); });
+const renderMapTop = renderMap; renderMap = function () {
+  if (!S.room && viewMode !== "top") { viewMode = "top"; $("#stage").classList.remove("side"); document.querySelectorAll("#viewsw [data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === "top")); $("#viewcap").hidden = true; }
+  $("#viewsw").style.display = S.room ? "" : "none";
+  renderMapTop(); if (viewMode !== "top") renderSide();
+};
 function renderBar() {
   if (!S.room) { $("#layoutbar").innerHTML = ""; return; }
   const L = S.layouts, o = otherLayout();
