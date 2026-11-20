@@ -1382,13 +1382,17 @@ function renderIso() {
     // footprints overlap: one is stacked on the other (or inside the closet)
     const ca = A.f.kind === "closet", cb = B.f.kind === "closet"; if (ca !== cb) return ca ? 1 : -1;
     if (B.f.onId === A.f.id) return -1; if (A.f.onId === B.f.id) return 1;
-    if (Math.abs(A.z0 - B.z0) > 1) return A.z0 < B.z0 ? -1 : 1;
-    if (Math.abs(A.z1 - B.z1) > 1) return A.z1 < B.z1 ? -1 : 1; return 0;
+    if (A.z1 <= B.z0 + 1) return -1; if (B.z1 <= A.z0 + 1) return 1;   // clearly stacked: lower one first
+    const fa = A.z1 - A.z0 <= 30, fb = B.z1 - B.z0 <= 30; if (fa !== fb) return fa ? -1 : 1;   // a flat floor marking goes under whatever sits on it
+    return 0;   // pieces that really intersect have no right order: fall back to centre-point depth
   };
   const start = [...items].sort((p, q) => p.depth - q.depth), before = new Map(start.map(it => [it, []]));
   for (let i = 0; i < start.length; i++) for (let j = i + 1; j < start.length; j++) { const r = rel(start[i], start[j]); if (r < 0) before.get(start[j]).push(start[i]); else if (r > 0) before.get(start[i]).push(start[j]); }
-  const ordered = [], seen = new Set(), visit = it => { if (seen.has(it)) return; seen.add(it); before.get(it).forEach(visit); ordered.push(it); };
-  start.forEach(visit);
+  const ordered = [], done = new Set();                  // nearest-first-by-centre unless a clear constraint says otherwise
+  while (ordered.length < start.length) {
+    const left = start.filter(it => !done.has(it)), ready = left.filter(it => before.get(it).every(p => done.has(p)));
+    const pick = (ready.length ? ready : left)[0]; done.add(pick); ordered.push(pick);   // (ready is empty only if pieces block each other in a loop)
+  }
   ordered.forEach(it => {
     const f = it.f, over = f.level === "over", tall = it.z1 > ceil + 1, isSel = sel && sel.type === "furn" && sel.id === f.id;
     const base = over ? [201, 201, 138] : f.type === "large" ? [120, 106, 180] : f.level === "on" ? [128, 150, 220] : [100, 112, 150];
