@@ -463,3 +463,12 @@ Justin holds the limiter and compressor until the layer system and a Master trac
 - Hovering a swatch shows its note (same tag as the stops).
 - **Storage:** `localStorage` key `trico_palettes_v1` — global across songs, per browser (so per person on their own machine). NOT saved inside songs. Goal (Justin): Supabase, per user, with a later publish/share system → needs a table + RLS; Justin will supply SQL access when we get there.
 - **Phase 3 (agreed, not built):** "snap to nearest exact note" (after-import, reversible toggle that keeps the original colours so it can be undone), "apply palette as stops" (one click turns a palette into ribbon stops = an image becomes a melody), Supabase sync/sharing.
+
+## N11 — Palettes, Phase 3 (Nov 21): snap to notes + apply as stops
+- Palette ••• menu gains:
+  - **Apply as stops** — replaces the stops of the gradient/ribbon being edited with the palette's colours, evenly spaced (one undo step). **Apply as stops, low→high** — same, sorted by pitch (an image becomes a scale). Stops are spread across the whole ribbon by position, not locked to steps, so between stops the colour glides.
+  - **♪ Snap to notes · keep the look** — every swatch moves to its nearest 12-ET note; saturation and lightness stay, the hue slides (uses the Colour-mode `shiftColorCents`). Lands within ~3¢ (checked: ≤2.9¢ on a test image); a colour that can't hold it that way falls back to the exact colour. NOTE: hue→pitch is not monotonic (red zone), so a colour near red/orange can jump far in hue — "keep the look" keeps S and L only.
+  - **♪ Snap to notes · exact colours** — each swatch becomes the vivid colour that sings its nearest note (≤0.02¢ on test; fully saturated).
+  - **↺ Restore original colours** — snapping is reversible: the originals are kept on the palette (`orig`) and a ♪ marks a snapped palette. Adding or removing swatches while snapped updates both lists; Clear drops the snap.
+- Saved in the same localStorage entry (`trico_palettes_v1`): `snap`, `orig` per palette.
+- Still open: Supabase per-user palette storage + publish/share (needs a table + RLS; Justin will provide SQL access).

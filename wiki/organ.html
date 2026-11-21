@@ -610,9 +610,11 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 .pal-sw.empty{background:#1a1730;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);}
 .pal-sw.empty:hover{background:#262244;}
 .pal-sw:not(.empty):hover{box-shadow:inset 0 0 0 2px #fff;z-index:2;}
-.pal-menu{position:absolute;right:6px;top:30px;z-index:5;background:#0d0a1e;border:1px solid var(--gold);border-radius:6px;padding:4px;display:flex;flex-direction:column;min-width:130px;box-shadow:0 8px 22px rgba(0,0,0,.7);}
+.pal-menu{position:absolute;right:6px;top:30px;z-index:5;max-width:250px;background:#0d0a1e;border:1px solid var(--gold);border-radius:6px;padding:4px;display:flex;flex-direction:column;min-width:130px;box-shadow:0 8px 22px rgba(0,0,0,.7);}
 .pal-menu button{background:transparent;border:none;color:var(--gold);text-align:left;font-family:inherit;font-size:13px;padding:5px 8px;border-radius:3px;cursor:pointer;}
 .pal-menu button:hover{background:rgba(201,169,110,.18);}
+.pal-msep{height:1px;background:rgba(201,169,110,.2);margin:3px 4px;}
+.pal-snapped{color:var(--gold);font-size:14px;opacity:.9;}
 .pal-menu button.danger{color:#e63946;}
 .pal-foot{padding:6px 14px 10px;font-size:11px;color:rgba(201,169,110,.55);border-top:1px solid rgba(201,169,110,.15);flex-shrink:0;}
 .pal-sec{font-size:10px;letter-spacing:.14em;color:rgba(201,169,110,.6);margin:2px 0 5px;display:flex;justify-content:space-between;align-items:center;}
@@ -8765,9 +8767,9 @@ function palRender(){
   }
   palData.palettes.forEach(pl=>{
     h+=`<div class="pal-card${pl.id===palData.active?' active':''}" data-card="${pl.id}">
-      <div class="pal-head"><span class="pal-check" data-act="activate" data-p="${pl.id}" title="Make this the palette that new colours are saved into">${pl.id===palData.active?'✓':''}</span><span class="pal-name" data-act="rename" data-p="${pl.id}" title="Click to rename">${pl.name.replace(/</g,'&lt;')}</span><button class="pal-more" data-act="menu" data-p="${pl.id}">•••</button></div>
+      <div class="pal-head"><span class="pal-check" data-act="activate" data-p="${pl.id}" title="Make this the palette that new colours are saved into">${pl.id===palData.active?'✓':''}</span><span class="pal-name" data-act="rename" data-p="${pl.id}" title="Click to rename">${pl.name.replace(/</g,'&lt;')}</span>${pl.snap?`<span class="pal-snapped" title="Snapped to exact notes (${pl.snap==='keep'?'keeping the look':'exact colours'}). Menu → Restore original colours to undo.">♪</span>`:''}<button class="pal-more" data-act="menu" data-p="${pl.id}">•••</button></div>
       ${palGridHtml(pl.id,pl.colors)}
-      ${palMenuFor===pl.id?`<div class="pal-menu"><button data-act="rename" data-p="${pl.id}">Rename</button><button data-act="dup" data-p="${pl.id}">Duplicate</button><button data-act="save-cur" data-p="${pl.id}">Add current colour</button><button data-act="clear" data-p="${pl.id}">Clear swatches</button><button class="danger" data-act="del" data-p="${pl.id}">${palDelArm===pl.id?'Click again to delete':'Delete palette'}</button></div>`:''}
+      ${palMenuFor===pl.id?`<div class="pal-menu"><button data-act="rename" data-p="${pl.id}">Rename</button><button data-act="stops" data-p="${pl.id}" title="Replace the stops of the colour you are editing with this palette">Apply as stops</button><button data-act="stops-sorted" data-p="${pl.id}" title="Same, ordered low → high in pitch (a scale)">Apply as stops, low→high</button><div class="pal-msep"></div><button data-act="snap-keep" data-p="${pl.id}" title="Move every swatch to its nearest exact note, keeping its saturation and lightness">♪ Snap to notes · keep the look</button><button data-act="snap-vivid" data-p="${pl.id}" title="Move every swatch to the exact vivid colour of its nearest note">♪ Snap to notes · exact colours</button>${pl.snap?`<button data-act="restore" data-p="${pl.id}">↺ Restore original colours</button>`:''}<div class="pal-msep"></div><button data-act="dup" data-p="${pl.id}">Duplicate</button><button data-act="save-cur" data-p="${pl.id}">Add current colour</button><button data-act="clear" data-p="${pl.id}">Clear swatches</button><button class="danger" data-act="del" data-p="${pl.id}">${palDelArm===pl.id?'Click again to delete':'Delete palette'}</button></div>`:''}
     </div>`;
   });
   h+=`</div><div class="pal-foot">Click a swatch to paint the selected colour · click an empty slot to save the current colour there · right-click a swatch to remove it · drop an image here</div>`;
@@ -8780,6 +8782,40 @@ function palApply(hex){
   const c=hexToRgb(hex);if(!c||gradTi===null) return;
   beginGesture();applySoundColor({r:c.r,g:c.g,b:c.b});commitGesture();
 }
+// Snap to notes (reversible): every swatch moves to the nearest exact note. The original colours are kept in pl.orig, so Restore brings them back.
+//   'keep'  — gentle: the hue slides to the note, saturation and lightness stay (the palette keeps its look; lands within ~1¢)
+//   'vivid' — exact: the vivid colour that sings the note (accurate to ~0.2¢, but fully saturated)
+function palHex(c){return '#'+[c.r,c.g,c.b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
+function palSnapColor(hex,mode){
+  const c=hexToRgb(hex);if(!c) return hex;
+  const f=activeRgbToFreq(c.r,c.g,c.b),m=69+12*Math.log2(f/440),mi=Math.round(m);
+  if(mode==='keep'){
+    const cents=(mi-m)*100;if(Math.abs(cents)<0.005) return hex;
+    const n=shiftColorCents(c,cents),err=Math.abs(1200*Math.log2(activeRgbToFreq(n.r,n.g,n.b)/(440*Math.pow(2,(mi-69)/12))));
+    if(err<=3) return palHex(n);                      // otherwise this colour can't hold the note gently — fall back to the exact one
+  }
+  const v=gpVividForFreq(440*Math.pow(2,(mi-69)/12));
+  return v&&v.e<=3?palHex(v):hex;
+}
+function palSnap(pl,mode){
+  if(!pl.snap) pl.orig=[...pl.colors];
+  pl.snap=mode;pl.colors=pl.orig.map(h=>palSnapColor(h,mode));
+}
+function palRestore(pl){if(pl.snap&&pl.orig){pl.colors=[...pl.orig];}pl.snap=null;pl.orig=null;}
+function palPush(pl,hex){
+  if(pl.colors.length>=PAL_CAP) return;
+  if(pl.snap){pl.orig.push(hex);pl.colors.push(palSnapColor(hex,pl.snap));}else pl.colors.push(hex);
+}
+// Apply a palette to the gradient being edited: its colours become evenly spaced stops (an image becomes a melody).
+function palApplyStops(pl,sorted){
+  const g=gpGrad();if(!g||gradTi===null||!pl.colors.length) return;
+  let cols=[...pl.colors];
+  if(sorted) cols.sort((a,b)=>{const A=hexToRgb(a),B=hexToRgb(b);return activeRgbToFreq(A.r,A.g,A.b)-activeRgbToFreq(B.r,B.g,B.b);});
+  if(cols.length===1) cols=[cols[0],cols[0]];
+  pushHistory();gradEnsure(g);
+  g.stops=cols.map((c,i)=>({p:i/(cols.length-1),c,a:100}));gradSyncEnds(g);
+  gpSelStop=null;gpSelect(g.stops[0]);render();saveState();
+}
 function palAddColors(pl,list){for(const c of list){if(pl.colors.length>=PAL_CAP) break;pl.colors.push(c);}}
 palPop.addEventListener('click',e=>{
   const sw=e.target.closest('.pal-sw');
@@ -8789,7 +8825,7 @@ palPop.addEventListener('click',e=>{
     const i=+sw.dataset.i;
     if(sw.classList.contains('empty')){
       const cur=palCurrentHex();if(!cur) return;
-      pl.colors[Math.min(i,pl.colors.length)]=cur;palSave();palRender();     // fills the next free slot (colours stay packed to the left)
+      palPush(pl,cur);palSave();palRender();     // fills the next free slot (colours stay packed to the left)
     } else palApply(sw.dataset.hex);
     return;
   }
@@ -8803,9 +8839,13 @@ palPop.addEventListener('click',e=>{
   if(act==='menu'&&pl){palMenuFor=palMenuFor===pl.id?null:pl.id;palDelArm=null;palRender();return;}
   if(act==='rename'&&pl){palMenuFor=null;palRenameStart(pl.id);return;}
   if(!pl) return;
-  if(act==='dup'){palData.palettes.splice(palData.palettes.indexOf(pl)+1,0,{id:palId(),name:pl.name+' copy',colors:[...pl.colors]});}
-  else if(act==='save-cur'){const cur=palCurrentHex();if(cur&&pl.colors.length<PAL_CAP) pl.colors.push(cur);}
-  else if(act==='clear'){pl.colors=[];}
+  if(act==='dup'){palData.palettes.splice(palData.palettes.indexOf(pl)+1,0,{id:palId(),name:pl.name+' copy',colors:[...pl.colors],snap:pl.snap||null,orig:pl.orig?[...pl.orig]:null});}
+  else if(act==='save-cur'){const cur=palCurrentHex();if(cur) palPush(pl,cur);}
+  else if(act==='clear'){pl.colors=[];pl.orig=null;pl.snap=null;}
+  else if(act==='snap-keep'){palSnap(pl,'keep');}
+  else if(act==='snap-vivid'){palSnap(pl,'vivid');}
+  else if(act==='restore'){palRestore(pl);}
+  else if(act==='stops'||act==='stops-sorted'){palApplyStops(pl,act==='stops-sorted');}
   else if(act==='del'){
     if(palDelArm!==pl.id){palDelArm=pl.id;palRender();return;}
     palData.palettes=palData.palettes.filter(x=>x!==pl);palDelArm=null;
@@ -8820,7 +8860,7 @@ palPop.addEventListener('contextmenu',e=>{
   if(sw.dataset.hist){palData.history=palData.history.filter(c=>c!==sw.dataset.hex);palSave();palRender();return;}
   if(sw.classList.contains('empty')) return;
   const pl=palData.palettes.find(x=>x.id===sw.dataset.p);if(!pl) return;
-  pl.colors.splice(+sw.dataset.i,1);palSave();palRender();
+  pl.colors.splice(+sw.dataset.i,1);if(pl.snap&&pl.orig) pl.orig.splice(+sw.dataset.i,1);palSave();palRender();
 });
 function palRenameStart(id){
   const pl=palData.palettes.find(x=>x.id===id);const nameEl=palPop.querySelector(`.pal-name[data-p="${id}"]`);if(!pl||!nameEl) return;
