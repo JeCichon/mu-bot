@@ -151,6 +151,24 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 #undoBtn:not(:disabled){color:var(--accent)}
 #history{position:fixed;z-index:60;left:12px;width:min(380px,calc(100vw - 24px));max-height:60vh;overflow:auto;background:var(--panel);border:1px solid var(--furn-line);border-radius:14px;box-shadow:0 12px 40px #000a;padding:12px;display:none}
 #history.show{display:block}
+#syncBtn.off{opacity:.65}
+#syncBtn.bad b{color:var(--danger)}
+#syncBtn.ok b{color:#6fcf97}
+.dlgback{position:fixed;inset:0;z-index:90;background:#000a;display:none;align-items:center;justify-content:center;padding:12px}
+.dlgback.show{display:flex}
+.dlg{background:var(--panel);border:1px solid var(--furn-line);border-radius:14px;box-shadow:0 12px 40px #000a;padding:16px;width:min(460px,100%);max-height:92vh;overflow:auto}
+.dlg h3{margin:0 0 6px;font-size:18px}
+.dlg p{margin:6px 0;color:var(--mute);font-size:14px}
+.dlg .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.dlg .x{float:right;padding:2px 9px}
+.dlg .err{color:var(--danger)}
+.dlg input.code{font-size:26px;letter-spacing:.35em;text-align:center}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.cmp>div{border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;background:var(--panel2)}
+.cmp b{display:block;font-size:14px}
+.cmp .new{border-color:var(--accent)}
+.cmp .tag{color:var(--accent);font-size:12px;font-weight:700}
+.dlg ul{margin:6px 0 0 18px;padding:0;font-size:13px;color:var(--ink)}
 #history .hh{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 #history .hh b{font:600 16px Georgia,serif}
 #history .hrow{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;margin:4px 0}
@@ -172,6 +190,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
     <button id="undoBtn" class="ubtn" title="Undo (Ctrl+Z)" disabled><span>↶ Undo</span><small id="undoLabel">nothing yet</small></button>
     <button id="redoBtn" class="ubtn r" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
     <button id="histBtn" class="ubtn r" title="Recent changes" aria-label="Recent changes" disabled>🕘<b id="histN"></b></button>
+    <button id="syncBtn" class="ubtn r off" title="Sign in to sync" aria-label="Sign in and sync">☁<b id="syncN"></b></button>
   </div>
   <div class="prog"><div class="bar"><i id="bar"></i></div><span id="progtxt"></span></div>
 </header>
@@ -214,6 +233,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 </main>
 <input type="file" id="file" accept=".json,application/json" hidden>
 <div id="history" role="dialog" aria-label="Recent changes"></div>
+<div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
 "use strict";
@@ -295,7 +315,8 @@ function defaults() {
 }
 let S = (() => { try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) {} return defaults(); })();
 function syncLayout() { const L = S.layouts && S.layouts.find(l => l.id === S.layoutId); if (L) L.furniture = S.furniture; }
-function save() { syncLayout(); try { const c = { ...S }; delete c.furniture; localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {} }
+let onSaved = null;
+function save() { syncLayout(); try { const c = { ...S }; delete c.furniture; localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {} if (onSaved) onSaved(); }
 function migrate() {
   if (!S.layouts) { S.layouts = [{ id: uid(), name: "Current room", furniture: S.furniture }]; S.layoutId = S.layouts[0].id; }
   const L = S.layouts.find(l => l.id === S.layoutId) || S.layouts[0]; S.layoutId = L.id; S.furniture = L.furniture;
@@ -1350,6 +1371,12 @@ function renderIso() {
     const ring = outline(f).map(p => rot(p.x, p.y)), c = rot(rotPt(f, 0, 0).x, rotPt(f, 0, 0).y);
     return { f, ring, pos: sA(ring) > 0, z0: (f.z || 0) * 10, z1: ((f.z || 0) + (f.ht || 0)) * 10, depth: c.x + c.y };
   });
+  const hull = P => { P = [...P].sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+    for (const p of P) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    for (const p of [...P].reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    return lo.slice(0, -1).concat(up.slice(0, -1)); };
+  const hullsOverlap = (H1, H2) => { for (const H of [H1, H2]) for (let i = 0; i < H.length; i++) { const p = H[i], q = H[(i + 1) % H.length], nx = q[1] - p[1], ny = p[0] - q[0], L = Math.hypot(nx, ny) || 1, pr = G => G.reduce((m, v) => { const d = (v[0] * nx + v[1] * ny) / L; return [Math.min(m[0], d), Math.max(m[1], d)]; }, [1e9, -1e9]), a = pr(H1), b = pr(H2); if (a[1] <= b[0] + 1 || b[1] <= a[0] + 1) return false; } return true; };
+  items.forEach(it => { it.sil = hull([...it.ring.map(q => scr(q, it.z0)), ...it.ring.map(q => scr(q, it.z1))]); });
   const pts = [];
   RP.forEach(q => { pts.push(scr(q, 0), scr(q, ceil)); }); items.forEach(it => it.ring.forEach(q => { pts.push(scr(q, it.z0), scr(q, it.z1)); }));
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), bx0 = Math.min(...xs), bx1 = Math.max(...xs), by0 = Math.min(...ys), by1 = Math.max(...ys);
@@ -1371,6 +1398,8 @@ function renderIso() {
   }
   /* draw order: for every pair, work out which one is nearer the camera, then sort so nearer pieces come later */
   const E = .5, rel = (A, B) => {                       // -1: A first, 1: B first, 0: doesn't matter
+    if (!hullsOverlap(A.sil, B.sil)) return 0;          // they never cover each other on screen, so no order is needed
+    const fa0 = A.z1 - A.z0 <= 30 && A.z0 < 1, fb0 = B.z1 - B.z0 <= 30 && B.z0 < 1; if (fa0 !== fb0) return fa0 ? -1 : 1;   // a flat marking on the floor lies under everything
     let best = null;
     for (const ring of [A.ring, B.ring]) for (let i = 0; i < ring.length; i++) {
       const p = ring[i], q = ring[(i + 1) % ring.length], L = Math.hypot(q.x - p.x, q.y - p.y); if (L < 1e-6) continue;
@@ -1384,15 +1413,24 @@ function renderIso() {
     if (B.f.onId === A.f.id) return -1; if (A.f.onId === B.f.id) return 1;
     if (A.z1 <= B.z0 + 1) return -1; if (B.z1 <= A.z0 + 1) return 1;   // clearly stacked: lower one first
     const fa = A.z1 - A.z0 <= 30, fb = B.z1 - B.z0 <= 30; if (fa !== fb) return fa ? -1 : 1;   // a flat floor marking goes under whatever sits on it
+    const oa = A.f.level === "over", ob = B.f.level === "over"; if (oa !== ob) return oa ? -1 : 1;   // a see-through raised piece goes under whatever pokes through it
+    const pa = A.f.kind === "post", pb = B.f.kind === "post"; if (pa !== pb) return pa ? 1 : -1;     // a post standing in or against something is drawn over it
     return 0;   // pieces that really intersect have no right order: fall back to centre-point depth
   };
-  const start = [...items].sort((p, q) => p.depth - q.depth), before = new Map(start.map(it => [it, []]));
+  const byDepth = [...items].sort((p, q) => p.depth - q.depth), start = byDepth.filter(it => it.f.level !== "over"), overs = byDepth.filter(it => it.f.level === "over");
+  const before = new Map(start.map(it => [it, []]));
   for (let i = 0; i < start.length; i++) for (let j = i + 1; j < start.length; j++) { const r = rel(start[i], start[j]); if (r < 0) before.get(start[j]).push(start[i]); else if (r > 0) before.get(start[i]).push(start[j]); }
-  const ordered = [], done = new Set();                  // nearest-first-by-centre unless a clear constraint says otherwise
+  const ordered = [], done = new Set();                  // farthest-first by centre, unless a clear constraint says otherwise
   while (ordered.length < start.length) {
-    const left = start.filter(it => !done.has(it)), ready = left.filter(it => before.get(it).every(p => done.has(p)));
-    const pick = (ready.length ? ready : left)[0]; done.add(pick); ordered.push(pick);   // (ready is empty only if pieces block each other in a loop)
+    const left = start.filter(it => !done.has(it)), unmet = it => before.get(it).reduce((c, p) => c + (done.has(p) ? 0 : 1), 0);
+    let pick = left[0], bu = unmet(pick); for (const it of left) { const u = unmet(it); if (u < bu) { pick = it; bu = u; } }   // fewest pieces still owed in front
+    done.add(pick); ordered.push(pick);
   }
+  overs.forEach(O => {                                    // raised see-through pieces: slot each in after what sits under it, before what stands in front of it
+    let pos = ordered.findIndex(X => rel(O, X) < 0); if (pos < 0) pos = ordered.length;
+    let lastUnder = -1; ordered.forEach((X, k) => { if (rel(O, X) > 0) lastUnder = k; });
+    ordered.splice(Math.max(pos, lastUnder + 1), 0, O);
+  });
   ordered.forEach(it => {
     const f = it.f, over = f.level === "over", tall = it.z1 > ceil + 1, isSel = sel && sel.type === "furn" && sel.id === f.id;
     const base = over ? [201, 201, 138] : f.type === "large" ? [120, 106, 180] : f.level === "on" ? [128, 150, 220] : [100, 112, 150];
@@ -1494,6 +1532,192 @@ $("#file").addEventListener("change", e => {
   e.target.value = "";
 });
 
+
+/* ---------- sign-in + cloud sync (Supabase). The app works fully signed-out; this only adds a cloud copy. ---------- */
+const SB_URL = "https://pzscvrhqsndxduqojtui.supabase.co", SB_KEY = "sb_publishable_nytAohtOUngn6YCPuDQkkA_7ahr2DwU";
+const AKEY = "roomquest.auth", MKEY = "roomquest.sync", PREKEY = "roomquest.pre-sync";
+const lsGet = (k, d) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let auth = lsGet(AKEY, null), meta = lsGet(MKEY, { editedAt: 0, syncedAt: 0, remoteAt: null, uid: null });
+let syncState = "off", syncMsg = "", conflict = null, syncBusy = false, applyingRemote = false, pushTimer = null, dlgStep = "email", dlgEmail = "", dlgErr = "", dlgBusy = false;
+const deviceName = () => { const u = navigator.userAgent, st = navigator.standalone || matchMedia("(display-mode: standalone)").matches; return (/iPhone/.test(u) ? "iPhone" : /iPad|Macintosh.*Mobile/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? "iPad" : /Android/.test(u) ? "Android" : /Windows/.test(u) ? "Windows" : /Mac/.test(u) ? "Mac" : "Browser") + (st ? " app" : ""); };
+const canon = o => Array.isArray(o) ? "[" + o.map(canon).join(",") + "]" : o && typeof o === "object" ? "{" + Object.keys(o).sort().filter(k => o[k] !== undefined).map(k => JSON.stringify(k) + ":" + canon(o[k])).join(",") + "}" : JSON.stringify(o);
+const LOCALKEYS = ["layoutId", "prevId", "ghost", "showSketch"];                 // per-device view settings stay out of the cloud copy
+function syncBlob() { syncLayout(); const c = { ...S }; delete c.furniture; LOCALKEYS.forEach(k => delete c[k]); return c; }
+let lastBlobStr = canon(syncBlob());
+const hasData = () => !!(S.room || S.items.length || S.piles.length || S.spots.length || S.layouts.some(l => l.furniture.length));
+const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : new Date(t).toLocaleDateString(); };
+const when = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+onSaved = () => {
+  const str = canon(syncBlob()); if (str === lastBlobStr) return; lastBlobStr = str;
+  if (applyingRemote) return;
+  meta.editedAt = Date.now(); lsSet(MKEY, meta); if (auth) { setSync(conflict ? "conflict" : "pending"); schedulePush(); }
+};
+function setSync(st, msg) {
+  syncState = auth ? st : "off"; if (msg !== undefined) syncMsg = msg;
+  const b = $("#syncBtn"), n = $("#syncN"), sym = { off: "", ok: "✓", busy: "…", pending: "↑", offline: "!", error: "!", conflict: "⚠" }[syncState] || "";
+  b.className = "ubtn r " + (syncState === "off" ? "off" : syncState === "ok" ? "ok" : syncState === "busy" || syncState === "pending" ? "" : "bad"); n.textContent = sym;
+  b.title = !auth ? "Sign in to sync" : { ok: "Synced " + ago(meta.syncedAt), busy: "Syncing…", pending: "Changes waiting to sync", offline: "Can't reach the cloud right now — your room is safe on this device", error: syncMsg || "Sync problem", conflict: "Two copies disagree — tap to choose" }[syncState];
+  if ($("#syncdlg").classList.contains("show") && !conflict) renderSyncDlg();
+}
+/* --- talking to Supabase --- */
+async function sb(path, o = {}, authed = true) {
+  const h = { apikey: SB_KEY, "Content-Type": "application/json", ...(o.headers || {}) };
+  if (authed && auth) { if (auth.expires_at && auth.expires_at - 30 < Date.now() / 1000) await refreshAuth(); h.Authorization = "Bearer " + auth.access_token; }
+  const r = await fetch(SB_URL + path, { ...o, headers: h }); let j = null; try { j = await r.json(); } catch (e) {}
+  if (r.status === 401 && authed && auth && !o.retried) { await refreshAuth(); return sb(path, { ...o, retried: true }, authed); }
+  return { ok: r.ok, status: r.status, json: j };
+}
+async function refreshAuth() {
+  if (!auth || !auth.refresh_token) throw new Error("signed out");
+  const r = await fetch(SB_URL + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: SB_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: auth.refresh_token }) });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || !j.access_token) { if (r.status === 400 || r.status === 401) { auth = null; lsSet(AKEY, null); setSync("off"); } throw new Error("refresh failed"); }
+  keepSession(j);
+}
+function keepSession(j) {
+  const prev = auth || {};
+  auth = { access_token: j.access_token, refresh_token: j.refresh_token || prev.refresh_token, expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600), email: (j.user && j.user.email) || prev.email, uid: (j.user && j.user.id) || prev.uid };
+  lsSet(AKEY, auth);
+}
+async function sendCode(email) {
+  const r = await sb("/auth/v1/otp", { method: "POST", body: JSON.stringify({ email, create_user: true }) }, false);
+  if (!r.ok) throw new Error(r.status === 429 ? "Too many emails just now — wait a minute and try again." : (r.json && (r.json.msg || r.json.error_description || r.json.message)) || "Couldn't send the email.");
+}
+async function verifyCode(email, token) {
+  let last = null;
+  for (const type of ["email", "signup", "magiclink"]) {
+    const r = await sb("/auth/v1/verify", { method: "POST", body: JSON.stringify({ type, email, token }) }, false);
+    if (r.ok && r.json && r.json.access_token) { keepSession(r.json); return; } last = r;
+  }
+  throw new Error("That code didn't work. Check it, or ask for a new one.");
+}
+async function finishSignIn() {
+  if (meta.uid !== auth.uid) { meta = { editedAt: 0, syncedAt: 0, remoteAt: null, uid: auth.uid }; lsSet(MKEY, meta); }   // a different account: start fresh
+  closeDlg(); setSync("busy"); syncNow();
+}
+function signOut() { try { sb("/auth/v1/logout", { method: "POST" }); } catch (e) {} auth = null; lsSet(AKEY, null); conflict = null; clearTimeout(pushTimer); setSync("off"); renderSyncDlg(); }
+/* --- the sync itself --- */
+const rowUrl = extra => "/rest/v1/room_quest_state?user_id=eq." + auth.uid + (extra || "");
+const dirty = () => meta.editedAt > meta.syncedAt;
+function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(() => syncNow(), 3500); }
+async function syncNow(force) {
+  if (!auth || syncBusy || (conflict && !force)) return; syncBusy = true; if (syncState !== "pending") setSync("busy");
+  try { await checkRemote(); } catch (e) { setSync(navigator.onLine === false || /fetch|network|Failed/i.test(String(e && e.message)) ? "offline" : "error", "Sync problem: " + (e && e.message || e)); }
+  finally { syncBusy = false; if (auth && !conflict && dirty() && syncState === "ok") schedulePush(); }
+}
+async function checkRemote() {
+  const r = await sb(rowUrl("&select=state,updated_at,device")); if (!r.ok) throw new Error((r.json && (r.json.message || r.json.hint)) || "HTTP " + r.status);
+  const row = r.json && r.json[0];
+  if (!row) { if (hasData()) { meta.remoteAt = null; return push(false); } return done(null); }
+  if (row.updated_at === meta.remoteAt) return dirty() ? push(true) : done(row.updated_at);
+  const same = canon(row.state) === canon(syncBlob());
+  if (same) return done(row.updated_at);
+  if (!hasData() || (meta.remoteAt && !dirty())) return pull(row, !hasData() ? "Loaded from the cloud" : "Updated from the cloud");
+  showConflict(row);
+}
+function done(at) { const t = Date.now(); meta.syncedAt = t; if (!dirty()) meta.editedAt = Math.min(meta.editedAt, t); if (at) meta.remoteAt = at; lsSet(MKEY, meta); setSync("ok"); }
+async function push(known) {
+  const t0 = Date.now(), now = new Date(t0).toISOString(), body = { state: syncBlob(), updated_at: now, device: deviceName() };
+  const r = known ? await sb(rowUrl("&updated_at=eq." + encodeURIComponent(meta.remoteAt)), { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(body) })
+                  : await sb("/rest/v1/room_quest_state", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ ...body, user_id: auth.uid }) });
+  if (r.ok && r.json && r.json[0]) { meta.remoteAt = r.json[0].updated_at; meta.syncedAt = t0; lsSet(MKEY, meta); return setSync("ok"); }
+  if (r.ok || r.status === 409) { meta.remoteAt = null; const g = await sb(rowUrl("&select=state,updated_at,device")); const row = g.json && g.json[0]; if (row) return canon(row.state) === canon(syncBlob()) ? done(row.updated_at) : showConflict(row); return push(false); }
+  throw new Error((r.json && (r.json.message || r.json.hint)) || "HTTP " + r.status);
+}
+function pull(row, why) {
+  const b4 = snapshot(); applyingRemote = true;
+  try { restore(JSON.stringify(row.state)); fitView(); renderMap(); } finally { applyingRemote = false; }
+  pushUndo(why, b4); lastBlobStr = canon(syncBlob()); meta.remoteAt = row.updated_at; meta.syncedAt = Date.now(); meta.editedAt = meta.syncedAt; lsSet(MKEY, meta); setSync("ok");
+}
+/* --- when the two copies disagree --- */
+function allById(st, key) { const m = new Map(); (key === "furniture" ? (st.layouts || []).flatMap(l => l.furniture) : st[key] || []).forEach(x => m.set(x.id, x)); return m; }
+function diffLines(L, R) {
+  const out = [], names = a => a.slice(0, 4).map(x => "“" + (x.name || x.title || "?") + "”").join(", ") + (a.length > 4 ? " + " + (a.length - 4) + " more" : "");
+  [["furniture", "piece", "pieces"], ["piles", "pile", "piles"], ["spots", "spot", "spots"]].forEach(([k, one, many]) => {
+    const a = allById(L, k), b = allById(R, k), onlyL = [...a].filter(([id]) => !b.has(id)).map(x => x[1]), onlyR = [...b].filter(([id]) => !a.has(id)).map(x => x[1]), ch = [...a].filter(([id, v]) => b.has(id) && canon(v) !== canon(b.get(id))).map(x => x[1]);
+    if (onlyR.length) out.push(`Cloud has ${onlyR.length} ${onlyR.length === 1 ? one : many} this device doesn't: ${names(onlyR)}`);
+    if (onlyL.length) out.push(`This device has ${onlyL.length} ${onlyL.length === 1 ? one : many} the cloud doesn't: ${names(onlyL)}`);
+    if (ch.length) out.push(`${ch.length} ${ch.length === 1 ? one : many} changed (moved, resized, renamed…): ${names(ch)}`);
+  });
+  const dn = st => (st.items || []).filter(i => i.done).length;
+  if (dn(L) !== dn(R) || (L.items || []).length !== (R.items || []).length) out.push(`Items put away: this device ${dn(L)} of ${(L.items || []).length}, cloud ${dn(R)} of ${(R.items || []).length}`);
+  if (canon(L.room) !== canon(R.room)) out.push("The room itself (walls, doors, windows, ceiling) is different");
+  if (canon(L.homes) !== canon(R.homes)) out.push("The list of homes is different");
+  return out.length ? out : ["The copies differ in small details."];
+}
+function summary(st) { const f = (st.layouts || []).find(l => l.id === st.layoutId) || (st.layouts || [])[0]; return `${st.room ? st.room.name : "no room yet"} · ${f ? f.furniture.length : 0} pieces · ${(st.layouts || []).length} layout${(st.layouts || []).length === 1 ? "" : "s"} · ${(st.items || []).filter(i => i.done).length}/${(st.items || []).length} items put away`; }
+function showConflict(row) { conflict = { row }; setSync("conflict"); openDlg(); }
+function resolveConflict(choice) {
+  const row = conflict && conflict.row; if (!row) return;
+  lsSet(PREKEY, { at: Date.now(), kept: choice, local: syncBlob(), cloud: row.state });                 // safety copy of both, just in case
+  conflict = null; closeDlg();
+  if (choice === "cloud") { pull(row, "Used the cloud copy"); }
+  else { meta.remoteAt = row.updated_at; lsSet(MKEY, meta); setSync("busy"); syncBusy = true; push(true).catch(e => setSync("error", "Sync problem: " + e.message)).finally(() => { syncBusy = false; }); }
+}
+/* --- the dialog --- */
+function openDlg() { $("#syncdlg").classList.add("show"); renderSyncDlg(); }
+function closeDlg() { $("#syncdlg").classList.remove("show"); }
+function renderSyncDlg() {
+  const el = $("#syncbody"), X = '<button class="x small" data-s="close" aria-label="Close">✕</button>', err = dlgErr ? `<p class="err">${esc(dlgErr)}</p>` : "";
+  if (conflict) {
+    const row = conflict.row, L = syncBlob(), R = row.state, lt = meta.editedAt || 0, rt = new Date(row.updated_at).getTime(), newer = lt > rt ? "L" : "R";
+    el.innerHTML = `${X}<h3>Two copies don't match</h3><p>This device and the cloud both have changes the other doesn't. Pick the one to keep — nothing is thrown away without a safety copy, and “Undo” still works here.</p>
+      <div class="cmp"><div class="${newer === "L" ? "new" : ""}">${newer === "L" ? '<span class="tag">EDITED MORE RECENTLY</span>' : ""}<b>This device</b>${lt ? "Last edited " + when(lt) : "Not edited since last sync"}<br>${esc(summary(L))}</div>
+      <div class="${newer === "R" ? "new" : ""}">${newer === "R" ? '<span class="tag">EDITED MORE RECENTLY</span>' : ""}<b>Cloud copy</b>Saved ${when(rt)}${row.device ? " from " + esc(row.device) : ""}<br>${esc(summary(R))}</div></div>
+      <p><b style="color:var(--ink)">What's different</b></p><ul>${diffLines(L, R).map(x => "<li>" + esc(x) + "</li>").join("")}</ul>
+      <div class="row"><button class="primary" data-s="keeplocal">Keep this device's copy</button><button data-s="usecloud">Use the cloud copy</button><button class="small" data-s="later">Decide later</button></div>`;
+  } else if (!auth) {
+    el.innerHTML = dlgStep === "code"
+      ? `${X}<h3>Check your email</h3><p>We sent a 6-digit code to <b style="color:var(--ink)">${esc(dlgEmail)}</b>. Type it here. (On an iPhone or iPad Home Screen app, typing the code is easier than tapping the link.)</p>
+         <input class="code" id="sCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="······">${err}
+         <div class="row"><button class="primary" data-s="verify" ${dlgBusy ? "disabled" : ""}>Sign in</button><button class="small" data-s="resend">Send a new code</button><button class="small" data-s="back">Different email</button></div>`
+      : `${X}<h3>Sign in to sync</h3><p>Your room always stays on this device. Signing in also keeps a copy in the cloud, so your phone, iPad and computer match. No password — we email you a code.</p>
+         <input id="sEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(dlgEmail)}">${err}
+         <div class="row"><button class="primary" data-s="send" ${dlgBusy ? "disabled" : ""}>${dlgBusy ? "Sending…" : "Email me a code"}</button></div>`;
+  } else {
+    const st = { ok: "Everything is saved to the cloud.", busy: "Syncing…", pending: "Changes are waiting to sync.", offline: "Can't reach the cloud right now. Your room is safe on this device and will sync when you're back online.", error: syncMsg || "Something went wrong syncing." }[syncState] || "";
+    el.innerHTML = `${X}<h3>Signed in</h3><p><b style="color:var(--ink)">${esc(auth.email || "")}</b></p><p>${st}${meta.syncedAt ? " Last synced " + ago(meta.syncedAt) + "." : ""}</p>
+      <div class="row"><button class="primary" data-s="sync">Sync now</button><button data-s="signout">Sign out</button></div><p>Signing out keeps your room on this device.</p>`;
+  }
+}
+$("#syncBtn").addEventListener("click", () => { dlgErr = ""; if (!auth) dlgStep = "email"; openDlg(); });
+$("#syncdlg").addEventListener("click", async e => {
+  if (e.target.id === "syncdlg") { if (!conflict) closeDlg(); return; }
+  const a = e.target.closest("[data-s]"); if (!a) return; const act = a.dataset.s;
+  if (act === "close" || act === "later") return closeDlg();
+  if (act === "keeplocal") return resolveConflict("local");
+  if (act === "usecloud") return resolveConflict("cloud");
+  if (act === "sync") { setSync("busy"); renderSyncDlg(); return syncNow(true); }
+  if (act === "signout") return signOut();
+  if (act === "back") { dlgStep = "email"; dlgErr = ""; return renderSyncDlg(); }
+  if (act === "send" || act === "resend") {
+    const em = act === "resend" ? dlgEmail : ($("#sEmail").value || "").trim(); if (!/^\S+@\S+\.\S+$/.test(em)) { dlgErr = "That doesn't look like an email address."; return renderSyncDlg(); }
+    dlgEmail = em; dlgErr = ""; dlgBusy = true; renderSyncDlg();
+    try { await sendCode(em); dlgStep = "code"; } catch (x) { dlgErr = x.message || "Couldn't send the email."; }
+    dlgBusy = false; renderSyncDlg(); const c = $("#sCode"); if (c) c.focus(); return;
+  }
+  if (act === "verify") {
+    const code = ($("#sCode").value || "").replace(/\D/g, ""); if (code.length < 6) { dlgErr = "Enter the 6-digit code from the email."; return renderSyncDlg(); }
+    dlgBusy = true; dlgErr = ""; renderSyncDlg();
+    try { await verifyCode(dlgEmail, code); dlgBusy = false; dlgStep = "email"; return finishSignIn(); } catch (x) { dlgErr = x.message; dlgBusy = false; renderSyncDlg(); }
+  }
+});
+$("#syncdlg").addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("#syncbody [data-s=send],#syncbody [data-s=verify]"); if (b && !b.disabled) b.click(); } });
+/* --- when to sync --- */
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncNow(); else if (auth && dirty()) syncNow(); });
+window.addEventListener("online", () => syncNow()); window.addEventListener("focus", () => syncNow());
+setInterval(() => { if (document.visibilityState === "visible") syncNow(); }, 60000);
+(async function startSync() {
+  const h = location.hash;                                                        // came back from the email link?
+  if (/access_token=/.test(h)) {
+    const p = new URLSearchParams(h.slice(1)); history.replaceState(null, "", location.pathname + location.search);
+    try { keepSession({ access_token: p.get("access_token"), refresh_token: p.get("refresh_token"), expires_in: +p.get("expires_in") || 3600 });
+      const u = await sb("/auth/v1/user"); if (u.ok && u.json) keepSession({ access_token: auth.access_token, user: u.json }); finishSignIn(); return; } catch (e) {}
+  } else if (/error_description=/.test(h)) { const p = new URLSearchParams(h.slice(1)); history.replaceState(null, "", location.pathname + location.search); dlgErr = (p.get("error_description") || "That link didn't work.").replace(/\+/g, " ") + " Ask for a new code instead."; openDlg(); }
+  setSync(auth ? "busy" : "off"); if (auth) syncNow();
+})();
 
 fitView(); render(); renderUndo();
 </script>
