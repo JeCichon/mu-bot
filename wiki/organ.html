@@ -629,6 +629,11 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 #gp-sound-row button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px;height:22px;padding:0 7px;}
 #gp-sound-row button.on{background:rgba(201,169,110,.22);border-color:var(--gold);}
 #gp-sound-row #gp-keys-btn{margin-left:auto;}
+#gp-play-row{display:flex;align-items:center;gap:6px;margin:2px 0 26px;}
+#gp-play-row button{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px;height:22px;padding:0 8px;}
+#gp-play-row button.on{background:rgba(201,169,110,.22);border-color:var(--gold);}
+#gp-play-row #gp-cards-btn{margin-left:auto;}
+#gp-playhead{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 6px #fff,0 0 2px #000;pointer-events:none;z-index:5;}
 #gp-vol{width:60px!important;}
 #gk-pop{position:fixed;z-index:310;display:none;background:linear-gradient(150deg,#130f22,#09071a);border:1px solid rgba(201,169,110,.45);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.85);padding:0 14px 10px;}
 #gk-pop.snap{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,169,110,.6),0 14px 40px rgba(0,0,0,.85);}
@@ -1302,6 +1307,11 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
     <button id="gp-swap" title="Swap colors">&#8644;</button>
   </div>
   <div id="gp-stops">
+    <div id="gp-play-row">
+      <button id="gp-play" title="Play the ribbon from one end to the other — one bar at the song's tempo, through the same sound as HEAR / FX">▶ PLAY RIBBON</button>
+      <button id="gp-play-mode" title="Glide: slide smoothly through the colours. Step: one note per colour stop.">~ GLIDE</button>
+      <button id="gp-cards-btn" title="Lay this suit's cards in a row on the channel, one per step (replaces the channel's notes — Undo brings them back)">▤ CARDS IN A ROW</button>
+    </div>
     <div class="gp-stops-head"><span class="gp-label">STOPS</span><span class="gp-stops-hint">click the bar to add · drag to move · double-click to remove</span></div>
     <div id="gp-stops-bar"></div>
     <div id="gp-stops-row">
@@ -7753,7 +7763,7 @@ function openGradPopup(ti,e){
   gpPlace(e.clientX,e.clientY+8);
   refreshSoundMapping();
 }
-function closeGradPopup(){try{gpStopVoice();gpKeysToggle(false);palToggle(false);}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
+function closeGradPopup(){try{gpPlayStop();gpStopVoice();gpKeysToggle(false);palToggle(false);}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
 // ── movable colour editor ─────────────────────────────────────────────────
 // Floating (default): opens where you clicked and closes when you click elsewhere.
 // Pinned (press FLOAT, or just drag the bar): stays where you parked it — opening another ribbon, gradient or stop reuses that spot,
@@ -8519,9 +8529,9 @@ function gpStopVoice(){
   clearTimeout(gpIdleT);gpIdleT=null;gpLastF=0;
   if(gpGain){try{const a=getCtx();gpGain.gain.cancelScheduledValues(a.currentTime);gpGain.gain.setValueAtTime(gpGain.gain.value,a.currentTime);gpGain.gain.linearRampToValueAtTime(0,a.currentTime+0.06);gpOsc.stop(a.currentTime+0.07);}catch(e){}gpOsc=null;gpGain=null;}
 }
-function gpLiveSound(){
-  if(!gpHear||gradTi===null) return;
-  const hex=gpColorOf(gpSoundTarget);if(!hex) return;
+function gpLiveSound(hexOverride,force){
+  if(!force&&(!gpHear||gradTi===null)) return;
+  const hex=hexOverride||gpColorOf(gpSoundTarget);if(!hex) return;
   const col=hexToRgb(hex),ch=gpOwnerChannel();if(!ch) return;
   const a=getCtx();if(a.state==='suspended'&&a.resume) a.resume();
   const f=activeRgbToFreq(col.r,col.g,col.b)*Math.pow(2,ch.octave||0);
@@ -8548,6 +8558,71 @@ function gpLiveSound(){
     gpGain.gain.cancelScheduledValues(a.currentTime);gpGain.gain.setTargetAtTime(pianoVol*0.32,a.currentTime,0.02);
   }
 }
+// ── Play ribbon + cards in a row ─────────────────────────────────────────
+// PLAY RIBBON runs the ribbon's colours end to end through the same sound path as HEAR / FX (plain tone, or the channel's
+// real one-shot when FX is on). Length = one bar at the song's tempo (4 beats). GLIDE slides continuously; STEP plays one
+// note per colour stop, one beat each. CARDS IN A ROW writes the suit's cards onto the channel's steps in piano order
+// (replacing the notes; undoable) — the first shortcut for hearing the colour-sound scale, then adjust each stop.
+let gpPlay=null,gpPlayStep=false;
+function gpPlayHead(t){
+  const bar=document.getElementById('gp-stops-bar');if(!bar) return;
+  let h=document.getElementById('gp-playhead');
+  if(t===null){if(h) h.remove();return;}
+  if(!h){h=document.createElement('div');h.id='gp-playhead';bar.appendChild(h);}
+  h.style.left=(t*100)+'%';
+}
+function gpPlayStop(){
+  if(!gpPlay) return;
+  cancelAnimationFrame(gpPlay.raf);gpPlay.timers.forEach(clearTimeout);gpPlay=null;
+  gpStopVoice();gpPlayHead(null);
+  const b=document.getElementById('gp-play');if(b){b.classList.remove('on');b.textContent='▶ PLAY RIBBON';}
+}
+function gpPlayStart(){
+  const g=gpGrad();if(!g) return;gradEnsure(g);
+  gpPlayStop();
+  const a=getCtx();if(a.state==='suspended'&&a.resume) a.resume();
+  const beat=60/bpm,total=gpPlayStep?beat*Math.max(1,gradStopsOf(g).length):beat*4;
+  const hexOf=c=>'#'+[c.r,c.g,c.b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+  gpPlay={t0:performance.now(),timers:[],raf:0};
+  const b=document.getElementById('gp-play');if(b){b.classList.add('on');b.textContent='■ STOP';}
+  if(gpPlayStep){
+    const S=gradStopsOf(g);
+    S.forEach((st,i)=>gpPlay.timers.push(setTimeout(()=>{if(gpPlay){gpLiveSound(st.c,true);gpPlayHead(st.p);}},i*beat*1000)));
+    gpPlay.timers.push(setTimeout(gpPlayStop,total*1000+200));
+    return;
+  }
+  const tick=()=>{
+    if(!gpPlay) return;
+    const u=(performance.now()-gpPlay.t0)/1000/total;
+    if(u>=1){gpLiveSound(hexOf(gradAt(g,1)),true);gpPlayHead(1);gpPlay.timers.push(setTimeout(gpPlayStop,260));gpPlay.raf=0;return;}
+    gpLiveSound(hexOf(gradAt(g,u)),true);gpPlayHead(u);
+    gpPlay.raf=requestAnimationFrame(tick);
+  };
+  tick();
+}
+function gpCardsInRow(){
+  const ch=gpOwnerChannel();if(!ch||!ch.suit||ch.suit==='drums') return;
+  const ti=channels.indexOf(ch);if(ti<0) return;
+  const pat=patterns[activePatternIndex],pd=pat.channelData[ti];if(!pd||!pd.steps) return;
+  const sc=pat.stepCount,cards=BASE_CARDS.filter(c=>c.suit===ch.suit);
+  pushHistory();
+  for(let si=0;si<sc;si++){
+    pd.steps[si]=si<cards.length?cards[si].n:null;
+    if(pd.stepOctaves) pd.stepOctaves[si]=0;
+    if(pd.stepShift) pd.stepShift[si]=0;
+    if(pd.stepVelocities) pd.stepVelocities[si]=100;
+  }
+  render();saveState();
+  const b=document.getElementById('gp-cards-btn');
+  if(b){const n=Math.min(sc,cards.length);b.textContent='✓ '+n+' CARDS PLACED';setTimeout(()=>{b.textContent='▤ CARDS IN A ROW';},1800);}
+}
+(function gpPlayInit(){
+  const pb=document.getElementById('gp-play'),mb=document.getElementById('gp-play-mode'),cb=document.getElementById('gp-cards-btn');
+  if(!pb) return;
+  pb.addEventListener('click',()=>{if(gpPlay) gpPlayStop();else gpPlayStart();});
+  mb.addEventListener('click',()=>{gpPlayStep=!gpPlayStep;mb.textContent=gpPlayStep?'▮ STEP':'~ GLIDE';mb.classList.toggle('on',gpPlayStep);if(gpPlay) gpPlayStart();});
+  cb.addEventListener('click',gpCardsInRow);
+})();
 // ── Note keyboard in the colour editor (Phase 2) ─────────────────────────
 // A button in the sound row lays a multi-octave keyboard over the editor; press again to put it away.
 // Clicking a key sets THIS colour to the exact vivid colour that sings that note (a tube of tone paint) — afterwards
