@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Reader">
+<meta name="robots" content="noindex">
+<title>Reader · Trickno</title>
+<style>
+:root{--bg:#13151b;--panel:#1b1e27;--panel2:#242836;--line:#323850;--ink:#ebe7de;--mute:#98a0b3;--accent:#f2b84b;--danger:#e5707e;--ok:#7fcf9a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;-webkit-text-size-adjust:100%}
+header{display:flex;align-items:center;gap:10px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font:600 17px/1 Georgia,serif;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1 span{color:var(--mute);font-weight:400;font-size:13px}
+nav{display:flex;background:var(--panel);border-bottom:1px solid var(--line)}
+nav button{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--mute);padding:11px 0;font:inherit;font-weight:600}
+nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+main{flex:1;overflow-y:auto;padding:14px;padding-bottom:max(24px,env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+section[hidden]{display:none}
+button,select,input,textarea{font:inherit;color:var(--ink)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 14px;cursor:pointer}
+button:disabled{opacity:.45}
+button.primary{background:var(--accent);color:#1a1405;border-color:var(--accent);font-weight:600}
+button.small{padding:5px 10px;font-size:13px}
+button.danger{color:var(--danger)}
+input,select,textarea{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%}
+textarea{min-height:220px;line-height:1.55;resize:vertical}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card.sel{border-color:var(--accent)}
+.card h3{margin:0 0 8px;font-size:15px}
+.book{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>*{flex:0 0 auto}
+.stack>*{margin-bottom:8px}
+.mute,.note{color:var(--mute)}
+.note{font-size:13px}
+.err{color:var(--danger)}
+.ubtn{max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;padding:6px 10px}
+.ubtn.ok{border-color:var(--ok);color:var(--ok)}
+#status{min-height:22px;margin:10px 0;color:var(--mute)}
+#status.good{color:var(--ok)}#status.warn{color:var(--accent)}
+#shot{width:100%;height:auto;border-radius:10px;border:1px solid var(--line);background:#000;display:block;margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{min-width:38px;text-align:center;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-size:13px;cursor:pointer}
+.chip.miss{border-style:dashed;color:var(--mute);background:none}
+.chip.cur{border-color:var(--accent);color:var(--accent)}
+.hide{display:none!important}
+#reading{font:var(--fs,20px)/1.75 Georgia,"Times New Roman",serif;padding:4px 2px 24px;max-width:46em;margin:0 auto}
+#reading p{margin:0 0 1em}
+.pghead{color:var(--mute);font:600 12px system-ui;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.sn{cursor:pointer;border-radius:4px;padding:1px 0}
+.sn.cur{background:rgba(242,184,75,.24);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+#ctl{position:sticky;bottom:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+#ctl .big{font-size:22px;padding:8px 22px}
+#ctl label{font-size:13px;color:var(--mute)}
+#ctl .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.dlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:18px;z-index:9}
+.dlg.show{display:flex}
+.dlg .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:420px;width:100%}
+.dlg h3{margin:0 0 8px}
+.dlg input.code{font-size:24px;letter-spacing:.3em;text-align:center}
+.xbtn{float:right;padding:2px 9px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);border-radius:10px;padding:9px 14px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:10;max-width:90vw}
+#toast.show{opacity:1}
+.fbtn{display:inline-block;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Reader <span id="hBook"></span></h1>
+  <button class="ubtn" id="authBtn">Sign in</button>
+</header>
+<nav>
+  <button data-t="library" class="on">Library</button>
+  <button data-t="scan">Scan</button>
+  <button data-t="listen">Listen</button>
+</nav>
+<main>
+
+<section id="t-library">
+  <div id="bookList"></div>
+  <div class="card stack" id="newBook">
+    <h3>Add a book</h3>
+    <input id="nbTitle" placeholder="Title" autocomplete="off">
+    <input id="nbAuthor" placeholder="Author (optional)" autocomplete="off">
+    <button class="primary" id="nbAdd">Add book</button>
+  </div>
+  <p class="note">Only the plain text of the pages you approve is saved, in your private account. Photos are read on your own device and never uploaded.</p>
+</section>
+
+<section id="t-scan" hidden>
+  <div class="card stack">
+    <h3 id="scanBook">No book selected</h3>
+    <div class="row">
+      <label for="pnum" class="mute">Page number</label>
+      <input id="pnum" type="number" inputmode="numeric" min="1" style="width:90px">
+    </div>
+    <div class="row">
+      <label class="fbtn primary" style="background:var(--accent);color:#1a1405;border-radius:9px;padding:9px 14px;font-weight:600;cursor:pointer">Take photo
+        <input id="fileCam" type="file" accept="image/*" capture="environment" class="hide"></label>
+      <label class="fbtn" style="background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 14px;cursor:pointer">Pick a photo
+        <input id="fileAny" type="file" accept="image/*" class="hide"></label>
+      <button id="pasteBtn">Paste text</button>
+    </div>
+    <div class="note">Lay the page as flat as you can, with even light and no shadow across the spine.</div>
+  </div>
+
+  <div id="status"></div>
+
+  <div id="draft" class="hide">
+    <canvas id="shot" class="hide"></canvas>
+    <textarea id="draftText" spellcheck="false" placeholder="The page text appears here"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="saveBtn">Approve and save page</button>
+      <button id="discardBtn">Discard / retake</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>Pages so far <span class="mute" id="pgCount"></span></h3>
+    <div class="chips" id="chips"></div>
+    <p class="note" id="gapNote"></p>
+  </div>
+</section>
+
+<section id="t-listen" hidden>
+  <div id="reading"></div>
+  <div id="ctl">
+    <div class="row" style="justify-content:center">
+      <button id="bPrevPg" title="Previous page">«</button>
+      <button id="bPrev" title="Previous sentence">‹</button>
+      <button class="primary big" id="bPlay">▶</button>
+      <button id="bNext" title="Next sentence">›</button>
+      <button id="bNextPg" title="Next page">»</button>
+    </div>
+    <div class="two">
+      <div><label for="rate">Speed <b id="rateN">1.0×</b></label><input id="rate" type="range" min="0.7" max="2.2" step="0.05" value="1"></div>
+      <div><label for="pgsel">Go to page</label><select id="pgsel"></select></div>
+    </div>
+    <div class="two">
+      <div><label for="voice">Voice</label><select id="voice"></select></div>
+      <div class="row" style="align-items:flex-end">
+        <button class="small" id="fsDn">A−</button><button class="small" id="fsUp">A+</button><button class="small" id="fixBtn">Fix this page</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="dlg" id="dlg"><div class="box" id="dlgBody"></div></div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+/* ============ helpers ============ */
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const lsGet = (k, d) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let toastT; function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+
+/*PURE*/
+/* text cleanup for OCR output: join wrapped lines, mend hyphenated words, drop a lone page-number line */
+function cleanOcr(paras) {
+  let ps = paras.map(p => String(p).replace(/\r/g, "").replace(/­/g, "").replace(/ﬁ/g, "fi").replace(/ﬂ/g, "fl")
+    .replace(/(\w)-\s*\n\s*(?=[a-z])/g, "$1").replace(/\s*\n\s*/g, " ").replace(/[ \t]+/g, " ").trim()).filter(Boolean);
+  let removed = null;
+  if (ps.length > 1) { if (/^\d{1,3}$/.test(ps[ps.length - 1])) removed = ps.pop(); else if (/^\d{1,3}$/.test(ps[0])) removed = ps.shift(); }
+  return { text: ps.join("\n\n"), removed };
+}
+/* sentence splitter for speech */
+function splitSentences(t) {
+  const m = String(t).replace(/\s+/g, " ").trim().match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*|$)/g) || [];
+  const out = [];
+  for (const raw of m) {
+    const s = raw.trim(); if (!s) continue;
+    const prev = out[out.length - 1];
+    if (prev && (/\b(Mr|Mrs|Ms|Dr|St|Sr|Jr|vs|etc|Capt|Col|Gen|Lt|Sgt)\.$/.test(prev) || (/[?!…]["'”’)\]]*$/.test(prev) && /^[a-z]/.test(s)))) out[out.length - 1] += " " + s;   // abbreviations, and dialogue tags like: “Who goes there?” he cried.
+    else out.push(s);
+  }
+  return out;
+}
+/*ENDPURE*/
+
+/* ============ Supabase (same plain-fetch approach as Room Quest; shares its sign-in on this site) ============ */
+const SB_URL = "https://pzscvrhqsndxduqojtui.supabase.co", SB_KEY = "sb_publishable_nytAohtOUngn6YCPuDQkkA_7ahr2DwU";
+const AKEY = "roomquest.auth";
+let auth = lsGet(AKEY, null), dlgStep = "email", dlgEmail = "", dlgErr = "", dlgBusy = false;
+async function sb(path, o = {}, authed = true) {
+  const h = { apikey: SB_KEY, "Content-Type": "application/json", ...(o.headers || {}) };
+  if (authed && auth) { if (auth.expires_at && auth.expires_at - 30 < Date.now() / 1000) await refreshAuth(); h.Authorization = "Bearer " + auth.access_token; }
+  const r = await fetch(SB_URL + path, { ...o, headers: h }); let j = null; try { j = await r.json(); } catch (e) {}
+  if (r.status === 401 && authed && auth && !o.retried) { await refreshAuth(); return sb(path, { ...o, retried: true }, authed); }
+  return { ok: r.ok, status: r.status, json: j };
+}
+async function api(path, o) { const r = await sb(path, o); if (!r.ok) throw new Error((r.json && (r.json.message || r.json.hint)) || "HTTP " + r.status); return r.json; }
+async function refreshAuth() {
+  if (!auth || !auth.refresh_token) throw new Error("signed out");
+  const r = await fetch(SB_URL + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: SB_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: auth.refresh_token }) });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || !j.access_token) { if (r.status === 400 || r.status === 401) { auth = null; lsSet(AKEY, null); setAuthBtn(); } throw new Error("refresh failed"); }
+  keepSession(j);
+}
+function keepSession(j) {
+  const prev = auth || {};
+  auth = { access_token: j.access_token, refresh_token: j.refresh_token || prev.refresh_token, expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600), email: (j.user && j.user.email) || prev.email, uid: (j.user && j.user.id) || prev.uid };
+  lsSet(AKEY, auth);
+}
+async function sendCode(email) {
+  const r = await sb("/auth/v1/otp", { method: "POST", body: JSON.stringify({ email, create_user: true }) }, false);
+  if (!r.ok) throw new Error(r.status === 429 ? "Too many emails just now — wait a minute and try again." : (r.json && (r.json.msg || r.json.error_description || r.json.message)) || "Couldn't send the email.");
+}
+async function verifyCode(email, token) {
+  for (const type of ["email", "signup", "magiclink"]) {
+    const r = await sb("/auth/v1/verify", { method: "POST", body: JSON.stringify({ type, email, token }) }, false);
+    if (r.ok && r.json && r.json.access_token) { keepSession(r.json); return; }
+  }
+  throw new Error("That code didn't work. Check it, or ask for a new one.");
+}
+function signOut() { try { sb("/auth/v1/logout", { method: "POST" }); } catch (e) {} auth = null; lsSet(AKEY, null); books = []; book = null; pages = []; rebuild(); setAuthBtn(); closeDlg(); renderLibrary(); showTab("library"); }
+function setAuthBtn() { const b = $("#authBtn"); b.textContent = auth ? "✓ " + (auth.email || "signed in") : "Sign in"; b.classList.toggle("ok", !!auth); }
+
+/* sign-in dialog */
+function openDlg() { $("#dlg").classList.add("show"); renderDlg(); }
+function closeDlg() { $("#dlg").classList.remove("show"); }
+function renderDlg() {
+  const el = $("#dlgBody"), X = '<button class="xbtn small" data-s="close" aria-label="Close">✕</button>', err = dlgErr ? `<p class="err">${esc(dlgErr)}</p>` : "";
+  if (auth) el.innerHTML = `${X}<h3>Signed in</h3><p><b>${esc(auth.email || "")}</b></p><p class="note">This is the same sign-in Room Quest uses on this site.</p><div class="row"><button data-s="signout">Sign out</button></div>`;
+  else if (dlgStep === "code") el.innerHTML = `${X}<h3>Check your email</h3><p>We sent a 6-digit code to <b>${esc(dlgEmail)}</b>. Type it here.</p>
+    <input class="code" id="sCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="······">${err}
+    <div class="row" style="margin-top:10px"><button class="primary" data-s="verify" ${dlgBusy ? "disabled" : ""}>Sign in</button><button class="small" data-s="resend">Send a new code</button><button class="small" data-s="back">Different email</button></div>`;
+  else el.innerHTML = `${X}<h3>Sign in</h3><p>No password — we email you a code. Your books stay private to your account.</p>
+    <input id="sEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(dlgEmail)}">${err}
+    <div class="row" style="margin-top:10px"><button class="primary" data-s="send" ${dlgBusy ? "disabled" : ""}>${dlgBusy ? "Sending…" : "Email me a code"}</button></div>`;
+}
+$("#authBtn").addEventListener("click", () => { dlgErr = ""; if (!auth) dlgStep = "email"; openDlg(); });
+$("#dlg").addEventListener("click", async e => {
+  if (e.target.id === "dlg") return closeDlg();
+  const a = e.target.closest("[data-s]"); if (!a) return; const act = a.dataset.s;
+  if (act === "close") return closeDlg();
+  if (act === "signout") return signOut();
+  if (act === "back") { dlgStep = "email"; dlgErr = ""; return renderDlg(); }
+  if (act === "send" || act === "resend") {
+    const em = act === "resend" ? dlgEmail : ($("#sEmail").value || "").trim(); if (!/^\S+@\S+\.\S+$/.test(em)) { dlgErr = "That doesn't look like an email address."; return renderDlg(); }
+    dlgEmail = em; dlgErr = ""; dlgBusy = true; renderDlg();
+    try { await sendCode(em); dlgStep = "code"; } catch (x) { dlgErr = x.message || "Couldn't send the email."; }
+    dlgBusy = false; renderDlg(); const c = $("#sCode"); if (c) c.focus(); return;
+  }
+  if (act === "verify") {
+    const code = ($("#sCode").value || "").replace(/\D/g, ""); if (code.length < 6) { dlgErr = "Enter the 6-digit code from the email."; return renderDlg(); }
+    dlgBusy = true; dlgErr = ""; renderDlg();
+    try { await verifyCode(dlgEmail, code); dlgBusy = false; dlgStep = "email"; closeDlg(); await afterSignIn(); } catch (x) { dlgErr = x.message; dlgBusy = false; renderDlg(); }
+  }
+});
+$("#dlg").addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("#dlgBody [data-s=send],#dlgBody [data-s=verify]"); if (b && !b.disabled) b.click(); } });
+
+/* ============ library ============ */
+let books = [], counts = {}, book = null, pages = [], tab = "library";
+async function loadLibrary() {
+  if (!auth) { books = []; counts = {}; return; }
+  books = await api("/rest/v1/books?select=*&order=created_at.asc");
+  const rows = await api("/rest/v1/book_pages?select=book_id"); counts = {}; (rows || []).forEach(r => counts[r.book_id] = (counts[r.book_id] || 0) + 1);
+}
+async function afterSignIn() {
+  setAuthBtn();
+  try { await loadLibrary(); } catch (e) { toast("Couldn't load your library: " + e.message); }
+  const last = lsGet("reader.lastBook", null), b = books.find(x => x.id === last);
+  if (b) await openBook(b); else renderLibrary();
+}
+function renderLibrary() {
+  const L = $("#bookList");
+  $("#hBook").textContent = book ? "· " + book.title : "";
+  if (!auth) { $("#newBook").classList.add("hide"); L.innerHTML = '<div class="card"><h3>Sign in to begin</h3><p>Your books live in your private account, so your phone and computer share them.</p><button class="primary" data-a="signin">Sign in</button></div>'; return; }
+  $("#newBook").classList.remove("hide");
+  L.innerHTML = books.length ? books.map(b => `<div class="card book ${book && book.id === b.id ? "sel" : ""}" data-id="${esc(b.id)}"><div><b>${esc(b.title)}</b>${b.author ? ` <span class="mute">· ${esc(b.author)}</span>` : ""}<div class="mute">${counts[b.id] || 0} pages saved</div></div>
+    <div class="row"><button data-a="scan">Scan</button><button class="primary" data-a="listen">Listen</button><button class="small danger" data-a="del">Delete</button></div></div>`).join("") : '<p class="note">No books yet. Add one below.</p>';
+}
+$("#bookList").addEventListener("click", async e => {
+  const a = e.target.closest("[data-a]"); if (!a) return;
+  if (a.dataset.a === "signin") { dlgStep = "email"; return openDlg(); }
+  const card = e.target.closest(".book"); if (!card) return; const b = books.find(x => x.id === card.dataset.id); if (!b) return;
+  if (a.dataset.a === "del") {
+    if (!confirm(`Delete “${b.title}” and all its ${counts[b.id] || 0} saved pages? This can't be undone.`)) return;
+    try { await api("/rest/v1/books?id=eq." + b.id, { method: "DELETE" }); } catch (x) { return toast("Couldn't delete: " + x.message); }
+    books = books.filter(x => x.id !== b.id); if (book && book.id === b.id) { book = null; pages = []; rebuild(); } renderLibrary(); return;
+  }
+  await openBook(b); showTab(a.dataset.a === "scan" ? "scan" : "listen");
+});
+$("#nbAdd").addEventListener("click", async () => {
+  if (!auth) return openDlg();
+  const title = $("#nbTitle").value.trim(); if (!title) return toast("Give the book a title first.");
+  try {
+    const r = await api("/rest/v1/books", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ user_id: auth.uid, title, author: $("#nbAuthor").value.trim() || null }) });
+    books.push(r[0]); $("#nbTitle").value = ""; $("#nbAuthor").value = ""; await openBook(r[0]); showTab("scan");
+  } catch (x) { toast("Couldn't add the book: " + x.message); }
+});
+async function openBook(b) {
+  stop(); book = b; lsSet("reader.lastBook", b.id);
+  try { pages = await api(`/rest/v1/book_pages?book_id=eq.${b.id}&select=page_number,text&order=page_number.asc`) || []; } catch (x) { pages = []; toast("Couldn't load pages: " + x.message); }
+  counts[b.id] = pages.length; rebuild(); restoreBookmark(); renderLibrary(); renderScan(); paint();
+}
+
+/* ============ tabs ============ */
+function showTab(t) {
+  if (t !== "listen") stop();
+  tab = t; $$("nav button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  ["library", "scan", "listen"].forEach(n => $("#t-" + n).hidden = n !== t);
+  if (t === "scan") renderScan(); if (t === "listen") { shownPn = null; paint(); }
+}
+$$("nav button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.t)));
+
+/* ============ scanning ============ */
+let draft = null, worker = null;
+function setStatus(m, cls) { const s = $("#status"); s.textContent = m || ""; s.className = cls || ""; }
+function needBook() { if (!auth) { openDlg(); return false; } if (!book) { toast("Pick or add a book first."); showTab("library"); return false; } return true; }
+const maxPage = () => pages.reduce((m, p) => Math.max(m, p.page_number), 0);
+function renderScan() {
+  $("#scanBook").textContent = book ? book.title : "No book selected";
+  if (!$("#pnum").value || !draft) $("#pnum").value = maxPage() + 1;
+  const have = new Set(pages.map(p => p.page_number)), mx = maxPage(), cur = parseInt($("#pnum").value, 10);
+  let h = "", miss = [];
+  for (let i = 1; i <= mx; i++) { const ok = have.has(i); if (!ok) miss.push(i); h += `<span class="chip ${ok ? "" : "miss"} ${i === cur ? "cur" : ""}" data-p="${i}">${i}</span>`; }
+  $("#chips").innerHTML = h || '<span class="note">Nothing saved yet.</span>';
+  $("#pgCount").textContent = pages.length ? "· " + pages.length + " saved" : "";
+  $("#gapNote").textContent = miss.length ? "Dashed numbers are missing: " + miss.join(", ") + ". Tap a saved page to fix it." : (pages.length ? "No gaps. Tap a page to fix its text." : "");
+}
+$("#chips").addEventListener("click", e => {
+  const c = e.target.closest(".chip"); if (!c) return; const pn = +c.dataset.p, pg = pages.find(p => p.page_number === pn);
+  $("#pnum").value = pn; if (pg) openDraft({ text: pg.text, pn, img: null }, "Editing page " + pn + ". Change anything, then save."); else { discard(); $("#pnum").value = pn; renderScan(); setStatus("Page " + pn + " is missing — photograph it next."); }
+});
+$("#pnum").addEventListener("input", renderScan);
+function openDraft(d, msg, cls) {
+  draft = d; $("#draft").classList.remove("hide"); $("#draftText").value = d.text || ""; $("#shot").classList.toggle("hide", !d.img); setStatus(msg, cls); renderScan();
+}
+function discard() { draft = null; $("#draft").classList.add("hide"); $("#draftText").value = ""; setStatus(""); renderScan(); }
+$("#discardBtn").addEventListener("click", discard);
+$("#pasteBtn").addEventListener("click", () => { if (!needBook()) return; openDraft({ text: "", pn: null, img: null }, "Paste or type the page text, then save."); $("#draftText").focus(); });
+$("#fileCam").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) handlePhoto(f); });
+$("#fileAny").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) handlePhoto(f); });
+
+function prep(img) {                                  // shrink, grey, and stretch contrast so the reader engine sees clean ink on paper
+  const max = 2400, s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+  const c = document.createElement("canvas"); c.width = w; c.height = h; const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(img, 0, 0, w, h);
+  const d = x.getImageData(0, 0, w, h), a = d.data, hist = new Uint32Array(256);
+  for (let i = 0; i < a.length; i += 4) { const g = (a[i] * .299 + a[i + 1] * .587 + a[i + 2] * .114) | 0; a[i] = a[i + 1] = a[i + 2] = g; hist[g]++; }
+  const n = w * h; let lo = 0, hi = 255, acc = 0; while (lo < 255 && (acc += hist[lo]) < n * .01) lo++; acc = 0; while (hi > 0 && (acc += hist[hi]) < n * .01) hi--;
+  if (hi - lo > 20) { const k = 255 / (hi - lo); for (let i = 0; i < a.length; i += 4) { const v = Math.max(0, Math.min(255, ((a[i] - lo) * k) | 0)); a[i] = a[i + 1] = a[i + 2] = v; } }
+  x.putImageData(d, 0, 0); return c;
+}
+async function getWorker() {
+  if (worker) return worker;
+  if (!window.Tesseract) throw new Error("The reading engine didn't load — check your connection and reload.");
+  setStatus("Loading the reading engine (first time only)…");
+  worker = await Tesseract.createWorker("eng", 1, { logger: m => { if (m.status === "recognizing text") setStatus("Reading the page… " + Math.round(m.progress * 100) + "%"); } });
+  return worker;
+}
+async function handlePhoto(file) {
+  if (!needBook()) return;
+  const pn = parseInt($("#pnum").value, 10) || maxPage() + 1;
+  try {
+    setStatus("Preparing the photo…");
+    const img = new Image(); const url = URL.createObjectURL(file); img.src = url; await img.decode();
+    const c = prep(img); URL.revokeObjectURL(url);
+    const w = await getWorker(); setStatus("Reading the page…");
+    const { data } = await w.recognize(c);
+    const words = (data.words || []).filter(x => x.text && x.text.trim());
+    const real = words.filter(x => x.text.replace(/\W/g, "").length >= 2), avg = real.length ? real.reduce((s, x) => s + x.confidence, 0) / real.length : 0;
+    const bad = words.filter(x => x.confidence < 70 && x.text.replace(/\W/g, "").length >= 1);
+    const sc = $("#shot"); sc.width = c.width; sc.height = c.height; const cx = sc.getContext("2d"); cx.drawImage(c, 0, 0);
+    cx.lineWidth = Math.max(2, c.width / 450); cx.strokeStyle = "#f2b84b"; cx.fillStyle = "rgba(242,184,75,.35)";
+    bad.forEach(x => { const b = x.bbox, pad = 3; cx.fillRect(b.x0 - pad, b.y0 - pad, b.x1 - b.x0 + 2 * pad, b.y1 - b.y0 + 2 * pad); cx.strokeRect(b.x0 - pad, b.y0 - pad, b.x1 - b.x0 + 2 * pad, b.y1 - b.y0 + 2 * pad); });
+    const paras = (data.paragraphs && data.paragraphs.length) ? data.paragraphs.map(p => p.text) : String(data.text || "").split(/\n\s*\n/);
+    const cl = cleanOcr(paras), chars = cl.text.length;
+    let msg, cls;
+    if (chars < 40) { msg = "Hardly any text found. Retake it with more light and the page held flat."; cls = "warn"; }
+    else if (!bad.length && avg >= 88) { msg = `Clean read (${Math.round(avg)}% sure).`; cls = "good"; }
+    else { msg = `${bad.length} word${bad.length === 1 ? "" : "s"} look doubtful (amber on the photo; ${Math.round(avg)}% sure overall). Check those spots in the text, or retake the page flatter.`; cls = "warn"; }
+    if (cl.removed) msg += ` Left out the page number line “${cl.removed}”.`;
+    openDraft({ text: cl.text, pn, img: true }, msg, cls); $("#draft").scrollIntoView({ block: "start", behavior: "smooth" });
+  } catch (x) { setStatus("Couldn't read that photo: " + (x.message || x), "warn"); }
+}
+$("#saveBtn").addEventListener("click", async () => {
+  if (!needBook() || !draft) return;
+  const text = $("#draftText").value.replace(/\r/g, "").trim(), pn = parseInt($("#pnum").value, 10);
+  if (!text) return toast("There's no text to save."); if (!(pn > 0)) return toast("Enter a page number.");
+  $("#saveBtn").disabled = true;
+  try {
+    await api("/rest/v1/book_pages?on_conflict=book_id,page_number", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ book_id: book.id, user_id: auth.uid, page_number: pn, text, updated_at: new Date().toISOString() }) });
+  } catch (x) { $("#saveBtn").disabled = false; return setStatus("Couldn't save: " + x.message + " — your text is still here, try again.", "warn"); }
+  $("#saveBtn").disabled = false;
+  const i = pages.findIndex(p => p.page_number === pn); if (i >= 0) pages[i].text = text; else { pages.push({ page_number: pn, text }); pages.sort((a, b) => a.page_number - b.page_number); }
+  counts[book.id] = pages.length; rebuild(true); renderLibrary();
+  draft = null; $("#draft").classList.add("hide"); $("#draftText").value = ""; $("#pnum").value = maxPage() + 1; renderScan();
+  setStatus(`Page ${pn} saved. Ready for page ${maxPage() + 1}.`, "good");
+});
+
+/* ============ listening ============ */
+let S = [], pageIdx = {}, pageNums = [], cur = 0, shownPn = null, playing = false, token = 0, curUtter = null, voices = [], wake = null, bmTimer = null;
+const synth = window.speechSynthesis;
+function rebuild(keep) {
+  const k = keep && S[cur] ? { pn: S[cur].pn, off: cur - pageIdx[S[cur].pn][0] } : null;
+  S = []; pageIdx = {}; pageNums = [];
+  for (const p of pages) {
+    const a = S.length;
+    String(p.text).split(/\n\s*\n/).forEach((para, pi) => splitSentences(para).forEach(t => S.push({ pn: p.page_number, para: pi, t })));
+    if (S.length > a) { pageIdx[p.page_number] = [a, S.length - 1]; pageNums.push(p.page_number); }
+  }
+  cur = 0; if (k && pageIdx[k.pn]) cur = Math.min(pageIdx[k.pn][0] + k.off, pageIdx[k.pn][1]);
+  shownPn = null; $("#pgsel").innerHTML = pageNums.map(n => `<option value="${n}">Page ${n}</option>`).join("");
+}
+function restoreBookmark() {
+  if (!book || !S.length) return;
+  const loc = lsGet("reader.bm." + book.id, null), rem = book.bookmark, b = loc && (!rem || loc.t > rem.t) ? loc : rem;
+  if (!b) return;
+  let pn = pageNums.find(n => n >= b.p); if (pn === undefined) pn = pageNums[pageNums.length - 1];
+  const [a, z] = pageIdx[pn]; cur = Math.min(a + (pn === b.p ? b.s : 0), z);
+}
+function paint() {
+  const box = $("#reading");
+  if (!S.length) { box.innerHTML = '<p class="note">' + (book ? "No pages yet — scan a few in the Scan tab." : "Pick a book in the Library first.") + "</p>"; return; }
+  const pn = S[cur].pn;
+  if (shownPn !== pn) {
+    const [a, z] = pageIdx[pn]; let h = `<div class="pghead">Page ${pn}</div>`, last = -1;
+    for (let i = a; i <= z; i++) { if (S[i].para !== last) { if (last !== -1) h += "</p>"; h += "<p>"; last = S[i].para; } h += `<span class="sn" data-i="${i}">${esc(S[i].t)} </span>`; }
+    box.innerHTML = h + "</p>"; shownPn = pn; $("#pgsel").value = pn;
+  }
+  const old = box.querySelector(".sn.cur"); if (old) old.classList.remove("cur");
+  const el = box.querySelector(`.sn[data-i="${cur}"]`); if (el) { el.classList.add("cur"); el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+}
+function setPlayBtn() { $("#bPlay").textContent = playing ? "❚❚" : "▶"; }
+function speakCurrent() {
+  if (!synth) { toast("This browser can't read aloud."); playing = false; setPlayBtn(); return; }
+  synth.cancel(); const my = ++token;
+  while (cur < S.length && !/[A-Za-z0-9]/.test(S[cur].t)) cur++;              // skip stray marks with nothing to say
+  if (cur >= S.length) { cur = S.length - 1; playing = false; setPlayBtn(); paint(); return; }
+  paint(); scheduleBm();
+  const u = new SpeechSynthesisUtterance(S[cur].t), v = voices.find(x => x.voiceURI === $("#voice").value);
+  if (v) { u.voice = v; u.lang = v.lang; } u.rate = +$("#rate").value;
+  u.onend = () => { if (my !== token || !playing) return; if (cur < S.length - 1) { cur++; speakCurrent(); } else { playing = false; setPlayBtn(); pushBm(); } };
+  u.onerror = e => { if (my !== token || e.error === "canceled" || e.error === "interrupted") return; playing = false; setPlayBtn(); toast("The voice stopped (" + e.error + ")."); };
+  curUtter = u; setTimeout(() => { if (my === token) synth.speak(u); }, 40);
+}
+async function play() { if (!S.length) return; playing = true; setPlayBtn(); speakCurrent(); try { if (navigator.wakeLock) wake = await navigator.wakeLock.request("screen"); } catch (e) {} }
+function stop() { playing = false; token++; if (synth) synth.cancel(); setPlayBtn(); try { if (wake) wake.release(); } catch (e) {} wake = null; pushBm(); }
+function jump(i) { if (!S.length) return; cur = Math.max(0, Math.min(S.length - 1, i)); if (playing) speakCurrent(); else { paint(); scheduleBm(); } }
+const pageStep = d => { if (!S.length) return; const k = pageNums.indexOf(S[cur].pn) + d; if (k >= 0 && k < pageNums.length) jump(pageIdx[pageNums[k]][0]); };
+$("#bPlay").addEventListener("click", () => playing ? stop() : play());
+$("#bPrev").addEventListener("click", () => jump(cur - 1)); $("#bNext").addEventListener("click", () => jump(cur + 1));
+$("#bPrevPg").addEventListener("click", () => { const s = S[cur]; if (s && cur > pageIdx[s.pn][0]) jump(pageIdx[s.pn][0]); else pageStep(-1); });
+$("#bNextPg").addEventListener("click", () => pageStep(1));
+$("#pgsel").addEventListener("change", e => { const p = pageIdx[+e.target.value]; if (p) jump(p[0]); });
+$("#reading").addEventListener("click", e => { const s = e.target.closest(".sn"); if (!s) return; cur = +s.dataset.i; playing = true; setPlayBtn(); speakCurrent(); });
+$("#rate").addEventListener("input", e => { $("#rateN").textContent = (+e.target.value).toFixed(2).replace(/0$/, "") + "×"; lsSet("reader.rate", +e.target.value); });
+$("#rate").addEventListener("change", () => { if (playing) speakCurrent(); });
+$("#voice").addEventListener("change", e => { lsSet("reader.voice", e.target.value); if (playing) speakCurrent(); });
+let fs = lsGet("reader.fs", 20); const applyFs = () => { document.documentElement.style.setProperty("--fs", fs + "px"); lsSet("reader.fs", fs); };
+$("#fsUp").addEventListener("click", () => { fs = Math.min(34, fs + 2); applyFs(); }); $("#fsDn").addEventListener("click", () => { fs = Math.max(14, fs - 2); applyFs(); }); applyFs();
+$("#fixBtn").addEventListener("click", () => { if (!S[cur]) return; const pn = S[cur].pn, pg = pages.find(p => p.page_number === pn); showTab("scan"); $("#pnum").value = pn; openDraft({ text: pg.text, pn, img: null }, "Editing page " + pn + ". Change anything, then save."); });
+function loadVoices() {
+  if (!synth) return;
+  const rank = v => (/Natural|Online/i.test(v.name) ? 0 : 2) + (/en-GB/i.test(v.lang) ? 0 : /en-US/i.test(v.lang) ? 1 : 2);
+  voices = synth.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  const saved = lsGet("reader.voice", null), want = voices.find(v => v.voiceURI === saved) || voices.find(v => /Ryan|Thomas|Daniel|UK English Male|George/i.test(v.name)) || voices[0];
+  $("#voice").innerHTML = voices.map(v => `<option value="${esc(v.voiceURI)}">${esc(v.name)} (${esc(v.lang)})</option>`).join("");
+  if (want) $("#voice").value = want.voiceURI;
+}
+if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; setTimeout(loadVoices, 800); }
+const r0 = lsGet("reader.rate", 1); $("#rate").value = r0; $("#rateN").textContent = (+r0).toFixed(2).replace(/0$/, "") + "×";
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") pushBm(); else if (playing && synth && !synth.speaking) speakCurrent(); });
+window.addEventListener("pagehide", () => { if (synth) synth.cancel(); });
+
+/* bookmark: saved on this device at once, copied to the cloud a few seconds later so the other device picks up where you stopped */
+function scheduleBm() { if (!book || !S[cur]) return; lsSet("reader.bm." + book.id, { p: S[cur].pn, s: cur - pageIdx[S[cur].pn][0], t: Date.now() }); clearTimeout(bmTimer); bmTimer = setTimeout(pushBm, 5000); }
+async function pushBm() {
+  clearTimeout(bmTimer); if (!auth || !book) return; const b = lsGet("reader.bm." + book.id, null); if (!b || (book.bookmark && book.bookmark.t === b.t)) return;
+  try { await api("/rest/v1/books?id=eq." + book.id, { method: "PATCH", body: JSON.stringify({ bookmark: b, updated_at: new Date().toISOString() }) }); book.bookmark = b; } catch (e) {}
+}
+
+/* ============ start ============ */
+(async function start() {
+  const h = location.hash;
+  if (/access_token=/.test(h)) {                      // came back from an email link
+    const p = new URLSearchParams(h.slice(1)); history.replaceState(null, "", location.pathname + location.search);
+    try { keepSession({ access_token: p.get("access_token"), refresh_token: p.get("refresh_token"), expires_in: +p.get("expires_in") || 3600 }); const u = await sb("/auth/v1/user"); if (u.ok && u.json) keepSession({ access_token: auth.access_token, user: u.json }); } catch (e) {}
+  }
+  setAuthBtn(); renderLibrary();
+  if (auth) await afterSignIn();
+})();
+</script>
+</body>
+</html>
