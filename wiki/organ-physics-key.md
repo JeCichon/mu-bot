@@ -472,3 +472,11 @@ Justin holds the limiter and compressor until the layer system and a Master trac
   - **↺ Restore original colours** — snapping is reversible: the originals are kept on the palette (`orig`) and a ♪ marks a snapped palette. Adding or removing swatches while snapped updates both lists; Clear drops the snap.
 - Saved in the same localStorage entry (`trico_palettes_v1`): `snap`, `orig` per palette.
 - Still open: Supabase per-user palette storage + publish/share (needs a table + RLS; Justin will provide SQL access).
+
+## N12 — Palettes in Supabase (Nov 22)
+- Table `public.palettes` (file `palettes-table.sql`, run once in the Supabase SQL editor): one row per palette — `id` uuid, `owner_id` (→ auth.users, default auth.uid()), `owner_name`, `name`, `colors` jsonb (≤30 hex), `snap` ('keep'|'vivid'|null), `orig` jsonb, `sort_order`, `published` (reserved for the future share system), `created_at`, `updated_at`. RLS: owners have full access to their own rows; anyone may SELECT rows with `published = true` (nothing sets it yet).
+- Behaviour (signed in with Discord): palettes are pulled on sign-in and when the window is opened (if >60 s since the last pull) and pushed 0.8 s after any change (create / edit / rename / reorder / delete). Last write wins per palette by timestamp (`u` locally, `updated_at` in the cloud); a palette that exists only on this device is uploaded; an untouched empty "Untitled" starter is dropped if the account already has palettes. localStorage stays as a cache. Signed out = local only (status line says so).
+- Privacy: the local cache remembers which account it belonged to (`palData.owner`); signing in as a different account starts clean and never uploads the other account's palettes.
+- Old short palette ids were migrated to UUIDs. Recent colours and the active-palette tick are NOT synced (they stay per browser).
+- Status line in the Palettes window: ☁ saved to your account / saving… / local only / ⚠ error (a missing table is reported plainly).
+- Not built: publish/share UI, multi-device live updates (a refresh or reopening the window pulls).

@@ -596,6 +596,8 @@ body.nl-dragging,body.nl-dragging *{cursor:ew-resize!important;user-select:none!
 .pal-top h3{margin:0;font-size:19px;font-weight:600;flex:1;letter-spacing:.04em;}
 .pal-top button,.pal-imp{background:transparent;border:1px solid rgba(201,169,110,.35);color:var(--gold);border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;height:26px;padding:0 9px;}
 .pal-top button:hover,.pal-imp:hover{border-color:var(--gold);}
+.pal-sync{padding:0 14px 6px;font-size:11px;color:rgba(201,169,110,.55);flex-shrink:0;}
+.pal-sync.bad{color:#e63946;}
 .pal-list{overflow-y:auto;padding:4px 14px 12px;flex:1;min-height:60px;}
 .pal-card{background:rgba(255,255,255,.04);border-radius:8px;padding:8px 8px 8px;margin-bottom:10px;position:relative;}
 .pal-card.active{box-shadow:inset 0 0 0 1px rgba(201,169,110,.55);}
@@ -8701,13 +8703,17 @@ document.addEventListener('pointerdown',()=>{noteTip.style.display='none';},true
 // Image → 12 dominant colours; click a swatch to paint the selected colour; click an empty slot to save the current colour there.
 const PAL_KEY='trico_palettes_v1',PAL_CAP=30;
 let palData={palettes:[],active:null,history:[]};
-function palId(){return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function palId(){return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&3|8)).toString(16);});}
 function palLoad(){
   try{const j=JSON.parse(localStorage.getItem(PAL_KEY)||'null');if(j&&Array.isArray(j.palettes)) palData=Object.assign({palettes:[],active:null,history:[]},j);}catch(e){}
+  // older palettes used short ids; the cloud wants real UUIDs
+  const isUuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
+  palData.palettes.forEach(pl=>{if(!isUuid(pl.id)){const old=pl.id;pl.id=palId();if(palData.active===old) palData.active=pl.id;}});
   if(!palData.palettes.length){const id=palId();palData.palettes.push({id,name:'Untitled',colors:[]});palData.active=id;}
   if(!palData.palettes.some(x=>x.id===palData.active)) palData.active=palData.palettes[0].id;
 }
-function palSave(){try{localStorage.setItem(PAL_KEY,JSON.stringify(palData));}catch(e){}}
+function palSaveLocal(){try{localStorage.setItem(PAL_KEY,JSON.stringify(palData));}catch(e){}}
+function palSave(){palSaveLocal();try{palSchedulePush();}catch(e){}}
 palLoad();
 const palPop=document.createElement('div');palPop.id='pal-pop';document.body.appendChild(palPop);
 let palOpen=false,palDock='right',palFree={x:80,y:80},palTimer=null,palMenuFor=null,palDelArm=null,palHistT=null;
@@ -8759,6 +8765,7 @@ function palRender(){
   const keepScroll=(palPop.querySelector('.pal-list')||{}).scrollTop||0;
   let h=`<div class="pal-bar" title="Drag me. Bring me close to an edge of the editor and I snap there; I follow the editor and close with it.">${palBarText()}</div>
   <div class="pal-top"><h3>Palettes</h3><button class="pal-imp" data-act="import" title="Make a palette from the dominant colours of an image">⤒ IMAGE</button><button data-act="new" title="New blank palette">＋</button></div>
+  <div class="pal-sync${palCloud==='error'?' bad':''}">${palStatusText().replace(/</g,'&lt;')}</div>
   <div class="pal-list">`;
   if(palData.history.length){
     h+=`<div class="pal-card"><div class="pal-sec"><span>RECENT COLOURS</span><button data-act="clearhist">clear</button></div><div class="pal-grid">`;
@@ -8869,6 +8876,80 @@ function palRenameStart(id){
   inp.addEventListener('keydown',ev=>{ev.stopPropagation();if(ev.key==='Enter') fin(true);else if(ev.key==='Escape') fin(false);});
   inp.addEventListener('blur',()=>fin(true));
 }
+// ── Cloud sync (Supabase table `palettes`, one row per palette, private to its owner) ──
+// Signed in: palettes are pulled when you sign in / open the window and pushed (debounced) whenever they change. Signed out: local only.
+// The local copy is always kept as a cache. A cache that belonged to another account is never uploaded into yours.
+let palSynced={},palSyncT=null,palCloud='local',palCloudMsg='',palPulling=false,palPulledAt=0;
+function palSig(pl,i){return JSON.stringify([pl.name,pl.colors,pl.snap||null,pl.orig||null,i]);}
+function palStatusText(){
+  if(!currentUser) return '☁ local only — sign in to keep palettes in your account';
+  return {synced:'☁ saved to your account',saving:'☁ saving…',syncing:'☁ syncing…',local:'☁ local only',error:'⚠ cloud: '+palCloudMsg}[palCloud]||'';
+}
+function palStatusRender(){const el=palPop.querySelector('.pal-sync');if(el){el.textContent=palStatusText();el.classList.toggle('bad',palCloud==='error');}}
+function palCloudFail(e){
+  palCloud='error';
+  const m=(e&&(e.message||e.details))||'unknown error';
+  palCloudMsg=/palettes|relation|schema cache|PGRST205|42P01/i.test(m+(e&&e.code||''))?'the palettes table is missing — run palettes-table.sql in Supabase':m;
+  palStatusRender();
+}
+function palSchedulePush(){
+  if(!currentUser||palPulling) return;
+  clearTimeout(palSyncT);palCloud='saving';palStatusRender();
+  palSyncT=setTimeout(palPushNow,800);
+}
+async function palPushNow(){
+  if(!currentUser||palPulling) return;
+  const uid=currentUser.id;
+  try{
+    const ids=new Set(palData.palettes.map(x=>x.id));
+    for(const id of Object.keys(palSynced)){
+      if(ids.has(id)) continue;
+      const{error}=await db.from('palettes').delete().eq('id',id);if(error) throw error;delete palSynced[id];
+    }
+    for(let i=0;i<palData.palettes.length;i++){
+      const pl=palData.palettes[i],sig=palSig(pl,i);if(palSynced[pl.id]===sig) continue;
+      pl.u=new Date().toISOString();
+      const{error}=await db.from('palettes').upsert({id:pl.id,owner_id:uid,owner_name:discordName(currentUser),name:pl.name,colors:pl.colors,snap:pl.snap||null,orig:pl.orig||null,sort_order:i,updated_at:pl.u});
+      if(error) throw error;palSynced[pl.id]=sig;
+    }
+    palData.owner=uid;palSaveLocal();palCloud='synced';palStatusRender();
+  }catch(e){palCloudFail(e);}
+}
+async function palPull(){
+  if(!currentUser||palPulling) return;
+  palPulling=true;palCloud='syncing';palStatusRender();
+  const uid=currentUser.id;
+  try{
+    const{data,error}=await db.from('palettes').select('*').eq('owner_id',uid).order('sort_order',{ascending:true});
+    if(error) throw error;
+    const cloud=data||[];
+    if(palData.owner&&palData.owner!==uid){palData.palettes=[];palData.active=null;palData.history=[];}      // someone else's cache: start clean
+    const loc=new Map(palData.palettes.map(x=>[x.id,x]));
+    const out=[];palSynced={};
+    cloud.forEach((r,i)=>{
+      const cp={id:r.id,name:r.name,colors:Array.isArray(r.colors)?r.colors:[],snap:r.snap||null,orig:r.orig||null,u:r.updated_at};
+      const l=loc.get(r.id);loc.delete(r.id);
+      if(l&&l.u&&new Date(l.u)>new Date(r.updated_at)) out.push(l);           // this device has the newer edit
+      else{out.push(cp);palSynced[r.id]=palSig(cp,r.sort_order);}
+    });
+    for(const pl of loc.values()){                                              // palettes only this device has
+      if(cloud.length&&!pl.colors.length&&/^untitled$/i.test(pl.name)) continue;   // an untouched starter palette — the account already has real ones
+      out.push(pl);
+    }
+    palData.palettes=out;
+    if(!palData.palettes.length) palData.palettes.push({id:palId(),name:'Untitled',colors:[]});
+    if(!palData.palettes.some(x=>x.id===palData.active)) palData.active=palData.palettes[0].id;
+    palData.owner=uid;palSaveLocal();palPulledAt=Date.now();
+    palPulling=false;
+    palRender();
+    await palPushNow();                                                         // uploads local-only / newer palettes, fixes ordering
+  }catch(e){palPulling=false;palCloudFail(e);}
+}
+db.auth.onAuthStateChange((_ev,session)=>{
+  if(session&&session.user){setTimeout(()=>{if(currentUser) palPull();},0);}
+  else{palSynced={};palCloud='local';palStatusRender();}
+});
+db.auth.getSession().then(({data})=>{if(data&&data.session&&data.session.user) setTimeout(()=>{if(currentUser) palPull();},50);});
 // ── image → dominant colours (k-means in Lab, then the real pixel nearest each centre) ──
 function palLab(r,g,b){
   const f=v=>{v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);};
@@ -8942,7 +9023,7 @@ function palToggle(on){
   palPop.style.display=palOpen?'flex':'none';
   const b=document.getElementById('gp-pal-btn');if(b) b.classList.toggle('on',palOpen);
   clearInterval(palTimer);palTimer=null;palMenuFor=null;palDelArm=null;
-  if(palOpen){palRender();palTimer=setInterval(()=>{if(palDock!=='free') palPlace();},60);}
+  if(palOpen){palRender();if(currentUser&&Date.now()-palPulledAt>60000) palPull();palTimer=setInterval(()=>{if(palDock!=='free') palPlace();},60);}
 }
 document.getElementById('gp-pal-btn').addEventListener('click',()=>palToggle());
 window.addEventListener('resize',()=>{try{palPlace();}catch(e){}});
