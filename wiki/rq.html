@@ -181,6 +181,12 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
   .ubtn small{max-width:92px}
   .undo{margin-left:auto}
 }
+#house{position:absolute;inset:0;width:100%;height:100%;display:none;background:#0f1117;border:1px solid var(--line);border-radius:12px;touch-action:none;user-select:none;-webkit-user-select:none}
+.hzoom{position:absolute;right:10px;bottom:10px;display:none;flex-direction:column;gap:6px;z-index:5}
+.hzoom button{width:40px;height:40px;padding:0;font-size:20px;background:#1b1e27e6}
+#stage.hs #house,#stage.hs .hzoom{display:block}
+#stage.hs .hzoom{display:flex}
+#stage.hs #map,#stage.hs #side,#stage.hs #iso,#stage.hs .zoomctl,#stage.hs #popup,#stage.hs .viewsw{display:none!important}
 </style>
 </head>
 <body>
@@ -214,6 +220,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
       </svg>
       <svg id="side" xmlns="http://www.w3.org/2000/svg"></svg>
       <svg id="iso" xmlns="http://www.w3.org/2000/svg"></svg>
+      <svg id="house" xmlns="http://www.w3.org/2000/svg"></svg>
       <div class="viewsw" id="viewsw"><div class="seg">
         <button data-view="top" class="on">Top</button><button data-view="front">Front</button><button data-view="right">Right</button><button data-view="back">Back</button><button data-view="left">Left</button><button data-view="iso">3D</button>
       </div><div class="isoctl" id="isoctl" hidden><button data-iso="-90" aria-label="Turn left">⟲</button><button data-iso="90" aria-label="Turn right">⟳</button></div><small id="viewcap" hidden></small></div>
@@ -222,6 +229,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
         <button data-zoom="out" aria-label="Zoom out">−</button>
         <button data-zoom="fit" aria-label="Fit the room">⤢</button>
       </div>
+      <div class="hzoom"><button data-hzoom="in" aria-label="Zoom in">+</button><button data-hzoom="out" aria-label="Zoom out">−</button><button data-hzoom="fit" aria-label="Fit the house">⤢</button></div>
       <div id="popup" role="dialog"></div>
     </div>
   </div>
@@ -266,6 +274,15 @@ function templatePts(kind, p) {
   if (kind === "L") { const cw = Math.min(p.cw || 48, w - 12), cl = Math.min(p.cl || 48, l - 12); return [[0,0],[w-cw,0],[w-cw,cl],[w,cl],[w,l],[0,l]]; }
   if (kind === "nook") { const nw = p.nw || 60, nd = p.nd || 30, no = Math.min(p.no == null ? 40 : p.no, w - nw); return [[0,nd],[no,nd],[no,0],[no+nw,0],[no+nw,nd],[w,nd],[w,nd+l],[0,nd+l]]; }
   return [[0,0],[w,0],[w,l],[0,l]];
+}
+function justinFloor() {                       // traced from Justin's SmartDraw sketch (house inches; ~2.5 px per inch); all but his own room are still estimates
+  const mk = (name, kind, pts, doors, priv, owner, measured) => ({ id: uid(), name, kind, pts: pts.map(([x, y]) => ({ x, y })), openings: doors.map(o => ({ id: uid(), type: "door", h: 80, sill: 0, ...o })), privacy: priv, owner, measured, ceiling: 96, link: null });
+  const hall = mk("Hall", "hall", [[62.0,62.0],[114.0,44.8],[139.2,83.2],[171.2,124.8],[215.2,91.2],[262.8,146.0],[244.8,160.8],[279.2,198.8],[250.0,222.0],[218.0,186.0],[199.2,206.0],[102.0,174.8]], [{"edge":0,"at":2.0,"w":47.0},{"edge":11,"at":26.0,"w":26.5},{"edge":4,"at":8.5,"w":29.0},{"edge":6,"at":9.0,"w":31.0},{"edge":7,"at":9.0,"w":25.5},{"edge":8,"at":13.5,"w":30.0}], "shared", "", false);
+  const a = hall.pts[2], b = hall.pts[3]; hall.openings.push({ id: uid(), type: "open", edge: 2, at: 0, w: +Math.hypot(b.x - a.x, b.y - a.y).toFixed(1), h: 96, sill: 0 });   // open to the stairwell
+  const rooms = [hall, mk("Bathroom", "bath", [[291.2,108.8],[354.4,108.8],[354.4,125.2],[411.2,125.2],[411.2,170.0],[351.2,170.0],[323.2,196.0],[272.0,148.0],[291.2,128.8]], [{"edge":6,"at":23.5,"w":28.5}], "shared", "", false), mk("Stairs", "stairs", [[152.0,92.8],[188.0,61.2],[210.8,89.6],[174.8,118.8]], [], "shared", "", false),
+    mk("Sister's room", "room", [[66.0,200.8],[112.0,217.2],[97.2,254.0],[197.2,288.8],[152.8,411.2],[8.0,358.8]], [{"edge":0,"at":8.5,"w":28.0}], "private", "Sister", false)];
+  if (S.room) rooms.unshift({ id: uid(), name: S.room.name, kind: "room", pts: [], openings: [], privacy: "private", owner: "Justin", measured: true, ceiling: S.room.ceiling, link: { x: 241.2, y: 234.0, rot: 0 } });
+  return rooms;
 }
 function justinRoom() {   // measured with a tape: 133 left wall, 155 window wall, 130 right wall, 72 closet wall, 21 stub, 44.5 door wall, 44 angled wall
   const pts = [[0,30],[21,30],[54,0],[83,33],[89,33],[89,6],[149,6],[149,33],[155,33],[155,163],[0,163]].map(([x, y]) => ({ x, y }));
@@ -327,6 +344,7 @@ function migrate() {
     if (f.z == null) f.z = f.level === "over" ? 60 : 0;
     if (f.level !== "on") f.onId = null; else { f.odx = f.odx || 0; f.ody = f.ody || 0; f.orot = f.orot || 0; if (f.onId === undefined) f.onId = null; } }));
   if (!S.spots) S.spots = [];
+  if (!S.house || !Array.isArray(S.house.rooms)) S.house = { rooms: [] };
   if (S.room === undefined) {
     if (S.layouts.some(l => l.furniture.length)) {
       try { localStorage.setItem("roomquest.pre-inches", JSON.stringify(S)); } catch (e) {}   // safety copy of the old sketch-based version
@@ -1121,7 +1139,7 @@ function cleanPanel() {
   ${S.homes.some(x => insideOf(x.id).length) ? `<h2 style="margin-top:20px">Put away</h2>${S.homes.filter(x => insideOf(x.id).length).map(x => `<div class="card" style="margin:6px 0"><div class="item"><span class="sw" style="background:${x.color}"></span><b>${esc(x.name)}</b></div>${insideList(x.id)}</div>`).join("")}` : ""}`;
 }
 function footHTML() {
-  return `<div class="foot">Your rooms live in this browser on this device — nothing is sent to a server. To use a room on another device, save a backup here and load it there. (The Home Screen app keeps its own copy, separate from Safari — load a backup into it once.)
+  return `<div class="foot">Your rooms live in this browser on this device. Tap the ☁ at the top to sign in and keep a copy in the cloud so your other devices stay in step; without that, nothing leaves this device — save a backup to move a room by hand. (The Home Screen app keeps its own copy, separate from Safari.)
     <div class="row"><button class="small" data-foot="export">Save backup</button><button class="small" data-foot="import">Load backup</button><button class="small danger" data-foot="reset" id="resetbtn">Start over</button></div></div>`;
 }
 function renderPanel() {
@@ -1500,6 +1518,7 @@ $("#layoutbar").addEventListener("change", e => {
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && menu) { menu = null; renderMenu(); return; }
   if (e.target.matches && e.target.matches("input,textarea,select") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (houseOn) return;
   const n = +e.key; if (n >= 1 && n <= S.layouts.length) switchLayout(S.layouts[n - 1].id);
   if (e.key === "g" || e.key === "G") { if (otherLayout()) { S.ghost = !S.ghost; save(); render(); } }
 });
@@ -1532,6 +1551,224 @@ $("#file").addEventListener("change", e => {
   e.target.value = "";
 });
 
+
+/* ---------- whole-house map: every room as a shape on one plan (1 unit = 1 inch). Rooms you haven't measured yet are dashed. ---------- */
+let houseOn = false, hsel = null, hv = { cx: 200, cy: 200, w: 600 }, hAdd = { name: "", kind: "room", w: 120, l: 120 };
+const hsvg = $("#house"), HK = { room: "Room", hall: "Hallway", bath: "Bathroom", closet: "Closet", stairs: "Stairs", other: "Other" };
+const hRoom = id => S.house.rooms.find(r => r.id === id);
+const hName = r => r.link && S.room ? S.room.name : r.name;
+function hGeom(r) {
+  if (!r.link) return { pts: r.pts, openings: r.openings || [], ceiling: r.ceiling };
+  if (!S.room) return { pts: [], openings: [], ceiling: r.ceiling };
+  const a = (r.link.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return { pts: S.room.pts.map(p => ({ x: +(r.link.x + p.x * c - p.y * s).toFixed(2), y: +(r.link.y + p.x * s + p.y * c).toFixed(2) })), openings: S.room.openings, ceiling: S.room.ceiling };
+}
+const hArea = P => Math.abs(P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + (p.x * q.y - q.x * p.y); }, 0)) / 2;
+function hCentroid(P) {
+  let A = 0, cx = 0, cy = 0;
+  P.forEach((p, i) => { const q = P[(i + 1) % P.length], k = p.x * q.y - q.x * p.y; A += k; cx += (p.x + q.x) * k; cy += (p.y + q.y) * k; });
+  if (Math.abs(A) < 1e-6) return { x: P[0].x, y: P[0].y }; return { x: cx / (3 * A), y: cy / (3 * A) };
+}
+function hInside(P, x, y) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i].y > y) !== (P[j].y > y) && x < (P[j].x - P[i].x) * (y - P[i].y) / (P[j].y - P[i].y) + P[i].x) c = !c; return c; }
+function hBox() {
+  const xs = [], ys = [];
+  S.house.rooms.forEach(r => hGeom(r).pts.forEach(p => { xs.push(p.x); ys.push(p.y); }));
+  if (!xs.length) return { x0: 0, y0: 0, x1: 300, y1: 240 };
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+}
+function hFit() {
+  const b = hBox(), r = stageRect(), ar = r.width ? r.height / r.width : .7, pad = 50;
+  const w = Math.max(b.x1 - b.x0 + pad * 2, (b.y1 - b.y0 + pad * 2) / ar);
+  hv = { cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2, w };
+}
+function hDims() { const r = stageRect(), w = hv.w, h = r.width ? w * r.height / r.width : w * .7; return { r, w, h, x: hv.cx - w / 2, y: hv.cy - h / 2, u: r.width ? w / r.width : 1 }; }
+function hPoint(e) { const d = hDims(); return { x: d.x + (e.clientX - d.r.left) * d.w / (d.r.width || 1), y: d.y + (e.clientY - d.r.top) * d.h / (d.r.height || 1) }; }
+const hsn = v => Math.round(v * 2) / 2;
+
+function hDoor(g, P, o, u, sgn) {
+  const a = P[o.edge], b = P[(o.edge + 1) % P.length]; if (!a || !b) return;
+  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, s0 = Math.max(0, o.at), e0 = Math.min(L, o.at + o.w); if (e0 <= s0) return;
+  const p0 = { x: a.x + ux * s0, y: a.y + uy * s0 }, p1 = { x: a.x + ux * e0, y: a.y + uy * e0 };
+  if (o.type === "open") { el("line", { x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, stroke: "#13151b", "stroke-width": 7 * u, "stroke-linecap": "butt" }, g); el("line", { x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, stroke: "#8fd3c8", "stroke-width": 2 * u, "stroke-dasharray": `${5 * u} ${4 * u}` }, g); return; }
+  if (o.type === "window") { el("line", { x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, stroke: "#6aa9b4", "stroke-width": 6 * u }, g); return; }
+  el("line", { x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, stroke: "#13151b", "stroke-width": 7 * u }, g);
+  const mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2; let nx = uy, ny = -ux;
+  if (!hInside(P, mx + nx * 3, my + ny * 3)) { nx = -nx; ny = -ny; }
+  const w = e0 - s0, E = { x: p0.x + nx * w, y: p0.y + ny * w }, cr = (p1.x - p0.x) * ny - (p1.y - p0.y) * nx;
+  el("path", { d: `M${p1.x} ${p1.y} A${w} ${w} 0 0 ${cr > 0 ? 1 : 0} ${E.x} ${E.y}`, fill: "none", stroke: "#d9625a", "stroke-width": 1.6 * u, opacity: .8 }, g);
+  el("line", { x1: p0.x, y1: p0.y, x2: E.x, y2: E.y, stroke: "#d9625a", "stroke-width": 2.4 * u }, g);
+}
+function renderHouse() {
+  const d = hDims(); hsvg.setAttribute("viewBox", `${d.x} ${d.y} ${d.w} ${d.h}`); const u = d.u; hsvg.innerHTML = "";
+  const defs = el("defs", {}, hsvg), pat = el("pattern", { id: "hhatch", width: 8, height: 8, patternUnits: "userSpaceOnUse", patternTransform: "rotate(35)" }, defs);
+  el("rect", { width: 8, height: 8, fill: "#2a2f40" }, pat); el("line", { x1: 0, y1: 0, x2: 0, y2: 8, stroke: "#6d7696", "stroke-width": 2 }, pat);
+  const step = d.w > 900 ? 120 : 12 * (d.w > 400 ? 2 : 1);
+  const gp = el("pattern", { id: "hgrid", width: step, height: step, patternUnits: "userSpaceOnUse" }, defs); el("path", { d: `M${step} 0H0V${step}`, fill: "none", stroke: "#1b1f2b", "stroke-width": 1 * u }, gp);
+  el("rect", { x: d.x - 5000, y: d.y - 5000, width: d.w + 10000, height: d.h + 10000, fill: "url(#hgrid)", "data-hbg": 1 }, hsvg);
+  const rooms = S.house.rooms.slice().sort((a, b) => (a.id === hsel) - (b.id === hsel));
+  rooms.forEach(r => {
+    const G = hGeom(r), P = G.pts; if (P.length < 3) return; const on = r.id === hsel, g = el("g", {}, hsvg);
+    const pts = P.map(p => p.x + "," + p.y).join(" "), priv = r.privacy === "private";
+    const fill = r.kind === "stairs" ? "url(#hhatch)" : priv ? "rgba(150,110,220,.30)" : "rgba(80,190,170,.28)";
+    el("polygon", { points: pts, fill, stroke: on ? "#f2b84b" : priv ? "#a98ae6" : "#6fcfc0", "stroke-width": (on ? 3.5 : 2.5) * u, "stroke-linejoin": "round", "stroke-dasharray": r.measured ? "" : `${9 * u} ${6 * u}`, "data-hr": r.id, style: "cursor:pointer" }, g);
+    if (r.link && S.room) {   // faint furniture footprints so your measured room looks lived-in
+      const fg = el("g", { transform: `translate(${r.link.x} ${r.link.y}) rotate(${r.link.rot || 0})`, style: "pointer-events:none" }, g);
+      (S.furniture || []).forEach(f => { if (f.level === "over" || f.kind === "window" || f.kind === "post") return;
+        el("rect", { x: -f.w / 20, y: -f.h / 20, width: f.w / 10, height: f.h / 10, fill: "rgba(255,255,255,.10)", stroke: "rgba(255,255,255,.25)", "stroke-width": .6 * u, transform: `translate(${outU(f.x + f.w / 2)} ${outU(f.y + f.h / 2)}) rotate(${f.rot || 0})` }, fg); });
+    }
+    const dg = el("g", { style: "pointer-events:none" }, g); G.openings.forEach(o => hDoor(dg, P, o, u));
+    const c = hCentroid(P), area = Math.round(hArea(P) / 144), small = Math.min(...P.map(p => p.x)) === Math.max(...P.map(p => p.x));
+    const t = el("text", { x: c.x, y: c.y - 2 * u, "text-anchor": "middle", fill: "#ebe7de", "font-size": 13 * u, "font-family": "system-ui", "font-weight": 600, stroke: "#0f1117", "stroke-width": 3.5 * u, "paint-order": "stroke", style: "pointer-events:none" }, g);
+    t.textContent = (priv ? "🔒 " : "👪 ") + hName(r);
+    const t2 = el("text", { x: c.x, y: c.y + 13 * u, "text-anchor": "middle", fill: "#98a0b3", "font-size": 10.5 * u, "font-family": "system-ui", stroke: "#0f1117", "stroke-width": 3 * u, "paint-order": "stroke", style: "pointer-events:none" }, g);
+    t2.textContent = (r.measured ? "" : "≈ ") + area + " sq ft" + (priv && r.owner ? " · " + r.owner : "");
+    if (on) {
+      P.forEach((a, i) => { const b = P[(i + 1) % P.length], L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 14) return;
+        const tt = el("text", { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 + 4 * u, "text-anchor": "middle", fill: "#f2b84b", "font-size": 10 * u, "font-family": "system-ui", stroke: "#0f1117", "stroke-width": 3 * u, "paint-order": "stroke", style: "pointer-events:none" }, g); tt.textContent = +L.toFixed(1) + "″"; });
+      if (!r.link) P.forEach((p, i) => el("circle", { cx: p.x, cy: p.y, r: 9 * u, fill: "#f2b84b", stroke: "#13151b", "stroke-width": 2 * u, "data-hv": i, style: "cursor:grab" }, g));
+    }
+  });
+  if (!S.house.rooms.length) { const t = el("text", { x: hv.cx, y: hv.cy, "text-anchor": "middle", fill: "#98a0b3", "font-size": 15 * u, "font-family": "system-ui" }, hsvg); t.textContent = "No rooms yet — add one from the panel"; }
+}
+/* gestures: tap selects · drag empty space or an unselected room pans · drag the selected room moves it · drag a gold dot reshapes it · pinch / wheel zooms */
+const hps = new Map(); let hg = null;
+hsvg.addEventListener("pointerdown", e => {
+  e.preventDefault(); try { hsvg.setPointerCapture(e.pointerId); } catch (x) {}
+  hps.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (hps.size === 2) { hEndDrag(); const [a, b] = [...hps.values()]; hg = { type: "pinch", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, w0: hv.w }; return; }
+  if (hps.size > 2) return;
+  const hvEl = e.target.closest("[data-hv]"), hr = e.target.closest("[data-hr]"), p0 = hPoint(e), base = { sx: e.clientX, sy: e.clientY, cx0: hv.cx, cy0: hv.cy, moved: false, p0 };
+  if (hvEl && hsel) hg = { ...base, type: "vert", idx: +hvEl.dataset.hv, before: snapshot() };
+  else if (hr && hr.dataset.hr === hsel) { const r = hRoom(hsel); hg = { ...base, type: "move", before: snapshot(), orig: r.link ? { x: r.link.x, y: r.link.y } : r.pts.map(p => ({ ...p })) }; }
+  else hg = { ...base, type: "pan", tap: hr ? hr.dataset.hr : null };
+});
+hsvg.addEventListener("pointermove", e => {
+  if (!hps.has(e.pointerId)) return; hps.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!hg) return;
+  if (hg.type === "pinch" && hps.size >= 2) { const [a, b] = [...hps.values()]; hv.w = Math.min(4000, Math.max(80, hg.w0 * hg.d0 / (Math.hypot(a.x - b.x, a.y - b.y) || 1))); renderHouse(); return; }
+  if (hps.size !== 1) return;
+  const dx = e.clientX - hg.sx, dy = e.clientY - hg.sy; if (!hg.moved && Math.hypot(dx, dy) < 6) return; hg.moved = true;
+  const d = hDims();
+  if (hg.type === "pan") { hv.cx = hg.cx0 - dx * d.w / (d.r.width || 1); hv.cy = hg.cy0 - dy * d.h / (d.r.height || 1); renderHouse(); return; }
+  const p = hPoint(e), r = hRoom(hsel); if (!r) return;
+  if (hg.type === "move") { const mx = p.x - hg.p0.x, my = p.y - hg.p0.y; if (r.link) { r.link.x = hsn(hg.orig.x + mx); r.link.y = hsn(hg.orig.y + my); } else r.pts.forEach((q, i) => { q.x = hsn(hg.orig[i].x + mx); q.y = hsn(hg.orig[i].y + my); }); }
+  if (hg.type === "vert") { r.pts[hg.idx].x = hsn(p.x); r.pts[hg.idx].y = hsn(p.y); }
+  renderHouse();
+});
+function hEndDrag() { if (hg && (hg.type === "move" || hg.type === "vert") && hg.moved) { pushUndo(hg.type === "move" ? "Move room" : "Move a corner", hg.before); save(); renderPanel(); } hg = null; }
+function hUp(e) {
+  if (!hps.has(e.pointerId)) return; hps.delete(e.pointerId);
+  if (hg && hg.type === "pinch") { if (hps.size < 2) hg = null; return; }
+  if (hg && hg.type === "pan" && !hg.moved) { hsel = hg.tap; hg = null; render(); return; }
+  if (hg && (hg.type === "move" || hg.type === "vert") && !hg.moved && hg.type === "move") { hg = null; return; }
+  hEndDrag();
+}
+hsvg.addEventListener("pointerup", hUp); hsvg.addEventListener("pointercancel", hUp);
+function hZoom(f, px, py) {
+  const d = hDims(), sx = d.x + (px - d.r.left) * d.w / (d.r.width || 1), sy = d.y + (py - d.r.top) * d.h / (d.r.height || 1), nw = Math.min(4000, Math.max(80, hv.w / f)), k = nw / hv.w;
+  hv.w = nw; hv.cx = sx - (sx - d.x) * k + nw / 2; hv.cy = sy - (sy - d.y) * k + nw * (d.r.height / (d.r.width || 1)) / 2; renderHouse();
+}
+hsvg.addEventListener("wheel", e => { e.preventDefault(); e.stopPropagation(); hZoom(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0015)), e.clientX, e.clientY); }, { passive: false });
+$(".hzoom").addEventListener("click", e => { const b = e.target.closest("[data-hzoom]"); if (!b) return; const r = stageRect(), z = b.dataset.hzoom; if (z === "fit") { hFit(); renderHouse(); } else hZoom(z === "in" ? 1.4 : 1 / 1.4, r.left + r.width / 2, r.top + r.height / 2); });
+
+/* ---------- the panel ---------- */
+function housePanel() {
+  const H = S.house, r = hsel && hRoom(hsel);
+  const chips = H.rooms.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.privacy === "private" ? "🔒" : "👪"} ${esc(hName(x))}</span>`).join("");
+  const fld = (k, label, t) => `<label>${label}<input ${t === "n" ? 'type="number" inputmode="decimal"' : ""} data-hf="add" data-k="${k}" value="${esc(hAdd[k])}"></label>`;
+  let h = `<h2>House map</h2><p class="hint">Every room as a shape on one plan. Tap a room to select it; drag the selected room to move it; drag the gold dots to reshape it. Dashed outlines are rooms nobody has measured yet.</p>
+    <div class="row">${chips || '<span class="hint">No rooms yet.</span>'}</div>`;
+  if (r) h += hCard(r);
+  h += `<h2 style="margin-top:22px">Add a room</h2><div class="card" style="margin-top:6px">${fld("name", "Name")}
+    <label>What is it?<select data-hf="addkind">${Object.entries(HK).map(([k, v]) => `<option value="${k}" ${hAdd.kind === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+    <div class="two">${fld("w", "Width (inches)", "n")}${fld("l", "Length (inches)", "n")}</div>
+    <p class="hint" style="margin:0 0 8px">Starts as a rectangle in the middle of the view — reshape it afterward.</p><button class="primary" data-hact="hadd">Add room</button></div>`;
+  h += `<div class="card"><div class="hint" style="margin:0 0 8px"><b>Shortcuts</b></div><div class="row">`;
+  if (S.room && !H.rooms.some(x => x.link)) h += `<button data-hact="hlink">Add my detailed room “${esc(S.room.name)}” to the map</button>`;
+  if (!H.rooms.length || true) h += `<button data-hact="htpl" ${H.rooms.length ? 'title="Replaces the rooms on this map"' : ""}>${H.rooms.length ? "Replace with" : "Start from"} Justin's floor sketch</button>`;
+  h += `</div></div><p class="hint">Shared / private is a label for now — everyone with this account sees everything. Real sharing between separate family accounts comes later.</p>`;
+  return h;
+}
+function hCard(r) {
+  const G = hGeom(r), P = G.pts, lk = !!r.link, ar = Math.round(hArea(P) / 144);
+  let h = `<div class="card"><label>Room name<input data-hf="name" value="${esc(hName(r))}"></label>
+    <div class="two"><label>Kind<select data-hf="kind">${Object.entries(HK).map(([k, v]) => `<option value="${k}" ${r.kind === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+    <label>Who sees it<select data-hf="priv"><option value="shared" ${r.privacy !== "private" ? "selected" : ""}>👪 Shared</option><option value="private" ${r.privacy === "private" ? "selected" : ""}>🔒 Private</option></select></label></div>
+    ${r.privacy === "private" ? `<label>Whose room?<input data-hf="owner" value="${esc(r.owner || "")}"></label>` : ""}
+    <label class="chk"><input type="checkbox" data-hf="measured" ${r.measured ? "checked" : ""}> Measured with a tape</label>
+    <label>Ceiling height (inches)<input type="number" inputmode="decimal" data-hf="ceil" value="${G.ceiling}"></label>
+    <p class="hint" style="margin:0 0 8px">${P.length} walls · ${r.measured ? "" : "about "}${ar} sq ft</p>
+    <div class="hint" style="margin:0 0 4px"><b>Turn the room</b></div>
+    <div class="row"><button class="small" data-hact="hrot" data-d="-90">⟲ 90°</button><button class="small" data-hact="hrot" data-d="-5">⟲ 5°</button><button class="small" data-hact="hrot" data-d="5">5° ⟳</button><button class="small" data-hact="hrot" data-d="90">90° ⟳</button></div>`;
+  if (lk) h += `<p class="hint" style="margin:10px 0 6px">This is your detailed room — its walls, doors and furniture are edited in the room view.</p><div class="row"><button class="primary" data-hact="hopen">Open this room ▸</button><button class="small danger" data-hact="hdel">Take off the map</button></div>`;
+  else {
+    h += `<div class="hint" style="margin:12px 0 4px"><b>Walls</b> · type a length to move the next corner</div>` + P.map((p, i) => { const q = P[(i + 1) % P.length], L = +Math.hypot(q.x - p.x, q.y - p.y).toFixed(1);
+      return `<div class="item"><span class="hint" style="margin:0;width:22px">${i + 1}</span><input type="number" inputmode="decimal" data-hf="elen" data-i="${i}" value="${L}"><span class="hint" style="margin:0">″</span>
+        <button class="small" data-hact="haddv" data-i="${i}" title="Add a corner after this one">＋</button><button class="small danger" data-hact="hdelv" data-i="${i}" ${P.length <= 3 ? "disabled" : ""} aria-label="Delete corner">✕</button></div>`; }).join("");
+    const wallOpts = s => P.map((p, i) => `<option value="${i}" ${s === i ? "selected" : ""}>Wall ${i + 1}</option>`).join("");
+    h += `<div class="hint" style="margin:12px 0 4px"><b>Doors &amp; openings</b></div>` + (r.openings || []).map(o => `<div class="card" style="margin:6px 0"><div class="item">
+      <select data-hf="otype" data-id="${o.id}"><option value="door" ${o.type === "door" ? "selected" : ""}>Door</option><option value="open" ${o.type === "open" ? "selected" : ""}>Open gap</option><option value="window" ${o.type === "window" ? "selected" : ""}>Window</option></select>
+      <select data-hf="oedge" data-id="${o.id}">${wallOpts(o.edge)}</select><button class="small danger" data-hact="hdelo" data-id="${o.id}" aria-label="Remove">✕</button></div>
+      <div class="two"><label>Starts (in)<input type="number" inputmode="decimal" data-hf="oat" data-id="${o.id}" value="${o.at}"></label><label>Width (in)<input type="number" inputmode="decimal" data-hf="owid" data-id="${o.id}" value="${o.w}"></label></div></div>`).join("") +
+      `<div class="row"><button class="small" data-hact="haddo" data-type="door">+ Door</button><button class="small" data-hact="haddo" data-type="open">+ Open gap</button><button class="small" data-hact="haddo" data-type="window">+ Window</button></div>
+      <div class="row" style="margin-top:12px"><button class="small danger" data-hact="hdel">Delete this room</button></div>`;
+  }
+  return h + `</div>`;
+}
+const HLBL = { hsel: "", hadd: "Add room", hlink: "Add my room to the map", htpl: "Floor sketch template", hrot: "Turn room", hopen: "", hdel: "Remove room", haddv: "Add a corner", hdelv: "Delete a corner", hdelo: "Remove door", haddo: "Add door" };
+$("#panel").addEventListener("click", e => { if (!houseOn) return; flushTyping(); const b = e.target.closest("[data-hact]"); if (b) pre = { before: snapshot(), label: HLBL[b.dataset.hact] || "Change" }; }, true);
+$("#panel").addEventListener("click", e => {
+  if (!houseOn) return; const b = e.target.closest("[data-hact]"); if (!b) return; const a = b.dataset.hact, H = S.house, r = hsel && hRoom(hsel), i = +b.dataset.i;
+  if (a === "hsel") { hsel = b.dataset.id === hsel ? null : b.dataset.id; }
+  else if (a === "hadd") {
+    const w = Math.max(24, +hAdd.w || 120), l = Math.max(24, +hAdd.l || 120), x = hsn(hv.cx - w / 2), y = hsn(hv.cy - l / 2), nr = { id: uid(), name: hAdd.name.trim() || HK[hAdd.kind], kind: hAdd.kind, pts: [[0, 0], [w, 0], [w, l], [0, l]].map(([a, b]) => ({ x: x + a, y: y + b })), openings: [], privacy: "shared", owner: "", measured: false, ceiling: 96, link: null };
+    H.rooms.push(nr); hsel = nr.id; hAdd.name = "";
+  }
+  else if (a === "hlink") { const nr = { id: uid(), name: S.room.name, kind: "room", pts: [], openings: [], privacy: "private", owner: "", measured: true, ceiling: S.room.ceiling, link: { x: hsn(hv.cx - 70), y: hsn(hv.cy - 80), rot: 0 } }; H.rooms.push(nr); hsel = nr.id; }
+  else if (a === "htpl") { H.rooms = justinFloor(); hsel = null; hFit(); }
+  else if (a === "hopen") { houseOn = false; mode = "layout"; setupOpen = false; }
+  else if (r && a === "hdel") { H.rooms = H.rooms.filter(x => x.id !== r.id); hsel = null; }
+  else if (r && a === "hrot") { const d = +b.dataset.d; if (r.link) r.link.rot = ((r.link.rot || 0) + d + 360) % 360; else { const c = hCentroid(r.pts), t = d * Math.PI / 180, co = Math.cos(t), si = Math.sin(t); r.pts = r.pts.map(p => ({ x: +(c.x + (p.x - c.x) * co - (p.y - c.y) * si).toFixed(1), y: +(c.y + (p.x - c.x) * si + (p.y - c.y) * co).toFixed(1) })); } }
+  else if (r && a === "haddv") { const p = r.pts[i], q = r.pts[(i + 1) % r.pts.length]; r.pts.splice(i + 1, 0, { x: +((p.x + q.x) / 2).toFixed(1), y: +((p.y + q.y) / 2).toFixed(1) }); r.openings.forEach(o => { if (o.edge > i) o.edge++; }); }
+  else if (r && a === "hdelv" && r.pts.length > 3) { r.pts.splice(i, 1); r.openings.forEach(o => { if (o.edge > i) o.edge--; else if (o.edge === i) o.edge = Math.max(0, i - 1); }); r.openings.forEach(o => { if (o.edge >= r.pts.length) o.edge = r.pts.length - 1; }); }
+  else if (r && a === "hdelo") r.openings = r.openings.filter(o => o.id !== b.dataset.id);
+  else if (r && a === "haddo") r.openings.push({ id: uid(), type: b.dataset.type, edge: 0, at: 10, w: b.dataset.type === "window" ? 36 : 30, h: b.dataset.type === "window" ? 40 : 80, sill: b.dataset.type === "window" ? 30 : 0 });
+  save(); render();
+});
+function hApply(k, t, final) {
+  const H = S.house, r = hsel && hRoom(hsel), v = t.type === "checkbox" ? t.checked : t.value, n = parseFloat(v);
+  if (k === "add") { hAdd[t.dataset.k] = v; return; } if (k === "addkind") { hAdd.kind = v; return; }
+  if (!r) return; let need = false;
+  if (k === "name") { if (r.link && S.room) S.room.name = v; r.name = v; }
+  else if (k === "kind") r.kind = v; else if (k === "priv") { r.privacy = v; need = true; } else if (k === "owner") r.owner = v; else if (k === "measured") r.measured = !!v;
+  else if (k === "ceil") { if (n > 0) { r.ceiling = n; if (r.link && S.room) S.room.ceiling = n; } }
+  else if (k === "elen") { const i = +t.dataset.i, P = r.pts, p = P[i], j = (i + 1) % P.length, q = P[j], L = Math.hypot(q.x - p.x, q.y - p.y) || 1; if (n > 0) { const dx = (q.x - p.x) / L * n, dy = (q.y - p.y) / L * n; P[j] = { x: +(p.x + dx).toFixed(1), y: +(p.y + dy).toFixed(1) }; } }
+  else { const o = (r.openings || []).find(x => x.id === t.dataset.id); if (!o) return;
+    if (k === "otype") { o.type = v; if (v === "open") { o.h = 96; o.sill = 0; } need = true; } else if (k === "oedge") o.edge = +v; else if (k === "oat" && !isNaN(n)) o.at = n; else if (k === "owid" && n > 0) o.w = n; }
+  save(); renderHouse(); if (final || need) renderPanel();
+}
+$("#panel").addEventListener("input", e => { if (houseOn && e.target.dataset.hf && e.target.matches("input:not([type=checkbox])")) hApply(e.target.dataset.hf, e.target, false); });
+$("#panel").addEventListener("change", e => { if (houseOn && e.target.dataset.hf) hApply(e.target.dataset.hf, e.target, true); });
+
+/* ---------- wiring: the House chip, the bar, and switching the stage between the room and the house ---------- */
+const renderBarRoom = renderBar; renderBar = function () {
+  if (houseOn && S.room) { $("#layoutbar").innerHTML = `<div class="lays"><button class="small" data-house="close">← Back to ${esc(S.room.name)}</button><b style="margin-left:6px">🏠 House map</b></div>`; return; }
+  renderBarRoom(); const lays = $("#layoutbar").querySelector(".lays"); if (S.room && lays) lays.insertAdjacentHTML("beforeend", `<button class="small" data-house="open" title="See every room on one map">🏠 House</button>`);
+};
+const renderPanelRoom = renderPanel; renderPanel = function () { if (houseOn) $("#panel").innerHTML = housePanel() + footHTML(); else renderPanelRoom(); };
+const renderMapRoom = renderMap; renderMap = function () { if (houseOn) { renderHouse(); return; } renderMapRoom(); };
+const renderRoom = render; render = function () {
+  if (!S.room) houseOn = false; if (hsel && !hRoom(hsel)) hsel = null;
+  $("#tabs").style.display = houseOn ? "none" : ""; $("#stage").classList.toggle("hs", houseOn);
+  if (houseOn) { renderBar(); renderPanel(); renderMenu(); renderHouse(); return; }
+  renderRoom();
+};
+$("#layoutbar").addEventListener("click", e => {
+  const b = e.target.closest("[data-house]"); if (!b) return;
+  if (b.dataset.house === "open") { houseOn = true; sel = null; menu = null; placing = false; placingSpot = false; $("#sheet").classList.remove("collapsed"); hFit(); } else houseOn = false;
+  render();
+});
+new ResizeObserver(() => { if (houseOn) renderHouse(); }).observe($("#stage"));
 
 /* ---------- sign-in + cloud sync (Supabase). The app works fully signed-out; this only adds a cloud copy. ---------- */
 const SB_URL = "https://pzscvrhqsndxduqojtui.supabase.co", SB_KEY = "sb_publishable_nytAohtOUngn6YCPuDQkkA_7ahr2DwU";
