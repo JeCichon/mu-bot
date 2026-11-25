@@ -245,7 +245,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.11", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.12", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -1589,6 +1589,24 @@ function hFit() {
 function hDims() { const r = stageRect(), w = hv.w, h = r.width ? w * r.height / r.width : w * .7; return { r, w, h, x: hv.cx - w / 2, y: hv.cy - h / 2, u: r.width ? w / r.width : 1 }; }
 function hPoint(e) { const d = hDims(); return { x: d.x + (e.clientX - d.r.left) * d.w / (d.r.width || 1), y: d.y + (e.clientY - d.r.top) * d.h / (d.r.height || 1) }; }
 const hsn = v => Math.round(v * 2) / 2;
+/* tidy: any wall within `tol` degrees of straight (0, 45, 90, 135…) becomes exactly that; lengths shift a hair so the room still closes up */
+function hTidy(P, tol = 10) {
+  const n = P.length, U = [], len = [], fixed = [];
+  for (let i = 0; i < n; i++) {
+    const p = P[i], q = P[(i + 1) % n], dx = q.x - p.x, dy = q.y - p.y, L = Math.hypot(dx, dy), a = Math.atan2(dy, dx) * 180 / Math.PI, t = Math.round(a / 45) * 45, snap = L > 0 && Math.abs(a - t) <= tol;
+    if (snap) { const r = t * Math.PI / 180; U.push({ x: Math.cos(r), y: Math.sin(r) }); len.push(L); fixed.push(false); } else { U.push({ x: dx, y: dy }); len.push(1); fixed.push(true); }   // an unsnapped wall keeps its own vector (length 1 × vector)
+  }
+  const vec = i => ({ x: U[i].x * len[i], y: U[i].y * len[i] });
+  let cx = 0, cy = 0; for (let i = 0; i < n; i++) { const v = vec(i); cx += v.x; cy += v.y; }
+  let m11 = 0, m12 = 0, m22 = 0; for (let i = 0; i < n; i++) if (!fixed[i]) { m11 += U[i].x * U[i].x; m12 += U[i].x * U[i].y; m22 += U[i].y * U[i].y; }
+  const det = m11 * m22 - m12 * m12; if (Math.abs(det) < 1e-6) return null;
+  const mx = -(m22 * cx - m12 * cy) / det, my = -(-m12 * cx + m11 * cy) / det;       // spread the closing gap over the straightened walls
+  let x = 0, y = 0; const out = [{ x, y }];
+  for (let i = 0; i < n - 1; i++) { const v = vec(i), k = fixed[i] ? 0 : U[i].x * mx + U[i].y * my; x += fixed[i] ? v.x : v.x + U[i].x * k; y += fixed[i] ? v.y : v.y + U[i].y * k; out.push({ x, y }); }
+  const c0 = hCentroid(P), c1 = hCentroid(out);
+  return out.map(q => ({ x: +(q.x + c0.x - c1.x).toFixed(1), y: +(q.y + c0.y - c1.y).toFixed(1) }));
+}
+let hNote = "";
 
 function hDoor(g, P, o, u, sgn) {
   const a = P[o.edge], b = P[(o.edge + 1) % P.length]; if (!a || !b) return;
@@ -1682,7 +1700,7 @@ function housePanel() {
   const H = S.house, r = hsel && hRoom(hsel);
   const chips = H.rooms.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.privacy === "private" ? "🔒" : "👪"} ${esc(hName(x))}</span>`).join("");
   const fld = (k, label, t) => `<label>${label}<input ${t === "n" ? 'type="number" inputmode="decimal"' : ""} data-hf="add" data-k="${k}" value="${esc(hAdd[k])}"></label>`;
-  let h = `<h2>House map</h2><p class="hint">Every room as a shape on one plan. Tap a room to select it; drag the selected room to move it; drag the gold dots to reshape it. Dashed outlines are rooms nobody has measured yet.</p>
+  let h = `${hNote ? `<p class="hint" style="color:var(--ink)">${esc(hNote)}</p>` : ""}<h2>House map</h2><p class="hint">Every room as a shape on one plan. Tap a room to select it; drag the selected room to move it; drag the gold dots to reshape it. Dashed outlines are rooms nobody has measured yet.</p>
     <div class="row">${chips || '<span class="hint">No rooms yet.</span>'}</div>`;
   if (r) h += hCard(r);
   h += `<h2 style="margin-top:22px">Add a room</h2><div class="card" style="margin-top:6px">${fld("name", "Name")}
@@ -1690,6 +1708,7 @@ function housePanel() {
     <div class="two">${fld("w", "Width (inches)", "n")}${fld("l", "Length (inches)", "n")}</div>
     <p class="hint" style="margin:0 0 8px">Starts as a rectangle in the middle of the view — reshape it afterward.</p><button class="primary" data-hact="hadd">Add room</button></div>`;
   h += `<div class="card"><div class="hint" style="margin:0 0 8px"><b>Shortcuts</b></div><div class="row">`;
+  if (H.rooms.some(x => !x.link)) h += `<button data-hact="htidyall" title="Straightens walls that are nearly square or nearly diagonal">✨ Tidy all room angles</button>`;
   if (S.room && !H.rooms.some(x => x.link)) h += `<button data-hact="hlink">Add my detailed room “${esc(S.room.name)}” to the map</button>`;
   if (!H.rooms.length || true) h += `<button data-hact="htpl" ${H.rooms.length ? 'title="Replaces the rooms on this map"' : ""}>${H.rooms.length ? "Replace with" : "Start from"} Justin's floor sketch</button>`;
   h += `</div></div>` + hhCard();
@@ -1708,7 +1727,7 @@ function hCard(r) {
     <div class="row"><button class="small" data-hact="hrot" data-d="-90">⟲ 90°</button><button class="small" data-hact="hrot" data-d="-5">⟲ 5°</button><button class="small" data-hact="hrot" data-d="5">5° ⟳</button><button class="small" data-hact="hrot" data-d="90">90° ⟳</button></div>`;
   if (lk) h += `<p class="hint" style="margin:10px 0 6px">This is your detailed room — its walls, doors and furniture are edited in the room view.</p><div class="row"><button class="primary" data-hact="hopen">Open this room ▸</button><button class="small danger" data-hact="hdel">Take off the map</button></div>`;
   else {
-    h += `<div class="hint" style="margin:12px 0 4px"><b>Walls</b> · type a length to move the next corner</div>` + P.map((p, i) => { const q = P[(i + 1) % P.length], L = +Math.hypot(q.x - p.x, q.y - p.y).toFixed(1);
+    h += `<div class="row" style="margin-top:10px"><button class="small" data-hact="htidy">✨ Tidy angles</button></div><div class="hint" style="margin:12px 0 4px"><b>Walls</b> · type a length to move the next corner</div>` + P.map((p, i) => { const q = P[(i + 1) % P.length], L = +Math.hypot(q.x - p.x, q.y - p.y).toFixed(1);
       return `<div class="item"><span class="hint" style="margin:0;width:22px">${i + 1}</span><input type="number" inputmode="decimal" data-hf="elen" data-i="${i}" value="${L}"><span class="hint" style="margin:0">″</span>
         <button class="small" data-hact="haddv" data-i="${i}" title="Add a corner after this one">＋</button><button class="small danger" data-hact="hdelv" data-i="${i}" ${P.length <= 3 ? "disabled" : ""} aria-label="Delete corner">✕</button></div>`; }).join("");
     const wallOpts = s => P.map((p, i) => `<option value="${i}" ${s === i ? "selected" : ""}>Wall ${i + 1}</option>`).join("");
@@ -1764,10 +1783,10 @@ document.addEventListener("click", e => {
   (STARTERS[HH.roomKey] || []).forEach(([name, x, y, w, h, ht, shape, kind]) => S.furniture.push({ id: uid(), name, x: inU(x), y: inU(y), w: w * 10, h: h * 10, shape, kind, type: "furniture", rot: 0, face: 0, locked: false, ht, z: 0, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }));
   setupOpen = false; mode = "layout"; sel = null; editWalls = false; houseOn = false; pushUndo("Use the house map shape", b4); save(); render(); fitView(); renderMap();
 });
-const HLBL = { hsel: "", hadd: "Add room", hlink: "Add my room to the map", htpl: "Floor sketch template", hrot: "Turn room", hopen: "", hdel: "Remove room", haddv: "Add a corner", hdelv: "Delete a corner", hdelo: "Remove door", haddo: "Add door" };
+const HLBL = { hsel: "", hadd: "Add room", hlink: "Add my room to the map", htpl: "Floor sketch template", hrot: "Turn room", hopen: "", hdel: "Remove room", haddv: "Add a corner", hdelv: "Delete a corner", hdelo: "Remove door", haddo: "Add door", htidy: "Tidy angles", htidyall: "Tidy all angles" };
 $("#panel").addEventListener("click", e => { if (!houseOn) return; flushTyping(); const b = e.target.closest("[data-hact]"); if (b) pre = { before: snapshot(), label: HLBL[b.dataset.hact] || "Change" }; }, true);
 $("#panel").addEventListener("click", e => {
-  if (!houseOn) return; const b = e.target.closest("[data-hact]"); if (!b) return; const a = b.dataset.hact, H = S.house, r = hsel && hRoom(hsel), i = +b.dataset.i; if (hRO() && a !== "hsel" && a !== "hopen") return;
+  if (!houseOn) return; const b = e.target.closest("[data-hact]"); if (!b) return; hNote = ""; const a = b.dataset.hact, H = S.house, r = hsel && hRoom(hsel), i = +b.dataset.i; if (hRO() && a !== "hsel" && a !== "hopen") return;
   if (a === "hsel") { hsel = b.dataset.id === hsel ? null : b.dataset.id; }
   else if (a === "hadd") {
     const w = Math.max(24, +hAdd.w || 120), l = Math.max(24, +hAdd.l || 120), x = hsn(hv.cx - w / 2), y = hsn(hv.cy - l / 2), nr = { id: uid(), name: hAdd.name.trim() || HK[hAdd.kind], kind: hAdd.kind, pts: [[0, 0], [w, 0], [w, l], [0, l]].map(([a, b]) => ({ x: x + a, y: y + b })), openings: [], privacy: "shared", owner: "", measured: false, ceiling: 96, link: null };
@@ -1780,6 +1799,11 @@ $("#panel").addEventListener("click", e => {
   else if (r && a === "hrot") { const d = +b.dataset.d; if (r.link) r.link.rot = ((r.link.rot || 0) + d + 360) % 360; else { const c = hCentroid(r.pts), t = d * Math.PI / 180, co = Math.cos(t), si = Math.sin(t); r.pts = r.pts.map(p => ({ x: +(c.x + (p.x - c.x) * co - (p.y - c.y) * si).toFixed(1), y: +(c.y + (p.x - c.x) * si + (p.y - c.y) * co).toFixed(1) })); } }
   else if (r && a === "haddv") { const p = r.pts[i], q = r.pts[(i + 1) % r.pts.length]; r.pts.splice(i + 1, 0, { x: +((p.x + q.x) / 2).toFixed(1), y: +((p.y + q.y) / 2).toFixed(1) }); r.openings.forEach(o => { if (o.edge > i) o.edge++; }); }
   else if (r && a === "hdelv" && r.pts.length > 3) { r.pts.splice(i, 1); r.openings.forEach(o => { if (o.edge > i) o.edge--; else if (o.edge === i) o.edge = Math.max(0, i - 1); }); r.openings.forEach(o => { if (o.edge >= r.pts.length) o.edge = r.pts.length - 1; }); }
+  else if (a === "htidy" || a === "htidyall") {
+    const list = a === "htidy" ? (r && !r.link ? [r] : []) : H.rooms.filter(x => !x.link); let done = 0;
+    list.forEach(x => { const T = hTidy(x.pts); if (T && canon(T) !== canon(x.pts)) { x.pts = T; done++; } });
+    hNote = done ? `Straightened ${done} room${done === 1 ? "" : "s"}. Undo brings the old shape back.` : "Nothing to straighten — those walls are already as square as they can be.";
+  }
   else if (r && a === "hdelo") r.openings = r.openings.filter(o => o.id !== b.dataset.id);
   else if (r && a === "haddo") r.openings.push({ id: uid(), type: b.dataset.type, edge: 0, at: 10, w: b.dataset.type === "window" ? 36 : 30, h: b.dataset.type === "window" ? 40 : 80, sill: b.dataset.type === "window" ? 30 : 0 });
   if (a === "hopen" || !hRO()) save(); render();
