@@ -245,7 +245,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.12", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.13", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -1559,7 +1559,8 @@ let houseOn = false, hsel = null, hv = { cx: 200, cy: 200, w: 600 }, hAdd = { na
 const hsvg = $("#house"), HK = { room: "Room", hall: "Hallway", bath: "Bathroom", closet: "Closet", stairs: "Stairs", other: "Other" };
 let HH = null, hhData = null, hhMembers = [], hhMsg = "", hhBusy = false;       // the household you belong to (filled in after sign-in)
 const hRO = () => !!(HH && HH.role !== "admin");                                 // everyone but the admin sees the house map read-only
-const hList = () => hRO() ? ((hhData && hhData.rooms) || []) : S.house.rooms;
+const hMine = r => { if (!(HH && S.room && S.claim && S.claim.key === HH.roomKey && r.id === HH.roomKey)) return r; return { ...r, name: S.room.name, ceiling: S.room.ceiling, measured: true, pts: S.room.pts.map(p => ({ x: +(p.x + S.claim.ax).toFixed(2), y: +(p.y + S.claim.ay).toFixed(2) })), openings: S.room.openings.map(o => ({ ...o })) }; };
+const hList = () => hRO() ? ((hhData && hhData.rooms) || []).map(hMine) : S.house.rooms;
 const hRoom = id => hList().find(r => r.id === id);
 const hName = r => r.link && S.room ? S.room.name : r.name;
 function hGeom(r) {
@@ -1779,7 +1780,7 @@ function roomFromMap() {
 }
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-mapshape]"); if (!b || S.room) return; const R = roomFromMap(); if (!R) return;
-  const b4 = snapshot(); S.room = R;
+  const b4 = snapshot(); S.room = R; { const sl = hList().find(x => x.id === HH.roomKey); S.claim = { key: HH.roomKey, ax: Math.min(...sl.pts.map(p => p.x)), ay: Math.min(...sl.pts.map(p => p.y)) }; }
   (STARTERS[HH.roomKey] || []).forEach(([name, x, y, w, h, ht, shape, kind]) => S.furniture.push({ id: uid(), name, x: inU(x), y: inU(y), w: w * 10, h: h * 10, shape, kind, type: "furniture", rot: 0, face: 0, locked: false, ht, z: 0, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }));
   setupOpen = false; mode = "layout"; sel = null; editWalls = false; houseOn = false; pushUndo("Use the house map shape", b4); save(); render(); fitView(); renderMap();
 });
@@ -2057,7 +2058,7 @@ async function hhRefresh() {
     }
     lsSet(HHKEY, HH); lsSet(HHDKEY, hhData); hhMsg = "";
   } catch (e) { hhMsg = "Household: " + (e && e.message || e); }
-  finally { hhBusy = false; hhRepaint(); hhMaybePublish(); }
+  finally { hhBusy = false; hhRepaint(); hhMaybePublish(); hhMaybePubRoom(); hhPullRooms(); }
 }
 function hhMaybePublish() {
   if (!auth || !HH || HH.role !== "admin") return; const s = canon({ rooms: hPublic() }); if (s === lastPub) return;
@@ -2068,7 +2069,23 @@ async function hhPublish() {
   const r = await sb("/rest/v1/household_state?household_id=eq." + HH.id, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ data: d, updated_at: new Date().toISOString() }) });
   if (r.ok) { lastPub = s; hhData = d; lsSet(HHDKEY, d); } else { hhMsg = "Couldn't share the house map: " + hhErr(r); hhRepaint(); }
 }
-const onSavedSync = onSaved; onSaved = () => { onSavedSync(); hhMaybePublish(); };
+let lastRoomPub = null, roomTimer = 0;
+function hMineRow() { if (!(auth && HH && HH.role !== "admin" && S.room && S.claim && S.claim.key === HH.roomKey)) return null; const m = hMine({ id: HH.roomKey }); return { name: m.name, ceiling: m.ceiling, pts: m.pts, openings: m.openings }; }
+function hhMaybePubRoom() { const d = hMineRow(); if (!d || canon(d) === lastRoomPub) return; clearTimeout(roomTimer); roomTimer = setTimeout(hhPubRoom, 2500); }
+async function hhPubRoom() {
+  const d = hMineRow(); if (!d) return; const c = canon(d);
+  const r = await sb("/rest/v1/household_rooms?on_conflict=household_id,room_key", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ household_id: HH.id, room_key: HH.roomKey, data: d, updated_at: new Date().toISOString() }) });
+  if (r.ok) lastRoomPub = c; else { hhMsg = "Couldn't share your room's shape: " + hhErr(r); hhRepaint(); }
+}
+async function hhPullRooms() {       // admin: bring each member's own room shape into the house map
+  if (!auth || !HH || HH.role !== "admin") return;
+  const r = await sb("/rest/v1/household_rooms?household_id=eq." + HH.id + "&select=room_key,data,updated_at"); if (!r.ok || !Array.isArray(r.json)) return;
+  let ch = false;
+  r.json.forEach(row => { const h = S.house.rooms.find(x => x.id === row.room_key), d = row.data; if (!h || h.link || !d || !d.pts || d.pts.length < 3 || h.syncedAt === row.updated_at) return;
+    h.pts = d.pts; h.openings = d.openings || []; h.ceiling = d.ceiling || h.ceiling; h.measured = true; if (d.name && d.name !== "My room") h.name = d.name; h.syncedAt = row.updated_at; ch = true; });
+  if (ch) { save(); hhRepaint(); hhMaybePublish(); }
+}
+const onSavedSync = onSaved; onSaved = () => { onSavedSync(); hhMaybePublish(); hhMaybePubRoom(); };
 const finishSignIn0 = finishSignIn; finishSignIn = function () { finishSignIn0(); hhRefresh(); };
 const signOut0 = signOut; signOut = function () { signOut0(); HH = null; hhData = null; hhMembers = []; lsSet(HHKEY, null); lsSet(HHDKEY, null); houseOn = false; render(); };
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && (houseOn || !S.room)) hhRefresh(); });
