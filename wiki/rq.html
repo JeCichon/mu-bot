@@ -245,7 +245,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.10", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.11", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -1743,8 +1743,27 @@ function hhCard() {
 }
 function welcomeCard() {
   if (!HH || HH.role === "admin" || S.room) return "";
-  return `<div class="card"><b>🏠 ${esc(HH.name || "Your house")}</b><p class="hint" style="margin:4px 0 10px">You're part of the house. Set up your own room below — it's private to you. Peek at the house map whenever you like.</p><button class="small" data-house="open">See the house map</button></div>`;
+  const mine = hList().find(x => x.id === HH.roomKey);
+  return `<div class="card"><b>🏠 ${esc(HH.name || "Your house")}</b><p class="hint" style="margin:4px 0 10px">You're part of the house. Your room is private to you.</p>
+    ${mine ? `<button class="primary" data-mapshape="1">Start with my room's shape from the house map</button><p class="hint" style="margin:8px 0 10px">Fills in the walls, your door${STARTERS[HH.roomKey] ? " and a first set of furniture to move around" : ""}. Everything is a rough start — measure and fix it as you go.</p>` : ""}
+    <button class="small" data-house="open">See the house map</button></div>`;
 }
+/* a first set of furniture for a room on the house map, in inches from the room's top-left corner: [name, x, y, w, h, height, shape, kind] */
+const STARTERS = {
+  w23yqq1: [["Closet", 59, 6, 82, 28, 84, "rect", "closet"], ["Queen bed", 69, 61, 80, 60, 24, "rect", "furn"], ["End table", 129, 38, 17, 18, 24, "rect", "furn"], ["Desk", 129, 129, 22, 36, 30, "rect", "furn"],
+    ["Left-wall piece 1", 2, 48, 23, 42, 30, "rect", "furn"], ["Left-wall piece 2", 2, 95, 23, 29, 30, "rect", "furn"], ["Left-wall piece 3", 2, 129, 23, 36, 30, "rect", "furn"], ["Round item", 3, 26, 18, 18, 20, "ellipse", "furn"]]
+};
+function roomFromMap() {
+  const r = HH && hList().find(x => x.id === HH.roomKey); if (!r || !r.pts || r.pts.length < 3) return null;
+  const x0 = Math.min(...r.pts.map(p => p.x)), y0 = Math.min(...r.pts.map(p => p.y));
+  return { name: "My room", ceiling: r.ceiling || 96, pts: r.pts.map(p => ({ x: Math.round((p.x - x0) * 2) / 2, y: Math.round((p.y - y0) * 2) / 2 })), openings: (r.openings || []).map(o => ({ ...o, id: uid() })) };
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-mapshape]"); if (!b || S.room) return; const R = roomFromMap(); if (!R) return;
+  const b4 = snapshot(); S.room = R;
+  (STARTERS[HH.roomKey] || []).forEach(([name, x, y, w, h, ht, shape, kind]) => S.furniture.push({ id: uid(), name, x: inU(x), y: inU(y), w: w * 10, h: h * 10, shape, kind, type: "furniture", rot: 0, face: 0, locked: false, ht, z: 0, level: "floor", onId: null, odx: 0, ody: 0, orot: 0 }));
+  setupOpen = false; mode = "layout"; sel = null; editWalls = false; houseOn = false; pushUndo("Use the house map shape", b4); save(); render(); fitView(); renderMap();
+});
 const HLBL = { hsel: "", hadd: "Add room", hlink: "Add my room to the map", htpl: "Floor sketch template", hrot: "Turn room", hopen: "", hdel: "Remove room", haddv: "Add a corner", hdelv: "Delete a corner", hdelo: "Remove door", haddo: "Add door" };
 $("#panel").addEventListener("click", e => { if (!houseOn) return; flushTyping(); const b = e.target.closest("[data-hact]"); if (b) pre = { before: snapshot(), label: HLBL[b.dataset.hact] || "Change" }; }, true);
 $("#panel").addEventListener("click", e => {
