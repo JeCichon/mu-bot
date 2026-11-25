@@ -16,6 +16,7 @@ body{height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font:15px/
 /* sticky + opaque: iOS 26 skips its Liquid Glass blur over a header pinned to the top edge (tested on iPhone 17 Pro, iOS 27.2) */
 header{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);padding-top:max(10px,env(safe-area-inset-top))}
 header h1{font:600 20px Georgia,"Times New Roman",serif;margin:0;letter-spacing:.02em}
+header h1 .ver{font:600 11px system-ui;letter-spacing:0;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:3px}
 header h1 small{display:block;font:12px system-ui;color:var(--mute);letter-spacing:0}
 .prog{flex:1;max-width:420px;margin-left:auto}
 .prog .bar{height:10px;border-radius:6px;background:var(--panel2);overflow:hidden;border:1px solid var(--line)}
@@ -191,7 +192,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 </head>
 <body>
 <header>
-  <h1>Room Quest<small>name it · give it a home · clear the fog</small></h1>
+  <h1>Room Quest <span id="appver" class="ver"></span><small>name it · give it a home · clear the fog</small></h1>
   <div class="undo" id="undobar">
     <button id="undoBtn" class="ubtn" title="Undo (Ctrl+Z)" disabled><span>↶ Undo</span><small id="undoLabel">nothing yet</small></button>
     <button id="redoBtn" class="ubtn r" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
@@ -244,6 +245,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
+const APP_VERSION = "0.10", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -2043,6 +2045,7 @@ $("#panel").addEventListener("click", async e => {
 });
 if (auth) hhRefresh();
 
+{ const v = document.getElementById("appver"); v.textContent = "v" + APP_VERSION; v.title = "Room Quest v" + APP_VERSION + " · updated " + APP_DATE; }
 fitView(); render(); renderUndo();
 </script>
 </body>
