@@ -247,7 +247,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.15", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.16", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -1560,6 +1560,8 @@ $("#file").addEventListener("change", e => {
 let houseOn = false, hsel = null, hv = { cx: 200, cy: 200, w: 600 }, hAdd = { name: "", kind: "room", w: 120, l: 120 };
 const hsvg = $("#house"), HK = { room: "Room", hall: "Hallway", bath: "Bathroom", closet: "Closet", stairs: "Stairs", other: "Other" };
 let HH = null, hhData = null, hhMembers = [], hhMsg = "", hhBusy = false;       // the household you belong to (filled in after sign-in)
+let hConfirm = "";
+const hCanEdit = () => !hRO() && (!HH || !!S.house.edit);                                    // the admin must press "Edit the map" first; everyone else only looks
 const hRO = () => !!(HH && HH.role !== "admin");                                 // everyone but the admin sees the house map read-only
 const hMine = r => { if (!(HH && S.room && S.claim && S.claim.key === HH.roomKey && r.id === HH.roomKey)) return r; return { ...r, name: S.room.name, ceiling: S.room.ceiling, measured: true, pts: S.room.pts.map(p => ({ x: +(p.x + S.claim.ax).toFixed(2), y: +(p.y + S.claim.ay).toFixed(2) })), openings: S.room.openings.map(o => ({ ...o })) }; };
 const hList = () => hRO() ? ((hhData && hhData.rooms) || []).map(hMine) : S.house.rooms;
@@ -1651,7 +1653,7 @@ function renderHouse() {
     if (on) {
       P.forEach((a, i) => { const b = P[(i + 1) % P.length], L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 14) return;
         const tt = el("text", { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 + 4 * u, "text-anchor": "middle", fill: "#f2b84b", "font-size": 10 * u, "font-family": "system-ui", stroke: "#0f1117", "stroke-width": 3 * u, "paint-order": "stroke", style: "pointer-events:none" }, g); tt.textContent = +L.toFixed(1) + "″"; });
-      if (!r.link && !hRO()) P.forEach((p, i) => el("circle", { cx: p.x, cy: p.y, r: 9 * u, fill: "#f2b84b", stroke: "#13151b", "stroke-width": 2 * u, "data-hv": i, style: "cursor:grab" }, g));
+      if (!r.link && hCanEdit()) P.forEach((p, i) => el("circle", { cx: p.x, cy: p.y, r: 9 * u, fill: "#f2b84b", stroke: "#13151b", "stroke-width": 2 * u, "data-hv": i, style: "cursor:grab" }, g));
     }
   });
   if (!hList().length) { const t = el("text", { x: hv.cx, y: hv.cy, "text-anchor": "middle", fill: "#98a0b3", "font-size": 15 * u, "font-family": "system-ui" }, hsvg); t.textContent = hRO() ? "The house map is still being drawn" : "No rooms yet — add one from the panel"; }
@@ -1664,8 +1666,8 @@ hsvg.addEventListener("pointerdown", e => {
   if (hps.size === 2) { hEndDrag(); const [a, b] = [...hps.values()]; hg = { type: "pinch", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, w0: hv.w }; return; }
   if (hps.size > 2) return;
   const hvEl = e.target.closest("[data-hv]"), hr = e.target.closest("[data-hr]"), p0 = hPoint(e), base = { sx: e.clientX, sy: e.clientY, cx0: hv.cx, cy0: hv.cy, moved: false, p0 };
-  if (hvEl && hsel && !hRO()) hg = { ...base, type: "vert", idx: +hvEl.dataset.hv, before: snapshot() };
-  else if (hr && hr.dataset.hr === hsel && !hRO()) { const r = hRoom(hsel); hg = { ...base, type: "move", before: snapshot(), orig: r.link ? { x: r.link.x, y: r.link.y } : r.pts.map(p => ({ ...p })) }; }
+  if (hvEl && hsel && hCanEdit()) hg = { ...base, type: "vert", idx: +hvEl.dataset.hv, before: snapshot() };
+  else if (hr && hr.dataset.hr === hsel && hCanEdit()) { const r = hRoom(hsel); hg = { ...base, type: "move", before: snapshot(), orig: r.link ? { x: r.link.x, y: r.link.y } : r.pts.map(p => ({ ...p })) }; }
   else hg = { ...base, type: "pan", tap: hr ? hr.dataset.hr : null };
 });
 hsvg.addEventListener("pointermove", e => {
@@ -1700,10 +1702,11 @@ $(".hzoom").addEventListener("click", e => { const b = e.target.closest("[data-h
 /* ---------- the panel ---------- */
 function housePanel() {
   if (hRO()) return houseMemberPanel();
+  if (HH && !S.house.edit) return houseViewPanel();
   const H = S.house, r = hsel && hRoom(hsel);
   const chips = H.rooms.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.privacy === "private" ? "🔒" : "👪"} ${esc(hName(x))}</span>`).join("");
   const fld = (k, label, t) => `<label>${label}<input ${t === "n" ? 'type="number" inputmode="decimal"' : ""} data-hf="add" data-k="${k}" value="${esc(hAdd[k])}"></label>`;
-  let h = `${hNote ? `<p class="hint" style="color:var(--ink)">${esc(hNote)}</p>` : ""}${hhBadge()}<h2>House map</h2><p class="hint">Every room as a shape on one plan. Tap a room to select it; drag the selected room to move it; drag the gold dots to reshape it. Dashed outlines are rooms nobody has measured yet.</p>
+  let h = `${hNote ? `<p class="hint" style="color:var(--ink)">${esc(hNote)}</p>` : ""}${HH ? hEditBanner() : ""}${hhBadge()}<h2>House map</h2><p class="hint">Every room as a shape on one plan. Tap a room to select it; drag the selected room to move it; drag the gold dots to reshape it. Dashed outlines are rooms nobody has measured yet.</p>
     <div class="row">${chips || '<span class="hint">No rooms yet.</span>'}</div>`;
   if (r) h += hCard(r);
   h += `<h2 style="margin-top:22px">Add a room</h2><div class="card" style="margin-top:6px">${fld("name", "Name")}
@@ -1743,13 +1746,31 @@ function hCard(r) {
   }
   return h + `</div>`;
 }
+function hInfo(r) {
+  const mine = HH && r.id === HH.roomKey, own = hRO() ? mine : !!r.link, who = r.privacy === "private" ? "🔒 Private" + (r.owner ? " · " + esc(r.owner) : "") : "👪 Shared", ar = Math.round(hArea(hGeom(r).pts) / 144);
+  return `<div class="card"><b>${hRO() && mine ? "⭐ " : ""}${esc(hName(r))}</b><p class="hint" style="margin:4px 0 ${own ? 10 : 0}px">${HK[r.kind] || "Room"} · ${who} · ${r.measured ? "measured" : "not measured yet"} · ${r.measured ? "" : "about "}${ar} sq ft</p>${own ? `<button class="primary" data-hact="hopen">Enter room ▸</button>` : ""}</div>`;
+}
+function houseViewPanel() {          // the admin looking at the map (not editing it)
+  const r = hsel && hRoom(hsel);
+  let h = `${hNote ? `<p class="hint" style="color:var(--ink)">${esc(hNote)}</p>` : ""}${hhBadge()}<h2>House map</h2><p class="hint">Tap a room to see it. To move rooms or reshape walls, press Edit — nothing changes for anyone until you save.</p>
+    <div class="row"><button class="primary" data-hedit="start">✏️ Edit the map</button></div>
+    <div class="row">${S.house.rooms.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.privacy === "private" ? "🔒" : "👪"} ${esc(hName(x))}</span>`).join("") || '<span class="hint">No rooms yet.</span>'}</div>`;
+  if (r) h += hInfo(r);
+  return h + hhCard();
+}
+function hEditBanner() {
+  const q = hConfirm === "save" ? `<p style="margin:10px 0 8px">Save these changes? This updates the cloud and the house floor plan everyone sees.</p><div class="row"><button class="primary" data-hedit="saveyes">Yes, save</button><button class="small" data-hedit="keep">Keep editing</button></div>`
+    : hConfirm === "discard" ? `<p style="margin:10px 0 8px">Throw away everything you changed since you pressed Edit?</p><div class="row"><button class="danger" data-hedit="discardyes">Yes, discard</button><button class="small" data-hedit="keep">Keep editing</button></div>`
+    : `<div class="row"><button class="primary" data-hedit="save">Save…</button><button class="small" data-hedit="discard">Discard</button></div>`;
+  return `<div class="card" style="border-color:#f2b84b"><b>✏️ Editing the house map</b><p class="hint" style="margin:4px 0 0">Changes stay on this device until you save.</p>${q}</div>`;
+}
 function houseMemberPanel() {
   const L = hList(), mine = L.find(x => x.id === HH.roomKey), r = hsel && hRoom(hsel);
   let h = `${hhBadge()}<h2>${esc(HH.name || "The house")}</h2><p class="hint">Welcome home. Tap a room to see it. Your room is yours alone — nobody else can see what's inside it.</p>`;
   h += mine ? `<div class="card"><b>⭐ ${esc(S.room ? S.room.name : mine.name)}</b><p class="hint" style="margin:4px 0 10px">${S.room ? "Your room is set up." : "Your room is waiting for you."}</p><button class="primary" data-hact="hopen">${S.room ? "Open my room ▸" : "Set up my room ▸"}</button></div>`
     : `<div class="card"><p class="hint" style="margin:0">You don't have a room on the map yet. Ask Justin to give you one.</p>${S.room ? `<div class="row"><button data-hact="hopen">Open my room ▸</button></div>` : ""}</div>`;
   h += `<div class="row">${L.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.id === HH.roomKey ? "⭐" : x.privacy === "private" ? "🔒" : "👪"} ${esc(x.name)}</span>`).join("")}</div>`;
-  if (r) h += `<div class="card"><b>${esc(r.name)}</b><p class="hint" style="margin:4px 0 0">${HK[r.kind] || "Room"} · ${r.privacy === "private" ? "🔒 Private" + (r.owner ? " · " + esc(r.owner) : "") : "👪 Shared"} · ${r.measured ? "" : "about "}${Math.round(hArea(r.pts) / 144)} sq ft</p></div>`;
+  if (r) h += hInfo(r);
   return h + (hhMsg ? `<p class="err">${esc(hhMsg)}</p>` : "");
 }
 function hhCard() {
@@ -1789,7 +1810,7 @@ document.addEventListener("click", e => {
 const HLBL = { hsel: "", hadd: "Add room", hlink: "Add my room to the map", htpl: "Floor sketch template", hrot: "Turn room", hopen: "", hdel: "Remove room", haddv: "Add a corner", hdelv: "Delete a corner", hdelo: "Remove door", haddo: "Add door", htidy: "Tidy angles", htidyall: "Tidy all angles" };
 $("#panel").addEventListener("click", e => { if (!houseOn) return; flushTyping(); const b = e.target.closest("[data-hact]"); if (b) pre = { before: snapshot(), label: HLBL[b.dataset.hact] || "Change" }; }, true);
 $("#panel").addEventListener("click", e => {
-  if (!houseOn) return; const b = e.target.closest("[data-hact]"); if (!b) return; hNote = ""; const a = b.dataset.hact, H = S.house, r = hsel && hRoom(hsel), i = +b.dataset.i; if (hRO() && a !== "hsel" && a !== "hopen") return;
+  if (!houseOn) return; const b = e.target.closest("[data-hact]"); if (!b) return; hNote = ""; const a = b.dataset.hact, H = S.house, r = hsel && hRoom(hsel), i = +b.dataset.i; if ((hRO() || !hCanEdit()) && a !== "hsel" && a !== "hopen") return;
   if (a === "hsel") { hsel = b.dataset.id === hsel ? null : b.dataset.id; }
   else if (a === "hadd") {
     const w = Math.max(24, +hAdd.w || 120), l = Math.max(24, +hAdd.l || 120), x = hsn(hv.cx - w / 2), y = hsn(hv.cy - l / 2), nr = { id: uid(), name: hAdd.name.trim() || HK[hAdd.kind], kind: hAdd.kind, pts: [[0, 0], [w, 0], [w, l], [0, l]].map(([a, b]) => ({ x: x + a, y: y + b })), openings: [], privacy: "shared", owner: "", measured: false, ceiling: 96, link: null };
@@ -1809,10 +1830,25 @@ $("#panel").addEventListener("click", e => {
   }
   else if (r && a === "hdelo") r.openings = r.openings.filter(o => o.id !== b.dataset.id);
   else if (r && a === "haddo") r.openings.push({ id: uid(), type: b.dataset.type, edge: 0, at: 10, w: b.dataset.type === "window" ? 36 : 30, h: b.dataset.type === "window" ? 40 : 80, sill: b.dataset.type === "window" ? 30 : 0 });
-  if (a === "hopen" || !hRO()) save(); render();
+  if (a === "hopen" || hCanEdit()) save(); render();
+});
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-hedit]"); if (!b || hRO() || !HH) return; const a = b.dataset.hedit, H = S.house; $("#sheet").classList.remove("collapsed"); hNote = "";
+  if (a === "start") { H.edit = true; H.editBase = JSON.stringify(H.rooms); hConfirm = ""; }
+  else if (a === "save") { if (!H.edit) return; hConfirm = "save"; }
+  else if (a === "discard") hConfirm = "discard";
+  else if (a === "keep") hConfirm = "";
+  else if (a === "discardyes") { H.rooms = JSON.parse(H.editBase || "[]"); H.edit = false; delete H.editBase; hConfirm = ""; hNote = "Changes thrown away — the map is as it was."; }
+  else if (a === "saveyes") {
+    const changed = H.editBase !== JSON.stringify(H.rooms); H.edit = false; delete H.editBase; hConfirm = ""; save();
+    if (!changed) { hNote = "No changes to save."; render(); return; }
+    hNote = "Saving…"; render(); await hhRefresh(); if (!hhConf) await hhPublish();
+    hNote = hhConf ? "" : hhState === "saved" ? "Saved ✓ The cloud and the house floor plan are up to date." : ""; render(); return;
+  }
+  save(); render();
 });
 function hApply(k, t, final) {
-  if (hRO()) return;
+  if (!hCanEdit()) return;
   const H = S.house, r = hsel && hRoom(hsel), v = t.type === "checkbox" ? t.checked : t.value, n = parseFloat(v);
   if (k === "add") { hAdd[t.dataset.k] = v; return; } if (k === "addkind") { hAdd.kind = v; return; }
   if (!r) return; let need = false;
@@ -1822,14 +1858,19 @@ function hApply(k, t, final) {
   else if (k === "elen") { const i = +t.dataset.i, P = r.pts, p = P[i], j = (i + 1) % P.length, q = P[j], L = Math.hypot(q.x - p.x, q.y - p.y) || 1; if (n > 0) { const dx = (q.x - p.x) / L * n, dy = (q.y - p.y) / L * n; P[j] = { x: +(p.x + dx).toFixed(1), y: +(p.y + dy).toFixed(1) }; } }
   else { const o = (r.openings || []).find(x => x.id === t.dataset.id); if (!o) return;
     if (k === "otype") { o.type = v; if (v === "open") { o.h = 96; o.sill = 0; } need = true; } else if (k === "oedge") o.edge = +v; else if (k === "oat" && !isNaN(n)) o.at = n; else if (k === "owid" && n > 0) o.w = n; }
-  save(); renderHouse(); if (final || need) renderPanel();
+  save(); renderHouse(); if (final || need) { if (pDown) pend = true; else renderPanel(); }
 }
+// a field losing focus re-draws the panel; if that happens mid-tap the button under your finger vanishes, so wait until the tap is finished
+let pDown = false, pend = false;
+$("#panel").addEventListener("pointerdown", () => { pDown = true; }, true);
+document.addEventListener("pointerup", () => { setTimeout(() => { pDown = false; if (pend) { pend = false; renderPanel(); } }, 0); }, true);
+document.addEventListener("pointercancel", () => { pDown = false; });
 $("#panel").addEventListener("input", e => { if (houseOn && e.target.dataset.hf && e.target.matches("input:not([type=checkbox])")) hApply(e.target.dataset.hf, e.target, false); });
 $("#panel").addEventListener("change", e => { if (houseOn && e.target.dataset.hf) hApply(e.target.dataset.hf, e.target, true); });
 
 /* ---------- wiring: the House chip, the bar, and switching the stage between the room and the house ---------- */
 const renderBarRoom = renderBar; renderBar = function () {
-  if (houseOn) { $("#layoutbar").innerHTML = `<div class="lays"><button class="small" data-house="close">← Back to ${S.room ? esc(S.room.name) : "my room"}</button><b style="margin-left:6px">🏠 House map</b></div>`; return; }
+  if (houseOn) { $("#layoutbar").innerHTML = `<div class="lays"><button class="small" data-house="close">← Back to ${S.room ? esc(S.room.name) : "my room"}</button><b style="margin-left:6px">🏠 House map</b>${HH && S.house.edit && !hRO() ? `<span class="hint" style="margin:0 6px 0 10px">✏️ editing</span><button class="small primary" data-hedit="save">Save…</button>` : ""}</div>`; return; }
   if (!S.room && HH) { $("#layoutbar").innerHTML = `<div class="lays"><button class="small" data-house="open">🏠 House</button></div>`; return; }
   renderBarRoom(); const lays = $("#layoutbar").querySelector(".lays"); if (S.room && lays) lays.insertAdjacentHTML("beforeend", `<button class="small" data-house="open" title="See every room on one map">🏠 House</button>`);
 };
@@ -2051,7 +2092,7 @@ function hhRepaint() {
   if (!S.room && !houseOn) render(); else { renderBar(); if (houseOn) { renderPanel(); renderHouse(); } }
 }
 async function hhRefresh() {
-  if (!auth || hhBusy) return; hhBusy = true;
+  if (!auth || hhBusy) return; hhBusy = true; const gen0 = hhGen;
   try {
     await sb("/rest/v1/rpc/claim_invites", { method: "POST", body: "{}" });                        // turns an email invite into a key
     const r = await sb("/rest/v1/household_members?user_id=eq." + auth.uid + "&select=household_id,role,room_key,households(name)&limit=1"); if (!r.ok) throw new Error(hhErr(r));
@@ -2059,12 +2100,12 @@ async function hhRefresh() {
     if (!m) { HH = null; hhData = null; hhMembers = []; }
     else {
       HH = { id: m.household_id, role: m.role, roomKey: m.room_key, name: (m.households && m.households.name) || "" };
-      const s = await sb("/rest/v1/household_state?household_id=eq." + HH.id + "&select=data,updated_at"); if (s.ok && s.json && s.json[0]) { hhData = s.json[0].data; hhUpdated = s.json[0].updated_at; if (HH.role === "admin") hhSyncAdmin(s.json[0]); }
+      const s = await sb("/rest/v1/household_state?household_id=eq." + HH.id + "&select=data,updated_at"); if (s.ok && s.json && s.json[0]) { hhData = s.json[0].data; hhUpdated = s.json[0].updated_at; if (HH.role === "admin" && gen0 === hhGen && hhState !== "saving") hhSyncAdmin(s.json[0]); }
       if (HH.role === "admin") { const mm = await sb("/rest/v1/household_members?household_id=eq." + HH.id + "&select=id,email,user_id,role,room_key&order=created_at"); hhMembers = mm.ok && Array.isArray(mm.json) ? mm.json : []; }
     }
     lsSet(HHKEY, HH); lsSet(HHDKEY, hhData); hhMsg = ""; if (!hhConf && hhState !== "saving") hhState = "saved";
   } catch (e) { hhMsg = "Household: " + (e && e.message || e); hhState = "offline"; }
-  finally { hhBusy = false; hhRepaint(); hhMaybePublish(); hhMaybePubRoom(); if (!hhConf) hhPullRooms(); }
+  finally { hhBusy = false; hhRepaint(); hhMaybePublish(); hhMaybePubRoom(); if (!hhConf && !S.house.edit) hhPullRooms(); }
 }
 let hhConf = null, hhState = "", hhSaveErr = "";
 const hCmp = d => canon(((d && d.rooms) || []).map(r => r.lk ? { id: r.id, lk: r.lk, kind: r.kind, privacy: r.privacy, owner: r.owner } : r));   // your own room's walls live in your room, so they don't count as "the map changed"
@@ -2074,6 +2115,7 @@ function hhAdopt(row) {          // make this device's map match the cloud map
   S.house.base = hCmp(row.data); S.house.mAt = row.updated_at; lastPub = canon({ rooms: hPublic() }); hhConf = null; hhState = "saved"; save();
 }
 function hhSyncAdmin(row) {      // the cloud map is the real one; this device only keeps a copy
+  if (S.house.edit) return;                                               // mid-edit: nothing is compared or replaced until you save
   const d = row.data && Array.isArray(row.data.rooms) && row.data.rooms.length ? row.data : null;
   if (!d) { S.house.mAt = row.updated_at; return; }                        // nothing in the cloud yet, nothing to lose
   const rc = hCmp(d), lc = hCmp({ rooms: hPublic() }), base = S.house.base;
@@ -2083,15 +2125,16 @@ function hhSyncAdmin(row) {      // the cloud map is the real one; this device o
   hhConf = row; hhState = "conflict";                                      // both changed: let a person choose
 }
 function hhMaybePublish() {
-  if (!auth || !HH || HH.role !== "admin" || hhConf) return; const s = canon({ rooms: hPublic() }); if (s === lastPub) { if (hhState === "saving") hhState = "saved"; return; }
+  if (!auth || !HH || HH.role !== "admin" || hhConf || S.house.edit) return; const s = canon({ rooms: hPublic() }); if (s === lastPub) { if (hhState === "saving") hhState = "saved"; return; }
   hhState = "saving"; clearTimeout(pubTimer); pubTimer = setTimeout(hhPublish, 2000);
 }
+let hhGen = 0;
 async function hhPublish() {
-  if (!auth || !HH || HH.role !== "admin" || hhConf) return; if (!S.house.mAt) { hhRefresh(); return; }
-  const d = { rooms: hPublic() }, c = canon(d);
+  if (!auth || !HH || HH.role !== "admin" || hhConf || S.house.edit) return; if (!S.house.mAt) { hhRefresh(); return; }
+  const d = { rooms: hPublic() }, c = canon(d); if (c === lastPub) { hhState = "saved"; return; } hhGen++;
   const r = await sb("/rest/v1/household_state?household_id=eq." + HH.id + "&updated_at=eq." + encodeURIComponent(S.house.mAt), { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data: d, updated_at: new Date().toISOString() }) });
-  if (r.ok && Array.isArray(r.json) && r.json.length) { lastPub = c; hhData = d; lsSet(HHDKEY, d); S.house.mAt = r.json[0].updated_at; S.house.base = hCmp(d); hhState = "saved"; hhSaveErr = ""; hhUpdated = S.house.mAt; save(); }
-  else if (r.ok) { hhRefresh(); return; }                                  // someone saved a newer map first: look at it before overwriting
+  if (r.ok && Array.isArray(r.json) && r.json.length) { lastPub = c; hhData = d; lsSet(HHDKEY, d); S.house.mAt = r.json[0].updated_at; S.house.base = hCmp(d); hhState = "saved"; hhSaveErr = ""; hhUpdated = S.house.mAt; hhGen++; save(); }
+  else if (r.ok) { hhState = ""; hhRefresh(); return; }                                  // someone saved a newer map first: look at it before overwriting
   else { hhState = "error"; hhSaveErr = hhErr(r); }
   hhRepaint();
 }

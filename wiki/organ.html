@@ -7763,7 +7763,7 @@ function openGradPopup(ti,e){
   gpPlace(e.clientX,e.clientY+8);
   refreshSoundMapping();
 }
-function closeGradPopup(){try{gpPlayStop();gpStopVoice();gpKeysToggle(false);palToggle(false);}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
+function closeGradPopup(){try{gpCardsDisarm();gpPlayStop();gpStopVoice();gpKeysToggle(false);palToggle(false);}catch(e){}gradPopup.classList.remove('show');gradTi=null;activeGradObj=null;}
 // ── movable colour editor ─────────────────────────────────────────────────
 // Floating (default): opens where you clicked and closes when you click elsewhere.
 // Pinned (press FLOAT, or just drag the bar): stays where you parked it — opening another ribbon, gradient or stop reuses that spot,
@@ -8600,11 +8600,20 @@ function gpPlayStart(){
   };
   tick();
 }
+let gpCardsArmed=false,gpCardsArmT=null;
+function gpCardsDisarm(){gpCardsArmed=false;clearTimeout(gpCardsArmT);const b=document.getElementById('gp-cards-btn');if(b){b.classList.remove('on');b.textContent='▤ CARDS IN A ROW';}}
 function gpCardsInRow(){
   const ch=gpOwnerChannel();if(!ch||!ch.suit||ch.suit==='drums') return;
   const ti=channels.indexOf(ch);if(ti<0) return;
   const pat=patterns[activePatternIndex],pd=pat.channelData[ti];if(!pd||!pd.steps) return;
   const sc=pat.stepCount,cards=BASE_CARDS.filter(c=>c.suit===ch.suit);
+  // safety: if the channel already has notes, the first press asks (the button itself turns into the question); a second press within 3 s does it
+  const had=pd.steps.filter(x=>x!==null&&x!==undefined).length,btn=document.getElementById('gp-cards-btn');
+  if(had&&btn&&!gpCardsArmed){
+    gpCardsArmed=true;btn.textContent='⚠ REPLACE '+had+' NOTE'+(had>1?'S':'')+'? CLICK AGAIN';btn.classList.add('on');
+    clearTimeout(gpCardsArmT);gpCardsArmT=setTimeout(gpCardsDisarm,3000);return;
+  }
+  gpCardsDisarm();
   pushHistory();
   for(let si=0;si<sc;si++){
     pd.steps[si]=si<cards.length?cards[si].n:null;

@@ -4,10 +4,10 @@ The idea: **Home** (the house map) is the front page and the forum's centre. You
 
 | Phase | What | Status |
 |---|---|---|
-| 0. Stability | One master house map in Supabase; every device loads it; saved label; conflict choice instead of silent overwrite | v0.14 |
+| 0. Stability | One master house map in Supabase; every device loads it; saved label; conflict choice instead of silent overwrite; sign-in page when signed out | v0.14–0.15 |
 | 1. Home page | Home is the first screen (house map underneath the title). Tap a room → small card with shared info; your own room has "Enter room". Rename "House map" → "Home" | next |
 | 2. Sister fully in | Easy sign-in, her room works like yours, her shape flows to the house map (v0.13) | built; she hasn't signed in yet |
-| 2.5 Onboarding | Calm first-run for her: one big action per screen, 3-step sign-in card | next after Phase 1 |
+| 2.5 Onboarding | Calm first-run for her: one big action per screen, 3-step sign-in card. **Simpler sign-in: add "Sign in with Google" next to the email code** (needs a Google provider set up in Supabase) | next after Phase 1 |
 | 3. Fill the house | Brother's room measured, parents' room, then levels (downstairs, front door) | later |
 | 4. Look & feel | Thick hatched walls, floor textures (wood, tile), Blueprint toggle, catalog pictures, PNG uploads (posters, book covers), click a pile from Room mode and jump to Pile mode | later |
 | 5. Engagement | Sims/Zelda ideas: fog on unexplored rooms, keys, build vs live modes, level-ups (equipment / stats / personality) | later |
