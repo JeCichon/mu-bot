@@ -155,6 +155,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 #syncBtn.off{opacity:.65}
 #syncBtn.bad b{color:var(--danger)}
 #syncBtn.ok b{color:#6fcf97}
+#gate{position:fixed;inset:0;z-index:80;background:var(--bg,#13151b);display:none;align-items:center;justify-content:center;padding:24px;text-align:center}#gate.show{display:flex}#gate .gbox{max-width:360px}#gate h1{font-family:Georgia,serif;margin:0 0 6px}#gate p{color:var(--mute,#98a0b3);line-height:1.5}#gate button{margin-top:8px;font-size:17px;padding:12px 22px}
 .dlgback{position:fixed;inset:0;z-index:90;background:#000a;display:none;align-items:center;justify-content:center;padding:12px}
 .dlgback.show{display:flex}
 .dlg{background:var(--panel);border:1px solid var(--furn-line);border-radius:14px;box-shadow:0 12px 40px #000a;padding:16px;width:min(460px,100%);max-height:92vh;overflow:auto}
@@ -242,10 +243,11 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 </main>
 <input type="file" id="file" accept=".json,application/json" hidden>
 <div id="history" role="dialog" aria-label="Recent changes"></div>
+<div id="gate"><div class="gbox"><h1>Room Quest</h1><p>Please sign in to open the quest.</p><p style="font-size:14px">Rooms already saved on this device are safe — they will be right here after you sign in.</p><button class="primary" id="gateBtn">Sign in</button></div></div>
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.14", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.15", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -1868,8 +1870,10 @@ onSaved = () => {
   if (applyingRemote) return;
   meta.editedAt = Date.now(); lsSet(MKEY, meta); if (auth) { setSync(conflict ? "conflict" : "pending"); schedulePush(); }
 };
+const gateOff = navigator.webdriver && !/[?&]gate=1/.test(location.search);     // automated tests skip the sign-in page
+function gate() { $("#gate").classList.toggle("show", !auth && !gateOff); }
 function setSync(st, msg) {
-  syncState = auth ? st : "off"; if (msg !== undefined) syncMsg = msg;
+  syncState = auth ? st : "off"; gate(); if (msg !== undefined) syncMsg = msg;
   const b = $("#syncBtn"), n = $("#syncN"), sym = { off: "", ok: "✓", busy: "…", pending: "↑", offline: "!", error: "!", conflict: "⚠" }[syncState] || "";
   b.className = "ubtn r " + (syncState === "off" ? "off" : syncState === "ok" ? "ok" : syncState === "busy" || syncState === "pending" ? "" : "bad"); n.textContent = sym;
   b.title = !auth ? "Sign in to sync" : { ok: "Synced " + ago(meta.syncedAt), busy: "Syncing…", pending: "Changes waiting to sync", offline: "Can't reach the cloud right now — your room is safe on this device", error: syncMsg || "Sync problem", conflict: "Two copies disagree — tap to choose" }[syncState];
@@ -1981,7 +1985,7 @@ function renderSyncDlg() {
       <div class="cmp"><div class="${newer === "L" ? "new" : ""}">${newer === "L" ? '<span class="tag">EDITED MORE RECENTLY</span>' : ""}<b>This device</b>${lt ? "Last edited " + when(lt) : "Not edited since last sync"}<br>${esc(summary(L))}</div>
       <div class="${newer === "R" ? "new" : ""}">${newer === "R" ? '<span class="tag">EDITED MORE RECENTLY</span>' : ""}<b>Cloud copy</b>Saved ${when(rt)}${row.device ? " from " + esc(row.device) : ""}<br>${esc(summary(R))}</div></div>
       <p><b style="color:var(--ink)">What's different</b></p><ul>${diffLines(L, R).map(x => "<li>" + esc(x) + "</li>").join("")}</ul>
-      <div class="row"><button class="primary" data-s="keeplocal">Keep this device's copy</button><button data-s="usecloud">Use the cloud copy</button><button class="small" data-s="later">Decide later</button></div>`;
+      ${newer === "L" ? `<p>This device has newer changes. If you pick the cloud copy they are replaced (a safety copy is kept, and Undo brings them back).</p>` : ""}<div class="row"><button class="primary" data-s="usecloud">Sync with the cloud copy</button></div><div class="row"><button class="small" data-s="keeplocal">Keep this device's copy instead</button><button class="small" data-s="later">Decide later</button></div>`;
   } else if (!auth) {
     el.innerHTML = dlgStep === "code"
       ? `${X}<h3>Check your email</h3><p>We sent a 6-digit code to <b style="color:var(--ink)">${esc(dlgEmail)}</b>. Type it here. (On an iPhone or iPad Home Screen app, typing the code is easier than tapping the link.)</p>
@@ -1996,6 +2000,7 @@ function renderSyncDlg() {
       <div class="row"><button class="primary" data-s="sync">Sync now</button><button data-s="signout">Sign out</button></div><p>Signing out keeps your room on this device.</p>`;
   }
 }
+$("#gateBtn").addEventListener("click", () => { dlgErr = ""; dlgStep = "email"; openDlg(); });
 $("#syncBtn").addEventListener("click", () => { dlgErr = ""; if (!auth) dlgStep = "email"; openDlg(); });
 $("#syncdlg").addEventListener("click", async e => {
   if (e.target.id === "syncdlg") { if (!conflict) closeDlg(); return; }
@@ -2094,7 +2099,7 @@ const hAgo = t => { const m = Math.max(0, Math.round((Date.now() - Date.parse(t)
 function hhBadge() {
   if (!auth) return `<p class="hint">☁ Not signed in — this map lives only on this device. Tap ☁ at the top to save it to the cloud.</p>`;
   if (!HH) return "";
-  if (hhConf) return `<div class="card" style="border-color:#f2b84b"><b>Two different maps</b><p class="hint" style="margin:4px 0 10px">This device and the cloud have different versions of the house map — maybe you changed it on another device. Pick the one to keep; the other is replaced.</p><div class="row"><button class="primary" data-hh="usecloud">Use the cloud map <span style="opacity:.7">(${hAgo(hhConf.updated_at)})</span></button><button data-hh="keeplocal">Keep this device's map</button></div></div>`;
+  if (hhConf) return `<div class="card" style="border-color:#f2b84b"><b>Two different maps</b><p class="hint" style="margin:4px 0 10px">This device and the cloud have different versions of the house map — maybe you changed it on another device. Pick the one to keep; the other is replaced.</p><div class="row"><button class="primary" data-hh="usecloud">Sync with the cloud map <span style="opacity:.7">(${hAgo(hhConf.updated_at)})</span></button><button class="small" data-hh="keeplocal">Keep this device's map instead</button></div></div>`;
   if (hhState === "error") return `<p class="hint" style="color:#ff9b8a">⚠ Couldn't save the map: ${esc(hhSaveErr)} <button class="small" data-hh="retry">Try again</button></p>`;
   if (hhState === "offline") return `<p class="hint">☁ Can't reach the cloud right now — showing the last copy. <button class="small" data-hh="retry">Try again</button></p>`;
   if (hhState === "saving") return `<p class="hint">☁ Saving the house map…</p>`;
