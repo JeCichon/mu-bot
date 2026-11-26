@@ -245,7 +245,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.13", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.14", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -1701,7 +1701,7 @@ function housePanel() {
   const H = S.house, r = hsel && hRoom(hsel);
   const chips = H.rooms.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.privacy === "private" ? "🔒" : "👪"} ${esc(hName(x))}</span>`).join("");
   const fld = (k, label, t) => `<label>${label}<input ${t === "n" ? 'type="number" inputmode="decimal"' : ""} data-hf="add" data-k="${k}" value="${esc(hAdd[k])}"></label>`;
-  let h = `${hNote ? `<p class="hint" style="color:var(--ink)">${esc(hNote)}</p>` : ""}<h2>House map</h2><p class="hint">Every room as a shape on one plan. Tap a room to select it; drag the selected room to move it; drag the gold dots to reshape it. Dashed outlines are rooms nobody has measured yet.</p>
+  let h = `${hNote ? `<p class="hint" style="color:var(--ink)">${esc(hNote)}</p>` : ""}${hhBadge()}<h2>House map</h2><p class="hint">Every room as a shape on one plan. Tap a room to select it; drag the selected room to move it; drag the gold dots to reshape it. Dashed outlines are rooms nobody has measured yet.</p>
     <div class="row">${chips || '<span class="hint">No rooms yet.</span>'}</div>`;
   if (r) h += hCard(r);
   h += `<h2 style="margin-top:22px">Add a room</h2><div class="card" style="margin-top:6px">${fld("name", "Name")}
@@ -1743,7 +1743,7 @@ function hCard(r) {
 }
 function houseMemberPanel() {
   const L = hList(), mine = L.find(x => x.id === HH.roomKey), r = hsel && hRoom(hsel);
-  let h = `<h2>${esc(HH.name || "The house")}</h2><p class="hint">Welcome home. Tap a room to see it. Your room is yours alone — nobody else can see what's inside it.</p>`;
+  let h = `${hhBadge()}<h2>${esc(HH.name || "The house")}</h2><p class="hint">Welcome home. Tap a room to see it. Your room is yours alone — nobody else can see what's inside it.</p>`;
   h += mine ? `<div class="card"><b>⭐ ${esc(S.room ? S.room.name : mine.name)}</b><p class="hint" style="margin:4px 0 10px">${S.room ? "Your room is set up." : "Your room is waiting for you."}</p><button class="primary" data-hact="hopen">${S.room ? "Open my room ▸" : "Set up my room ▸"}</button></div>`
     : `<div class="card"><p class="hint" style="margin:0">You don't have a room on the map yet. Ask Justin to give you one.</p>${S.room ? `<div class="row"><button data-hact="hopen">Open my room ▸</button></div>` : ""}</div>`;
   h += `<div class="row">${L.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.id === HH.roomKey ? "⭐" : x.privacy === "private" ? "🔒" : "👪"} ${esc(x.name)}</span>`).join("")}</div>`;
@@ -1856,7 +1856,8 @@ let syncState = "off", syncMsg = "", conflict = null, syncBusy = false, applying
 const deviceName = () => { const u = navigator.userAgent, st = navigator.standalone || matchMedia("(display-mode: standalone)").matches; return (/iPhone/.test(u) ? "iPhone" : /iPad|Macintosh.*Mobile/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? "iPad" : /Android/.test(u) ? "Android" : /Windows/.test(u) ? "Windows" : /Mac/.test(u) ? "Mac" : "Browser") + (st ? " app" : ""); };
 const canon = o => Array.isArray(o) ? "[" + o.map(canon).join(",") + "]" : o && typeof o === "object" ? "{" + Object.keys(o).sort().filter(k => o[k] !== undefined).map(k => JSON.stringify(k) + ":" + canon(o[k])).join(",") + "}" : JSON.stringify(o);
 const LOCALKEYS = ["layoutId", "prevId", "ghost", "showSketch"];                 // per-device view settings stay out of the cloud copy
-function syncBlob() { syncLayout(); const c = { ...S }; delete c.furniture; LOCALKEYS.forEach(k => delete c[k]); return c; }
+function syncBlob() { syncLayout(); const c = { ...S }; delete c.furniture; LOCALKEYS.forEach(k => delete c[k]); if (HH) delete c.house; return c; }       // once you are in a household, the house map lives in its own cloud copy, not in your personal save
+const noHouse = st => { if (!HH || !st || !st.house) return st; const c = { ...st }; delete c.house; return c; };
 let lastBlobStr = canon(syncBlob());
 const hasData = () => !!(S.room || S.items.length || S.piles.length || S.spots.length || S.layouts.some(l => l.furniture.length));
 const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : new Date(t).toLocaleDateString(); };
@@ -1925,7 +1926,7 @@ async function checkRemote() {
   const row = r.json && r.json[0];
   if (!row) { if (hasData()) { meta.remoteAt = null; return push(false); } return done(null); }
   if (row.updated_at === meta.remoteAt) return dirty() ? push(true) : done(row.updated_at);
-  const same = canon(row.state) === canon(syncBlob());
+  const same = canon(noHouse(row.state)) === canon(syncBlob());
   if (same) return done(row.updated_at);
   if (!hasData() || (meta.remoteAt && !dirty())) return pull(row, !hasData() ? "Loaded from the cloud" : "Updated from the cloud");
   showConflict(row);
@@ -1936,12 +1937,12 @@ async function push(known) {
   const r = known ? await sb(rowUrl("&updated_at=eq." + encodeURIComponent(meta.remoteAt)), { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(body) })
                   : await sb("/rest/v1/room_quest_state", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ ...body, user_id: auth.uid }) });
   if (r.ok && r.json && r.json[0]) { meta.remoteAt = r.json[0].updated_at; meta.syncedAt = t0; lsSet(MKEY, meta); return setSync("ok"); }
-  if (r.ok || r.status === 409) { meta.remoteAt = null; const g = await sb(rowUrl("&select=state,updated_at,device")); const row = g.json && g.json[0]; if (row) return canon(row.state) === canon(syncBlob()) ? done(row.updated_at) : showConflict(row); return push(false); }
+  if (r.ok || r.status === 409) { meta.remoteAt = null; const g = await sb(rowUrl("&select=state,updated_at,device")); const row = g.json && g.json[0]; if (row) return canon(noHouse(row.state)) === canon(syncBlob()) ? done(row.updated_at) : showConflict(row); return push(false); }
   throw new Error((r.json && (r.json.message || r.json.hint)) || "HTTP " + r.status);
 }
 function pull(row, why) {
   const b4 = snapshot(); applyingRemote = true;
-  try { restore(JSON.stringify(row.state)); fitView(); renderMap(); } finally { applyingRemote = false; }
+  const keepHouse = S.house; try { restore(JSON.stringify(noHouse(row.state))); if (HH) S.house = keepHouse; fitView(); renderMap(); } finally { applyingRemote = false; }
   pushUndo(why, b4); lastBlobStr = canon(syncBlob()); meta.remoteAt = row.updated_at; meta.syncedAt = Date.now(); meta.editedAt = meta.syncedAt; lsSet(MKEY, meta); setSync("ok");
 }
 /* --- when the two copies disagree --- */
@@ -2038,7 +2039,7 @@ let hhUpdated = null, lastPub = null, pubTimer = 0;
 HH = lsGet(HHKEY, null); hhData = lsGet(HHDKEY, null); if (!auth) { HH = null; hhData = null; }
 const hhErr = r => (r.json && (r.json.message || r.json.hint)) || "HTTP " + r.status;
 function hPublic() {      // what the rest of the house is allowed to see: shapes and labels, never furniture
-  return S.house.rooms.map(r => { const G = hGeom(r); return { id: r.id, name: hName(r), kind: r.kind, privacy: r.privacy, owner: r.owner || "", measured: !!r.measured, ceiling: G.ceiling, pts: G.pts, openings: G.openings.map(o => ({ ...o })), link: null }; });
+  return S.house.rooms.map(r => { const G = hGeom(r); return { id: r.id, name: hName(r), kind: r.kind, privacy: r.privacy, owner: r.owner || "", measured: !!r.measured, ceiling: G.ceiling, pts: G.pts, openings: G.openings.map(o => ({ ...o })), link: null, lk: r.link ? { x: r.link.x, y: r.link.y, rot: r.link.rot || 0 } : null, syncedAt: r.syncedAt || null }; });
 }
 function hhRepaint() {
   const a = document.activeElement; if (a && a.closest && a.closest("#panel") && a.matches("input,select")) return;
@@ -2053,21 +2054,51 @@ async function hhRefresh() {
     if (!m) { HH = null; hhData = null; hhMembers = []; }
     else {
       HH = { id: m.household_id, role: m.role, roomKey: m.room_key, name: (m.households && m.households.name) || "" };
-      const s = await sb("/rest/v1/household_state?household_id=eq." + HH.id + "&select=data,updated_at"); if (s.ok && s.json && s.json[0]) { hhData = s.json[0].data; hhUpdated = s.json[0].updated_at; }
+      const s = await sb("/rest/v1/household_state?household_id=eq." + HH.id + "&select=data,updated_at"); if (s.ok && s.json && s.json[0]) { hhData = s.json[0].data; hhUpdated = s.json[0].updated_at; if (HH.role === "admin") hhSyncAdmin(s.json[0]); }
       if (HH.role === "admin") { const mm = await sb("/rest/v1/household_members?household_id=eq." + HH.id + "&select=id,email,user_id,role,room_key&order=created_at"); hhMembers = mm.ok && Array.isArray(mm.json) ? mm.json : []; }
     }
-    lsSet(HHKEY, HH); lsSet(HHDKEY, hhData); hhMsg = "";
-  } catch (e) { hhMsg = "Household: " + (e && e.message || e); }
-  finally { hhBusy = false; hhRepaint(); hhMaybePublish(); hhMaybePubRoom(); hhPullRooms(); }
+    lsSet(HHKEY, HH); lsSet(HHDKEY, hhData); hhMsg = ""; if (!hhConf && hhState !== "saving") hhState = "saved";
+  } catch (e) { hhMsg = "Household: " + (e && e.message || e); hhState = "offline"; }
+  finally { hhBusy = false; hhRepaint(); hhMaybePublish(); hhMaybePubRoom(); if (!hhConf) hhPullRooms(); }
+}
+let hhConf = null, hhState = "", hhSaveErr = "";
+const hCmp = d => canon(((d && d.rooms) || []).map(r => r.lk ? { id: r.id, lk: r.lk, kind: r.kind, privacy: r.privacy, owner: r.owner } : r));   // your own room's walls live in your room, so they don't count as "the map changed"
+function hhAdopt(row) {          // make this device's map match the cloud map
+  S.house.rooms = (row.data.rooms || []).map(r => ({ id: r.id, name: r.name, kind: r.kind, privacy: r.privacy, owner: r.owner || "", measured: !!r.measured, ceiling: r.ceiling, pts: r.pts, openings: r.openings || [], link: r.lk || null, ...(r.syncedAt ? { syncedAt: r.syncedAt } : {}) }));
+  if (hsel && !S.house.rooms.some(x => x.id === hsel)) hsel = null;
+  S.house.base = hCmp(row.data); S.house.mAt = row.updated_at; lastPub = canon({ rooms: hPublic() }); hhConf = null; hhState = "saved"; save();
+}
+function hhSyncAdmin(row) {      // the cloud map is the real one; this device only keeps a copy
+  const d = row.data && Array.isArray(row.data.rooms) && row.data.rooms.length ? row.data : null;
+  if (!d) { S.house.mAt = row.updated_at; return; }                        // nothing in the cloud yet, nothing to lose
+  const rc = hCmp(d), lc = hCmp({ rooms: hPublic() }), base = S.house.base;
+  if (rc === lc) { S.house.base = rc; S.house.mAt = row.updated_at; lastPub = canon({ rooms: hPublic() }); hhConf = null; return; }
+  if (rc === base) { S.house.mAt = row.updated_at; return; }               // cloud unchanged since last time; any difference is my own new edit
+  if (!S.house.rooms.length || lc === base) { hhAdopt(row); return; }      // cloud changed, I changed nothing: take it
+  hhConf = row; hhState = "conflict";                                      // both changed: let a person choose
 }
 function hhMaybePublish() {
-  if (!auth || !HH || HH.role !== "admin") return; const s = canon({ rooms: hPublic() }); if (s === lastPub) return;
-  clearTimeout(pubTimer); pubTimer = setTimeout(hhPublish, 2500);
+  if (!auth || !HH || HH.role !== "admin" || hhConf) return; const s = canon({ rooms: hPublic() }); if (s === lastPub) { if (hhState === "saving") hhState = "saved"; return; }
+  hhState = "saving"; clearTimeout(pubTimer); pubTimer = setTimeout(hhPublish, 2000);
 }
 async function hhPublish() {
-  if (!auth || !HH || HH.role !== "admin") return; const d = { rooms: hPublic() }, s = canon(d);
-  const r = await sb("/rest/v1/household_state?household_id=eq." + HH.id, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ data: d, updated_at: new Date().toISOString() }) });
-  if (r.ok) { lastPub = s; hhData = d; lsSet(HHDKEY, d); } else { hhMsg = "Couldn't share the house map: " + hhErr(r); hhRepaint(); }
+  if (!auth || !HH || HH.role !== "admin" || hhConf) return; if (!S.house.mAt) { hhRefresh(); return; }
+  const d = { rooms: hPublic() }, c = canon(d);
+  const r = await sb("/rest/v1/household_state?household_id=eq." + HH.id + "&updated_at=eq." + encodeURIComponent(S.house.mAt), { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data: d, updated_at: new Date().toISOString() }) });
+  if (r.ok && Array.isArray(r.json) && r.json.length) { lastPub = c; hhData = d; lsSet(HHDKEY, d); S.house.mAt = r.json[0].updated_at; S.house.base = hCmp(d); hhState = "saved"; hhSaveErr = ""; hhUpdated = S.house.mAt; save(); }
+  else if (r.ok) { hhRefresh(); return; }                                  // someone saved a newer map first: look at it before overwriting
+  else { hhState = "error"; hhSaveErr = hhErr(r); }
+  hhRepaint();
+}
+const hAgo = t => { const m = Math.max(0, Math.round((Date.now() - Date.parse(t)) / 60000)); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
+function hhBadge() {
+  if (!auth) return `<p class="hint">☁ Not signed in — this map lives only on this device. Tap ☁ at the top to save it to the cloud.</p>`;
+  if (!HH) return "";
+  if (hhConf) return `<div class="card" style="border-color:#f2b84b"><b>Two different maps</b><p class="hint" style="margin:4px 0 10px">This device and the cloud have different versions of the house map — maybe you changed it on another device. Pick the one to keep; the other is replaced.</p><div class="row"><button class="primary" data-hh="usecloud">Use the cloud map <span style="opacity:.7">(${hAgo(hhConf.updated_at)})</span></button><button data-hh="keeplocal">Keep this device's map</button></div></div>`;
+  if (hhState === "error") return `<p class="hint" style="color:#ff9b8a">⚠ Couldn't save the map: ${esc(hhSaveErr)} <button class="small" data-hh="retry">Try again</button></p>`;
+  if (hhState === "offline") return `<p class="hint">☁ Can't reach the cloud right now — showing the last copy. <button class="small" data-hh="retry">Try again</button></p>`;
+  if (hhState === "saving") return `<p class="hint">☁ Saving the house map…</p>`;
+  const t = HH.role === "admin" ? S.house.mAt : hhUpdated; return t ? `<p class="hint">☁ House map saved · updated ${hAgo(t)}</p>` : "";
 }
 let lastRoomPub = null, roomTimer = 0;
 function hMineRow() { if (!(auth && HH && HH.role !== "admin" && S.room && S.claim && S.claim.key === HH.roomKey)) return null; const m = hMine({ id: HH.roomKey }); return { name: m.name, ceiling: m.ceiling, pts: m.pts, openings: m.openings }; }
@@ -2088,7 +2119,7 @@ async function hhPullRooms() {       // admin: bring each member's own room shap
 const onSavedSync = onSaved; onSaved = () => { onSavedSync(); hhMaybePublish(); hhMaybePubRoom(); };
 const finishSignIn0 = finishSignIn; finishSignIn = function () { finishSignIn0(); hhRefresh(); };
 const signOut0 = signOut; signOut = function () { signOut0(); HH = null; hhData = null; hhMembers = []; lsSet(HHKEY, null); lsSet(HHDKEY, null); houseOn = false; render(); };
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && (houseOn || !S.room)) hhRefresh(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && auth) hhRefresh(); });
 $("#panel").addEventListener("click", async e => {
   const b = e.target.closest("[data-hh]"); if (!b) return; const a = b.dataset.hh; if (!auth) return; hhMsg = "";
   b.disabled = true;
@@ -2099,11 +2130,15 @@ $("#panel").addEventListener("click", async e => {
       const r = await sb("/rest/v1/household_members", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ household_id: HH.id, email: em, role: "member", room_key: rk || null }) });
       if (!r.ok) throw new Error(r.status === 409 ? "That email already has a key." : hhErr(r)); await hhRefresh();
     }
+    if (a === "usecloud" && hhConf) hhAdopt(hhConf);
+    if (a === "keeplocal" && hhConf) { S.house.base = hCmp(hhConf.data); S.house.mAt = hhConf.updated_at; hhConf = null; lastPub = null; hhState = "saving"; save(); hhMaybePublish(); }
+    if (a === "retry") { hhState = ""; lastPub = null; await hhRefresh(); hhMaybePublish(); }
     if (a === "revoke") { const r = await sb("/rest/v1/household_members?id=eq." + b.dataset.id, { method: "DELETE" }); if (!r.ok) throw new Error(hhErr(r)); await hhRefresh(); }
   } catch (x) { hhMsg = String(x.message || x); }
   hhRepaint(); if (houseOn) renderPanel();
 });
 if (auth) hhRefresh();
+setInterval(() => { if (auth && HH && houseOn && document.visibilityState === "visible" && !hhBusy) hhRefresh(); }, 45000);
 
 { const v = document.getElementById("appver"); v.textContent = "v" + APP_VERSION; v.title = "Room Quest v" + APP_VERSION + " · updated " + APP_DATE; }
 fitView(); render(); renderUndo();
