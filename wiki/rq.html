@@ -255,7 +255,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.18", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.19", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -961,7 +961,7 @@ function htNote(f) {
   return `Top is ${top}″ off the floor${ceil && top > ceil ? ` — <b style="color:#e5707e">taller than the ${ceil}″ ceiling</b>` : ceil ? ` · ${Math.round((ceil - top) * 10) / 10}″ below the ceiling` : ""}.${lvl(f) === "on" ? " It stands on top of the piece it sits on." : ""}`;
 }
 function setupPanel() {
-  const k = tplP.kind, T = [["rect", "Rectangle"], ["L", "L-shape"], ["nook", "Room with a nook"], ["justin", "Justin's room"]];
+  const k = tplP.kind, T = [["rect", "Rectangle"], ["L", "L-shape"], ["nook", "Room with a nook"], ["justin", "Justin's room"]].filter(t => t[0] !== "justin" || !HH || HH.role === "admin");
   const fld = (key, label) => `<label>${label}<input type="number" inputmode="decimal" step="1" data-f="tp" data-k="${key}" value="${tplP[key]}"></label>`;
   let fields = "";
   if (k === "justin") fields = `<p class="hint" style="margin:0">The room with the pointed entry nook and the closet, measured with a tape. A good example of a room that isn't a rectangle.</p>`;
@@ -971,6 +971,7 @@ function setupPanel() {
     if (k === "nook") fields += `<div class="two">${fld("nw", "Nook width")}${fld("nd", "Nook depth")}</div>${fld("no", "Nook starts this far from the left wall")}`;
     fields += fld("ceil", "Ceiling height (inches)");
   }
+  if (!S.room && HH && HH.role !== "admin" && hList().some(x => x.id === HH.roomKey)) return welcomeCard();      // her room already exists on the map: no shape quiz
   return welcomeCard() + `<h2>${S.room ? "Swap in a different room shape" : "Welcome — what shape is your room?"}</h2>
   <p class="hint">Pick the closest shape and type your measurements in inches (12 inches = 1 foot). You can fine-tune every corner afterward, and add doors and windows. ${S.room ? "Your furniture, piles and spots stay exactly where they are." : ""}</p>
   <div class="row">${T.map(([id, n]) => `<span class="chip ${k === id ? "on" : ""}" data-act="tpl" data-id="${id}">${n}</span>`).join("")}</div>
@@ -1181,7 +1182,7 @@ function cleanPanel() {
   ${S.homes.some(x => insideOf(x.id).length) ? `<h2 style="margin-top:20px">Put away</h2>${S.homes.filter(x => insideOf(x.id).length).map(x => `<div class="card" style="margin:6px 0"><div class="item"><span class="sw" style="background:${x.color}"></span><b>${esc(x.name)}</b></div>${insideList(x.id)}</div>`).join("")}` : ""}`;
 }
 function footHTML() {
-  return `<div class="foot">Your rooms live in this browser on this device. Tap the ☁ at the top to sign in and keep a copy in the cloud so your other devices stay in step; without that, nothing leaves this device — save a backup to move a room by hand. (The Home Screen app keeps its own copy, separate from Safari.)
+  return `<div class="foot">${auth ? "Your room is saved on this device and copied to the cloud (the ☁ at the top shows when it is up to date), so your other devices stay in step. You can also save a backup by hand. (The Home Screen app keeps its own copy, separate from Safari.)" : "Your rooms live in this browser on this device. Tap the ☁ at the top to sign in and keep a copy in the cloud so your other devices stay in step; without that, nothing leaves this device — save a backup to move a room by hand. (The Home Screen app keeps its own copy, separate from Safari.)"}
     <div class="row"><button class="small" data-foot="export">Save backup</button><button class="small" data-foot="import">Load backup</button><button class="small danger" data-foot="reset" id="resetbtn">Start over</button></div></div>`;
 }
 function renderPanel() {
@@ -1786,7 +1787,7 @@ function hCard(r) {
 }
 function hInfo(r) {
   const mine = HH && r.id === HH.roomKey, own = hRO() ? mine : !!r.link, who = r.privacy === "private" ? "🔒 Private" + (r.owner ? " · " + esc(r.owner) : "") : "👪 Shared", ar = Math.round(hArea(hGeom(r).pts) / 144);
-  return `<div class="card"><b>${hRO() && mine ? "⭐ " : ""}${esc(hName(r))}</b><p class="hint" style="margin:4px 0 ${own ? 10 : 0}px">${HK[r.kind] || "Room"} · ${who} · ${r.measured ? "measured" : "not measured yet"} · ${r.measured ? "" : "about "}${ar} sq ft</p>${own ? `<button class="primary" data-hact="hopen">Enter room ▸</button>` : ""}</div>`;
+  return `<div class="card"><b>${hRO() && mine ? "⭐ " : ""}${esc(hName(r))}</b><p class="hint" style="margin:4px 0 ${own ? 10 : 0}px">${HK[r.kind] || "Room"} · ${who} · ${r.measured ? "measured" : "not measured yet"} · ${r.measured ? "" : "about "}${ar} sq ft</p>${own ? (hRO() && !S.room ? `<button class="primary" data-mapshape="1">🔓 Unlock my door</button>` : `<button class="primary" data-hact="hopen">Enter room ▸</button>`) : ""}</div>`;
 }
 function houseViewPanel() {          // the admin looking at the map (not editing it)
   const r = hsel && hRoom(hsel);
@@ -1805,7 +1806,7 @@ function hEditBanner() {
 function houseMemberPanel() {
   const L = hList(), mine = L.find(x => x.id === HH.roomKey), r = hsel && hRoom(hsel);
   let h = `${hhBadge()}<h2>${esc(HH.name || "The house")}</h2><p class="hint">Welcome home. Tap a room to see it. Your room is yours alone — nobody else can see what's inside it.</p>`;
-  h += mine ? `<div class="card"><b>⭐ ${esc(S.room ? S.room.name : mine.name)}</b><p class="hint" style="margin:4px 0 10px">${S.room ? "Your room is set up." : "Your room is waiting for you."}</p><button class="primary" data-hact="hopen">${S.room ? "Open my room ▸" : "Set up my room ▸"}</button></div>`
+  h += mine ? `<div class="card"><b>⭐ ${esc(S.room ? S.room.name : mine.name)}</b><p class="hint" style="margin:4px 0 10px">${S.room ? "Your room is ready." : "This room is yours — it is already built from the house map, with your walls and your door."}</p>${S.room ? `<button class="primary" data-hact="hopen">Enter my room ▸</button>` : `<button class="primary" data-mapshape="1">🔓 Unlock my door</button>`}</div>`
     : `<div class="card"><p class="hint" style="margin:0">You don't have a room on the map yet. Ask Justin to give you one.</p>${S.room ? `<div class="row"><button data-hact="hopen">Open my room ▸</button></div>` : ""}</div>`;
   h += `<div class="row">${L.map(x => `<span class="chip ${x.id === hsel ? "on" : ""}" data-hact="hsel" data-id="${x.id}">${x.id === HH.roomKey ? "⭐" : x.privacy === "private" ? "🔒" : "👪"} ${esc(x.name)}</span>`).join("")}</div>`;
   if (r) h += hInfo(r);
@@ -1825,9 +1826,9 @@ function hhCard() {
 function welcomeCard() {
   if (!HH || HH.role === "admin" || S.room) return "";
   const mine = hList().find(x => x.id === HH.roomKey);
-  return `<div class="card"><b>🏠 ${esc(HH.name || "Your house")}</b><p class="hint" style="margin:4px 0 10px">You're part of the house. Your room is private to you.</p>
-    ${mine ? `<button class="primary" data-mapshape="1">Start with my room's shape from the house map</button><p class="hint" style="margin:8px 0 10px">Fills in the walls, your door${STARTERS[HH.roomKey] ? " and a first set of furniture to move around" : ""}. Everything is a rough start — measure and fix it as you go.</p>` : ""}
-    <button class="small" data-house="open">See the house map</button></div>`;
+  return `<div class="card"><b>🏠 ${esc(HH.name || "Your house")}</b><p class="hint" style="margin:4px 0 10px">${mine ? "This room is yours — it is already built from the house map. Unlock the door to step in" + (STARTERS[HH.roomKey] ? "; a first set of furniture is waiting inside to move around. It's a rough start — fix it as you go." : ".") : "You're part of the house. Your room is private to you."}</p>
+    ${mine ? `<button class="primary" data-mapshape="1">🔓 Unlock my door</button>` : ""}
+    <div class="row"><button class="small" data-house="open">See the house map</button></div></div>`;
 }
 /* a first set of furniture for a room on the house map, in inches from the room's top-left corner: [name, x, y, w, h, height, shape, kind] */
 const STARTERS = {
@@ -1908,7 +1909,7 @@ $("#panel").addEventListener("change", e => { if (houseOn && e.target.dataset.hf
 
 /* ---------- wiring: the House chip, the bar, and switching the stage between the room and the house ---------- */
 const renderBarRoom = renderBar; renderBar = function () {
-  if (houseOn) { $("#layoutbar").innerHTML = `<div class="lays"><button class="small" data-house="close">← Back to ${S.room ? esc(S.room.name) : "my room"}</button><b style="margin-left:6px">🏠 House map</b>${HH && S.house.edit && !hRO() ? `<span class="hint" style="margin:0 6px 0 10px">✏️ editing</span><button class="small primary" data-hedit="save">Save…</button>` : ""}</div>`; return; }
+  if (houseOn) { $("#layoutbar").innerHTML = `<div class="lays">${S.room ? `<button class="small" data-house="close">← Back to ${esc(S.room.name)}</button>` : ""}<b style="margin-left:6px">🏠 House map</b>${HH && S.house.edit && !hRO() ? `<span class="hint" style="margin:0 6px 0 10px">✏️ editing</span><button class="small primary" data-hedit="save">Save…</button>` : ""}</div>`; return; }
   if (!S.room && HH) { $("#layoutbar").innerHTML = `<div class="lays"><button class="small" data-house="open">🏠 House</button></div>`; return; }
   renderBarRoom(); const lays = $("#layoutbar").querySelector(".lays"); if (S.room && lays) lays.insertAdjacentHTML("beforeend", `<button class="small" data-house="open" title="See every room on one map">🏠 House</button>`);
 };
@@ -2231,6 +2232,7 @@ $("#panel").addEventListener("click", async e => {
   hhRepaint(); if (houseOn) renderPanel();
 });
 if (auth) hhRefresh();
+if (auth && HH) setHouse(true);                          // signed in to a household: the house map is the front page
 setInterval(() => { if (auth && HH && houseOn && document.visibilityState === "visible" && !hhBusy) hhRefresh(); }, 45000);
 
 /* ---------- tasks side bar ---------- */
