@@ -247,7 +247,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.16", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.17", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -455,7 +455,8 @@ $("#popup").addEventListener("keydown", e => { if (e.key === "Enter" && e.target
 $("#layoutbar").addEventListener("click", e => { if (e.target.closest("[data-lay-act]")) pre = { before: snapshot(), label: "New layout" }; }, true);
 
 /* ---------- UI state ---------- */
-let setupOpen = false, editWalls = false, viewMode = "top";
+let setupOpen = false, editWalls = false, viewMode = "top", sConfirm = "", sNote = "";
+const ew = () => !!(S && S.shapeBase);                    // "editing the room shape" lives in the save file, so a reload keeps you in it
 const tplP = { kind: "rect", name: "My room", w: 144, l: 120, cw: 48, cl: 48, nw: 60, nd: 30, no: 40, ceil: 96 };
 let mode = "layout";            // layout | piles | spots | sort | clean
 let sel = null;                 // {type:'furn'|'pile'|'spot', id}
@@ -536,7 +537,7 @@ function drawWalls() {
     const L = hyp(a, b) || 1, ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, s0 = Math.max(0, o.at * 10), e0 = Math.min(L, (o.at + o.w) * 10); if (e0 <= s0) return;
     el("line", { x1: a.x + ux * s0, y1: a.y + uy * s0, x2: a.x + ux * e0, y2: a.y + uy * e0, stroke: o.type === "window" ? "#6aa9b4" : "#d9625a", "stroke-width": o.type === "window" ? 16 : 14 }, g);
   });
-  if (editWalls) P.forEach((a, i) => {
+  if (ew()) P.forEach((a, i) => {
     const b = P[(i + 1) % P.length], L = hyp(a, b), nx = (b.y - a.y) / (L || 1) * sgn, ny = -(b.x - a.x) / (L || 1) * sgn;
     const t = el("text", { x: (a.x + b.x) / 2 + nx * 34 * u, y: (a.y + b.y) / 2 + ny * 34 * u + 8 * u, "text-anchor": "middle", fill: "#f2b84b", "font-size": 24 * u, "font-family": "system-ui", stroke: "#0f1117", "stroke-width": 5 * u, "paint-order": "stroke" }, g);
     t.textContent = `${i + 1} · ${inch(L)}″`;
@@ -660,7 +661,7 @@ function renderMap() {
     if (f.locked) { const l = el("text", { x: f.w / 2, y: f.h / 2 + 8, "text-anchor": "middle", "font-size": 34 * u, style: "pointer-events:none" }, g); l.textContent = "🔒"; }
     else el("circle", { "data-t": "resize", "data-id": f.id, cx: f.w / 2, cy: f.h / 2, r: 20 * u, fill: "#f2b84b", style: "cursor:nwse-resize" }, g);
   }
-  if (editWalls && mode === "layout" && S.room) S.room.pts.forEach((p, i) => {     // drag a corner to reshape the room
+  if (ew() && mode === "layout" && S.room) S.room.pts.forEach((p, i) => {     // drag a corner to reshape the room
     const q = rp(p); el("circle", { "data-t": "vert", "data-id": i, cx: q.x, cy: q.y, r: 20 * u, fill: "#f2b84b", stroke: "#13151b", "stroke-width": 5, style: "cursor:move" }, fg);
   });
 
@@ -964,13 +965,23 @@ function roomCard() {
   const R = S.room; if (!R) return "";
   const P = R.pts, ar = Math.abs(P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + (p.x * q.y - q.x * p.y); }, 0)) / 2 / 144;
   const wallOpts = sel => P.map((p, i) => `<option value="${i}" ${sel === i ? "selected" : ""}>Wall ${i + 1} · ${wallLen(R, i)}″</option>`).join("");
+  const doorsTxt = R.openings.length ? R.openings.map(o => (o.type === "window" ? "window" : "door") + " on wall " + (o.edge + 1)).join(", ") : "no doors or windows yet";
+  if (!ew()) return `<h2 style="margin-top:22px">The room</h2>
+  <div class="card" style="margin-top:6px">${sNote ? `<p class="hint" style="color:var(--ink);margin:0 0 8px">${esc(sNote)}</p>` : ""}<b>${esc(R.name)}</b>
+    <p class="hint" style="margin:4px 0 10px">${P.length} walls · about ${Math.round(ar)} sq ft · ceiling ${ftin(R.ceiling * 10)} · ${doorsTxt}</p>
+    <button data-sedit="start">✏️ Edit room shape</button>
+    <p class="hint" style="margin:8px 0 0">Walls, corners, doors, windows and the room's name are changed in edit mode, and only take effect when you save.</p></div>`;
+  const q = sConfirm === "save" ? `<p style="margin:10px 0 8px">Save these changes? ${HH ? "This updates your room and its shape on the house map." : "This updates your room."}</p><div class="row"><button class="primary" data-sedit="saveyes">Yes, save</button><button class="small" data-sedit="keep">Keep editing</button></div>`
+    : sConfirm === "discard" ? `<p style="margin:10px 0 8px">Throw away everything you changed since you pressed Edit?</p><div class="row"><button class="danger" data-sedit="discardyes">Yes, discard</button><button class="small" data-sedit="keep">Keep editing</button></div>`
+    : `<div class="row"><button class="primary" data-sedit="save">Save…</button><button class="small" data-sedit="discard">Discard</button></div>`;
   return `<h2 style="margin-top:22px">The room</h2>
+  <div class="card" style="border-color:#f2b84b"><b>✏️ Editing the room shape</b><p class="hint" style="margin:4px 0 0">Changes stay here until you save.</p>${q}</div>
   <div class="card" style="margin-top:6px">
     <label>Room name<input data-f="rname" value="${esc(R.name)}"></label>
     <label>Ceiling height (inches) · ${ftin(R.ceiling * 10)}<input type="number" inputmode="decimal" data-f="rceil" value="${R.ceiling}"></label>
     <p class="hint" style="margin:0 0 8px">${P.length} walls · about ${Math.round(ar)} sq ft</p>
-    <div class="row"><button data-act="chshape">Swap in a template…</button><button data-act="editwalls" class="${editWalls ? "primary" : ""}">${editWalls ? "Done with corners" : "Edit corners"}</button></div>
-    ${editWalls ? `<p class="hint">Drag the gold dots on the map, or type distances (inches from the room's top-left). Wall numbers are shown on the map.</p>
+    <div class="row"><button data-act="chshape">Swap in a template…</button></div>
+    ${true ? `<p class="hint">Drag the gold dots on the map, or type distances (inches from the room's top-left). Wall numbers are shown on the map.</p>
       ${P.map((p, i) => `<div class="item"><span class="hint" style="margin:0;width:22px">${i + 1}</span><input type="number" inputmode="decimal" data-f="vx" data-id="${i}" value="${p.x}"><input type="number" inputmode="decimal" data-f="vy" data-id="${i}" value="${p.y}">
         <button class="small" data-act="addvert" data-id="${i}" title="Add a corner after this one">＋</button><button class="small danger" data-act="delvert" data-id="${i}" ${P.length <= 3 ? "disabled" : ""} aria-label="Delete corner">✕</button></div>
         <p class="hint" style="margin:0 0 6px 28px">wall to next corner: ${wallLen(R, i)}″</p>`).join("")}` : ""}
@@ -982,6 +993,16 @@ function roomCard() {
   </div>`;
 }
 const TABS = [["layout","Room"],["piles","Piles"],["spots","Spots"],["sort","Sort"],["clean","Clean"]];
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-sedit]"); if (!b || !S.room) return; const a = b.dataset.sedit; sNote = "";
+  if (a === "start") { S.shapeBase = JSON.stringify(S.room); sConfirm = ""; }
+  else if (a === "save") sConfirm = "save";
+  else if (a === "discard") sConfirm = "discard";
+  else if (a === "keep") sConfirm = "";
+  else if (a === "discardyes") { if (S.shapeBase) S.room = JSON.parse(S.shapeBase); delete S.shapeBase; sConfirm = ""; setupOpen = false; sNote = "Changes thrown away — the room is as it was."; fitView(); }
+  else if (a === "saveyes") { const changed = S.shapeBase !== JSON.stringify(S.room); delete S.shapeBase; sConfirm = ""; setupOpen = false; sNote = changed ? (HH ? "Saved ✓ Your room and the house map are updated." : "Saved ✓") : "No changes to save."; }
+  save(); render(); renderMap(); if (a === "saveyes") { hhMaybePubRoom(); hhMaybePublish(); }
+});
 function renderTabs() {
   $("#tabs").innerHTML = TABS.map(([k, n]) => `<button data-tab="${k}" class="${mode === k ? "on" : ""}">${n}</button>`).join("");
 }
@@ -1178,7 +1199,7 @@ $("#panel").addEventListener("click", e => {
   if (act === "mkroom") { S.room = makeRoom(tplP.kind, tplP); setupOpen = false; mode = "layout"; sel = null; editWalls = false; }
   if (act === "chshape") { setupOpen = true; mode = "setup"; tplP.name = S.room ? S.room.name : tplP.name; }
   if (act === "cancelsetup") { setupOpen = false; mode = "layout"; }
-  if (act === "editwalls") editWalls = !editWalls;
+
   if (act === "addvert" && S.room) { const i = +id, a = S.room.pts[i], b2 = S.room.pts[(i + 1) % S.room.pts.length]; S.room.pts.splice(i + 1, 0, { x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2) }); S.room.openings.forEach(o => { if (o.edge > i) o.edge++; }); }
   if (act === "delvert" && S.room && S.room.pts.length > 3) { const i = +id; S.room.pts.splice(i, 1); S.room.openings = S.room.openings.filter(o => o.edge !== i); S.room.openings.forEach(o => { if (o.edge > i) o.edge--; }); }
   if (act === "addopen" && S.room) {
@@ -1898,7 +1919,7 @@ let auth = lsGet(AKEY, null), meta = lsGet(MKEY, { editedAt: 0, syncedAt: 0, rem
 let syncState = "off", syncMsg = "", conflict = null, syncBusy = false, applyingRemote = false, pushTimer = null, dlgStep = "email", dlgEmail = "", dlgErr = "", dlgBusy = false;
 const deviceName = () => { const u = navigator.userAgent, st = navigator.standalone || matchMedia("(display-mode: standalone)").matches; return (/iPhone/.test(u) ? "iPhone" : /iPad|Macintosh.*Mobile/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? "iPad" : /Android/.test(u) ? "Android" : /Windows/.test(u) ? "Windows" : /Mac/.test(u) ? "Mac" : "Browser") + (st ? " app" : ""); };
 const canon = o => Array.isArray(o) ? "[" + o.map(canon).join(",") + "]" : o && typeof o === "object" ? "{" + Object.keys(o).sort().filter(k => o[k] !== undefined).map(k => JSON.stringify(k) + ":" + canon(o[k])).join(",") + "}" : JSON.stringify(o);
-const LOCALKEYS = ["layoutId", "prevId", "ghost", "showSketch"];                 // per-device view settings stay out of the cloud copy
+const LOCALKEYS = ["layoutId", "prevId", "ghost", "showSketch", "shapeBase"];                 // per-device view settings stay out of the cloud copy
 function syncBlob() { syncLayout(); const c = { ...S }; delete c.furniture; LOCALKEYS.forEach(k => delete c[k]); if (HH) delete c.house; return c; }       // once you are in a household, the house map lives in its own cloud copy, not in your personal save
 const noHouse = st => { if (!HH || !st || !st.house) return st; const c = { ...st }; delete c.house; return c; };
 let lastBlobStr = canon(syncBlob());
@@ -2105,12 +2126,13 @@ async function hhRefresh() {
     }
     lsSet(HHKEY, HH); lsSet(HHDKEY, hhData); hhMsg = ""; if (!hhConf && hhState !== "saving") hhState = "saved";
   } catch (e) { hhMsg = "Household: " + (e && e.message || e); hhState = "offline"; }
-  finally { hhBusy = false; hhRepaint(); hhMaybePublish(); hhMaybePubRoom(); if (!hhConf && !S.house.edit) hhPullRooms(); }
+  finally { hhBusy = false; if (auth && HH && HH.role === "admin" && hHeal()) save(); hhRepaint(); hhMaybePublish(); hhMaybePubRoom(); if (!hhConf && !S.house.edit) hhPullRooms(); }
 }
 let hhConf = null, hhState = "", hhSaveErr = "";
 const hCmp = d => canon(((d && d.rooms) || []).map(r => r.lk ? { id: r.id, lk: r.lk, kind: r.kind, privacy: r.privacy, owner: r.owner } : r));   // your own room's walls live in your room, so they don't count as "the map changed"
 function hhAdopt(row) {          // make this device's map match the cloud map
-  S.house.rooms = (row.data.rooms || []).map(r => ({ id: r.id, name: r.name, kind: r.kind, privacy: r.privacy, owner: r.owner || "", measured: !!r.measured, ceiling: r.ceiling, pts: r.pts, openings: r.openings || [], link: r.lk || null, ...(r.syncedAt ? { syncedAt: r.syncedAt } : {}) }));
+  const had = S.house.rooms;
+  S.house.rooms = (row.data.rooms || []).map(r => ({ id: r.id, name: r.name, kind: r.kind, privacy: r.privacy, owner: r.owner || "", measured: !!r.measured, ceiling: r.ceiling, pts: r.pts, openings: r.openings || [], link: r.lk || ((had.find(x => x.id === r.id) || {}).link) || null, ...(r.syncedAt ? { syncedAt: r.syncedAt } : {}) }));
   if (hsel && !S.house.rooms.some(x => x.id === hsel)) hsel = null;
   S.house.base = hCmp(row.data); S.house.mAt = row.updated_at; lastPub = canon({ rooms: hPublic() }); hhConf = null; hhState = "saved"; save();
 }
@@ -2124,13 +2146,19 @@ function hhSyncAdmin(row) {      // the cloud map is the real one; this device o
   if (!S.house.rooms.length || lc === base) { hhAdopt(row); return; }      // cloud changed, I changed nothing: take it
   hhConf = row; hhState = "conflict";                                      // both changed: let a person choose
 }
+function hHeal() {                // your detailed room is "linked" to its spot on the map; if an older copy lost that link, find the spot again by its shape
+  if (!S.room || S.house.edit || S.house.rooms.some(r => r.link)) return false;
+  const bb = P => { const xs = P.map(p => p.x), ys = P.map(p => p.y); return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; }, m = bb(S.room.pts); let best = null, bd = 1e9;
+  S.house.rooms.forEach(r => { if (!r.pts || r.pts.length < 3) return; const b = bb(r.pts), d = Math.abs(b.w - m.w) + Math.abs(b.h - m.h) + Math.abs(hArea(r.pts) - hArea(S.room.pts)) / 100; if (d < 8 && d < bd) { bd = d; best = { r, b }; } });
+  if (!best) return false; best.r.link = { x: +(best.b.x - m.x).toFixed(2), y: +(best.b.y - m.y).toFixed(2), rot: 0 }; best.r.measured = true; return true;
+}
 function hhMaybePublish() {
-  if (!auth || !HH || HH.role !== "admin" || hhConf || S.house.edit) return; const s = canon({ rooms: hPublic() }); if (s === lastPub) { if (hhState === "saving") hhState = "saved"; return; }
+  if (!auth || !HH || HH.role !== "admin" || hhConf || S.house.edit || S.shapeBase) return; const s = canon({ rooms: hPublic() }); if (s === lastPub) { if (hhState === "saving") hhState = "saved"; return; }
   hhState = "saving"; clearTimeout(pubTimer); pubTimer = setTimeout(hhPublish, 2000);
 }
 let hhGen = 0;
 async function hhPublish() {
-  if (!auth || !HH || HH.role !== "admin" || hhConf || S.house.edit) return; if (!S.house.mAt) { hhRefresh(); return; }
+  if (!auth || !HH || HH.role !== "admin" || hhConf || S.house.edit || S.shapeBase) return; if (!S.house.mAt) { hhRefresh(); return; }
   const d = { rooms: hPublic() }, c = canon(d); if (c === lastPub) { hhState = "saved"; return; } hhGen++;
   const r = await sb("/rest/v1/household_state?household_id=eq." + HH.id + "&updated_at=eq." + encodeURIComponent(S.house.mAt), { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data: d, updated_at: new Date().toISOString() }) });
   if (r.ok && Array.isArray(r.json) && r.json.length) { lastPub = c; hhData = d; lsSet(HHDKEY, d); S.house.mAt = r.json[0].updated_at; S.house.base = hCmp(d); hhState = "saved"; hhSaveErr = ""; hhUpdated = S.house.mAt; hhGen++; save(); }
@@ -2149,7 +2177,7 @@ function hhBadge() {
   const t = HH.role === "admin" ? S.house.mAt : hhUpdated; return t ? `<p class="hint">☁ House map saved · updated ${hAgo(t)}</p>` : "";
 }
 let lastRoomPub = null, roomTimer = 0;
-function hMineRow() { if (!(auth && HH && HH.role !== "admin" && S.room && S.claim && S.claim.key === HH.roomKey)) return null; const m = hMine({ id: HH.roomKey }); return { name: m.name, ceiling: m.ceiling, pts: m.pts, openings: m.openings }; }
+function hMineRow() { if (S.shapeBase) return null; if (!(auth && HH && HH.role !== "admin" && S.room && S.claim && S.claim.key === HH.roomKey)) return null; const m = hMine({ id: HH.roomKey }); return { name: m.name, ceiling: m.ceiling, pts: m.pts, openings: m.openings }; }
 function hhMaybePubRoom() { const d = hMineRow(); if (!d || canon(d) === lastRoomPub) return; clearTimeout(roomTimer); roomTimer = setTimeout(hhPubRoom, 2500); }
 async function hhPubRoom() {
   const d = hMineRow(); if (!d) return; const c = canon(d);
