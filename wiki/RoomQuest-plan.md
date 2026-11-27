@@ -7,7 +7,7 @@ The idea: **Home** (the house map) is the front page and the forum's centre. You
 | 0. Stability | One master house map in Supabase; every device loads it; saved label; conflict choice instead of silent overwrite; sign-in page when signed out | v0.14–0.15 |
 | 1. Home page | Home is the first screen (title **Home**, "House map" under it). Tap a room → small card (owner, size, measured; your own room has **Enter room**, done in v0.16). Top-right app-style menu opens a right-hand side bar: people in the house, chores (later), your room's objects. Rename "House map" → "Home" | in progress |
 | 1.1 Save-to-apply editing | Admin edits the house map in an Edit mode and must Save (v0.16). Same idea for room walls: changes shared to the house map only when you save / leave edit mode | house map (v0.16) and room shape (v0.17) both done |
-| 2. Sister fully in | Easy sign-in, her room works like yours, her shape flows to the house map (v0.13) | built; she hasn't signed in yet |
+| 2. Sister fully in (v0.19: her room is simply there — "Unlock my door", no setup quiz; signed-in people open on Home) | Easy sign-in, her room works like yours, her shape flows to the house map (v0.13) | built; she hasn't signed in yet |
 | 1.2 Tasks side bar | Top-right dots button opens a right-hand side bar. v0.18: personal **Tasks** — "keeps fresh" tasks (blue → red over N days, optionally colouring a piece in your room, blink when overdue, history of when/gaps) and checklist items with optional time goals ("Animate — 2 h") | v0.18 built |
 | 1.3 Tasks, more | Shared-space tasks with who/when; assign to someone (by agreement); room-level colour on the house map; rewards/stamps; people list + room objects in the side bar (needs a Supabase table for shared tasks) | later |
 | 2.5 Onboarding | Calm first-run for her: one big action per screen, 3-step sign-in card. **Simpler sign-in: add "Sign in with Google" next to the email code** (needs a Google provider set up in Supabase) | next after Phase 1 |
@@ -20,3 +20,12 @@ The idea: **Home** (the house map) is the front page and the forum's centre. You
 Notes
 - Privacy stays as is: furniture never leaves your room; private rooms show an outline only.
 - Lodge mobile chat won't scroll on iPhone — keep Home light; avoid a heavy chat widget.
+
+
+## Next up (Nov 27)
+1. Sign-in experience (Google sign-in option; fewer email codes).
+2. Every shared room enterable — start with the Bathroom.
+3. Fine-tune task creation (and smooth the color-change preview).
+
+## Long-term
+- Use the space around personal rooms like a whiteboard: sticky notes, sections to move things together, arrows pointing at parts of a room.

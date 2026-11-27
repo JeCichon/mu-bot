@@ -251,11 +251,11 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 <div id="history" role="dialog" aria-label="Recent changes"></div>
 <div id="tkback"></div>
 <aside id="taskbar" aria-label="Side bar"><div class="sh"><h2>Tasks</h2><button class="small" id="tkClose" aria-label="Close">✕</button></div><div class="sb" id="tkbody"></div></aside>
-<div id="gate"><div class="gbox"><h1>Room Quest</h1><p>Please sign in to open the quest.</p><p style="font-size:14px">Rooms already saved on this device are safe — they will be right here after you sign in.</p><button class="primary" id="gateBtn">Sign in</button></div></div>
+<div id="gate"><div class="gbox"><h1>Room Quest</h1><p>Please sign in to open the quest.</p><p style="font-size:14px">Rooms already saved on this device are safe — they will be right here after you sign in.</p><button class="primary" id="gateGoogle">Continue with Google</button><br><button class="small" id="gateBtn" style="font-size:14px;padding:8px 16px">Use an email code instead</button></div></div>
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.19", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.20", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -1602,10 +1602,10 @@ let HH = null, hhData = null, hhMembers = [], hhMsg = "", hhBusy = false;       
 let hConfirm = "";
 const hCanEdit = () => !hRO() && (!HH || !!S.house.edit);                                    // the admin must press "Edit the map" first; everyone else only looks
 const hRO = () => !!(HH && HH.role !== "admin");                                 // everyone but the admin sees the house map read-only
-const hMine = r => { if (!(HH && S.room && S.claim && S.claim.key === HH.roomKey && r.id === HH.roomKey)) return r; return { ...r, name: S.room.name, ceiling: S.room.ceiling, measured: true, pts: S.room.pts.map(p => ({ x: +(p.x + S.claim.ax).toFixed(2), y: +(p.y + S.claim.ay).toFixed(2) })), openings: S.room.openings.map(o => ({ ...o })) }; };
+const hMine = r => { if (!(HH && S.room && S.claim && S.claim.key === HH.roomKey && r.id === HH.roomKey)) return r; return { ...r, mine: true, link: { x: S.claim.ax, y: S.claim.ay, rot: 0 }, name: S.room.name === "My room" ? r.name : S.room.name, ceiling: S.room.ceiling, measured: true, pts: S.room.pts.map(p => ({ x: +(p.x + S.claim.ax).toFixed(2), y: +(p.y + S.claim.ay).toFixed(2) })), openings: S.room.openings.map(o => ({ ...o })) }; };
 const hList = () => hRO() ? ((hhData && hhData.rooms) || []).map(hMine) : S.house.rooms;
 const hRoom = id => hList().find(r => r.id === id);
-const hName = r => r.link && S.room ? S.room.name : r.name;
+const hName = r => r.link && S.room && !r.mine ? S.room.name : r.name;
 function hGeom(r) {
   if (!r.link) return { pts: r.pts, openings: r.openings || [], ceiling: r.ceiling };
   if (!S.room) return { pts: [], openings: [], ceiling: r.ceiling };
@@ -1979,6 +1979,7 @@ function keepSession(j) {
   auth = { access_token: j.access_token, refresh_token: j.refresh_token || prev.refresh_token, expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600), email: (j.user && j.user.email) || prev.email, uid: (j.user && j.user.id) || prev.uid };
   lsSet(AKEY, auth);
 }
+function googleSignIn() { location.href = SB_URL + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(location.origin + location.pathname); }
 async function sendCode(email) {
   const r = await sb("/auth/v1/otp", { method: "POST", body: JSON.stringify({ email, create_user: true }) }, false);
   if (!r.ok) throw new Error(r.status === 429 ? "Too many emails just now — wait a minute and try again." : (r.json && (r.json.msg || r.json.error_description || r.json.message)) || "Couldn't send the email.");
@@ -2071,7 +2072,9 @@ function renderSyncDlg() {
       ? `${X}<h3>Check your email</h3><p>We sent a 6-digit code to <b style="color:var(--ink)">${esc(dlgEmail)}</b>. Type it here. (On an iPhone or iPad Home Screen app, typing the code is easier than tapping the link.)</p>
          <input class="code" id="sCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="······">${err}
          <div class="row"><button class="primary" data-s="verify" ${dlgBusy ? "disabled" : ""}>Sign in</button><button class="small" data-s="resend">Send a new code</button><button class="small" data-s="back">Different email</button></div>`
-      : `${X}<h3>Sign in to sync</h3><p>Your room always stays on this device. Signing in also keeps a copy in the cloud, so your phone, iPad and computer match. No password — we email you a code.</p>
+      : `${X}<h3>Sign in to sync</h3><p>Your room always stays on this device. Signing in also keeps a copy in the cloud, so your phone, iPad and computer match.</p>
+         <div class="row"><button class="primary" data-s="google" style="width:100%">Continue with Google</button></div>
+         <p class="hint" style="text-align:center;margin:12px 0 6px">or get a code by email — no password</p>
          <input id="sEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(dlgEmail)}">${err}
          <div class="row"><button class="primary" data-s="send" ${dlgBusy ? "disabled" : ""}>${dlgBusy ? "Sending…" : "Email me a code"}</button></div>`;
   } else {
@@ -2080,6 +2083,7 @@ function renderSyncDlg() {
       <div class="row"><button class="primary" data-s="sync">Sync now</button><button data-s="signout">Sign out</button></div><p>Signing out keeps your room on this device.</p>`;
   }
 }
+$("#gateGoogle").addEventListener("click", googleSignIn);
 $("#gateBtn").addEventListener("click", () => { dlgErr = ""; dlgStep = "email"; openDlg(); });
 $("#syncBtn").addEventListener("click", () => { dlgErr = ""; if (!auth) dlgStep = "email"; openDlg(); });
 $("#syncdlg").addEventListener("click", async e => {
@@ -2091,6 +2095,7 @@ $("#syncdlg").addEventListener("click", async e => {
   if (act === "sync") { setSync("busy"); renderSyncDlg(); return syncNow(true); }
   if (act === "signout") return signOut();
   if (act === "back") { dlgStep = "email"; dlgErr = ""; return renderSyncDlg(); }
+  if (act === "google") return googleSignIn();
   if (act === "send" || act === "resend") {
     const em = act === "resend" ? dlgEmail : ($("#sEmail").value || "").trim(); if (!/^\S+@\S+\.\S+$/.test(em)) { dlgErr = "That doesn't look like an email address."; return renderSyncDlg(); }
     dlgEmail = em; dlgErr = ""; dlgBusy = true; renderSyncDlg();
