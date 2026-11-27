@@ -89,6 +89,11 @@ input[type=color]{width:38px;height:34px;padding:2px;flex:none}
 .foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--mute)}
 .pulse{animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.45}}
+@keyframes tblink{50%{opacity:.3}}.tblink{animation:tblink 1.1s ease-in-out infinite}
+#taskbar{position:fixed;top:var(--hh,66px);right:0;bottom:0;width:min(380px,94vw);z-index:70;background:var(--panel,#1a1d27);border-left:1px solid var(--line);transform:translateX(102%);transition:transform .22s ease;display:flex;flex-direction:column;box-shadow:-12px 0 30px rgba(0,0,0,.4)}
+#taskbar.show{transform:none}#taskbarback{position:fixed;top:var(--hh,66px);left:0;right:0;bottom:0;z-index:65;background:rgba(0,0,0,.45);display:none}#taskbarback.show{display:block}
+#taskbar .sh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}#taskbar .sh h2{margin:0}#taskbar .sb{overflow:auto;padding:4px 16px 24px;flex:1;-webkit-overflow-scrolling:touch}
+.tk{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;background:var(--panel2)}.tk .dot{width:14px;height:14px;border-radius:50%;flex:none}.tk .pb{height:6px;border-radius:3px;background:#0f1117;overflow:hidden;margin:8px 0 4px}.tk .pb i{display:block;height:100%}.tk .row{margin:6px 0 0}
 .good{color:#6fcf97}
 #layoutbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .lays{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -198,6 +203,7 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
     <button id="undoBtn" class="ubtn" title="Undo (Ctrl+Z)" disabled><span>↶ Undo</span><small id="undoLabel">nothing yet</small></button>
     <button id="redoBtn" class="ubtn r" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
     <button id="histBtn" class="ubtn r" title="Recent changes" aria-label="Recent changes" disabled>🕘<b id="histN"></b></button>
+    <button id="tasksBtn" class="ubtn r" title="Tasks" aria-label="Open tasks"><svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><circle cx="3" cy="3" r="1.8"/><circle cx="9" cy="3" r="1.8"/><circle cx="15" cy="3" r="1.8"/><circle cx="3" cy="9" r="1.8"/><circle cx="9" cy="9" r="1.8"/><circle cx="15" cy="9" r="1.8"/><circle cx="3" cy="15" r="1.8"/><circle cx="9" cy="15" r="1.8"/><circle cx="15" cy="15" r="1.8"/></svg><b id="tkN"></b></button>
     <button id="syncBtn" class="ubtn r off" title="Sign in to sync" aria-label="Sign in and sync">☁<b id="syncN"></b></button>
   </div>
   <div class="prog"><div class="bar"><i id="bar"></i></div><span id="progtxt"></span></div>
@@ -243,11 +249,13 @@ details.inside summary{cursor:pointer;color:var(--mute);font-size:13px}
 </main>
 <input type="file" id="file" accept=".json,application/json" hidden>
 <div id="history" role="dialog" aria-label="Recent changes"></div>
+<div id="tkback"></div>
+<aside id="taskbar" aria-label="Side bar"><div class="sh"><h2>Tasks</h2><button class="small" id="tkClose" aria-label="Close">✕</button></div><div class="sb" id="tkbody"></div></aside>
 <div id="gate"><div class="gbox"><h1>Room Quest</h1><p>Please sign in to open the quest.</p><p style="font-size:14px">Rooms already saved on this device are safe — they will be right here after you sign in.</p><button class="primary" id="gateBtn">Sign in</button></div></div>
 <div class="dlgback" id="syncdlg"><div class="dlg" role="dialog" aria-label="Sync" id="syncbody"></div></div>
 
 <script>
-const APP_VERSION = "0.17", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
+const APP_VERSION = "0.18", APP_DATE = "2026-11-25";   // bump this every time the app changes — it shows next to the name so you can tell which copy a device is running
 "use strict";
 const KEY = "roomquest.v1";
 const $ = s => document.querySelector(s);
@@ -332,13 +340,14 @@ function defaults() {
     { id: "donate", name: "Donate", color: "#f2b84b", furnId: null },
     { id: "trash",  name: "Trash",  color: "#e5707e", furnId: null },
     { id: "idk",    name: "Not sure yet", color: "#8a8f9c", furnId: null, special: true },
-  ], piles: [], items: [], spots: [], log: [] };
+  ], piles: [], items: [], spots: [], log: [], tasks: [] };
 }
 let S = (() => { try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) {} return defaults(); })();
 function syncLayout() { const L = S.layouts && S.layouts.find(l => l.id === S.layoutId); if (L) L.furniture = S.furniture; }
 let onSaved = null;
 function save() { syncLayout(); try { const c = { ...S }; delete c.furniture; localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {} if (onSaved) onSaved(); }
 function migrate() {
+  if (!S.tasks) S.tasks = [];
   if (!S.layouts) { S.layouts = [{ id: uid(), name: "Current room", furniture: S.furniture }]; S.layoutId = S.layouts[0].id; }
   const L = S.layouts.find(l => l.id === S.layoutId) || S.layouts[0]; S.layoutId = L.id; S.furniture = L.furniture;
   S.layouts.forEach(l => l.furniture.forEach(f => { if (f.type == null) f.type = "furniture"; if (f.rot == null) f.rot = 0; if (f.face == null) f.face = 0; if (f.locked == null) f.locked = false;
@@ -612,6 +621,13 @@ function attachSpot(sp) {     // a spot dropped on a piece sticks to it and foll
   }
 }
 
+/* a task that keeps something fresh: blue when just done, drifting through the rainbow to red as the days pass */
+function tkLast(t) { return t.log && t.log.length ? t.log[t.log.length - 1].t : (t.since || t.createdAt || Date.now()); }
+function tkFrac(t) { return (Date.now() - tkLast(t)) / ((t.redDays || 7) * 864e5); }
+function tkHue(f) { return Math.round(210 * (1 - Math.min(1, Math.max(0, f)))); }
+function tkCol(f, s, l) { return `hsl(${tkHue(f)} ${s == null ? 80 : s}% ${l == null ? 58 : l}%)`; }
+function tkRgb(f) { const h = tkHue(f) / 360, s = .7, l = .5, q = l + s - l * s, p = 2 * l - q, c = t => { t = (t + 1) % 1; return 255 * (t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p); }; return [c(h + 1 / 3), c(h), c(h - 1 / 3)].map(Math.round); }
+function taskFor(id) { let b = null; (S.tasks || []).forEach(t => { if (t.type === "fresh" && t.furnId === id && (!b || tkFrac(t) > tkFrac(b))) b = t; }); return b; }
 function renderMap() {
   applyRiders();
   const u = U(), bu = Math.min(u, 1.8);
@@ -630,6 +646,7 @@ function renderMap() {
       stroke: over ? "#c9c98a" : win ? "#6aa9b4" : on ? "#a9b8ea" : large ? "#9a8fd0" : "#5b6482",
       "stroke-width": 4, "stroke-dasharray": over ? "16 10" : large ? "12 7" : ""
     };
+    const tk = taskFor(f.id); if (tk) { const fr = tkFrac(tk); style.fill = tkCol(fr, 55, 24); style.stroke = tkCol(fr, 85, 58); style["stroke-width"] = 7; style["fill-opacity"] = Math.max(style["fill-opacity"], .55); if (fr >= 1) g.setAttribute("class", "tblink"); }
     if (on) {   // a soft shadow so it reads as sitting on top
       const sh = { fill: "#000", opacity: .35, style: "pointer-events:none" };
       if (f.shape === "ellipse") el("ellipse", { cx: 7, cy: 9, rx: f.w / 2, ry: f.h / 2, ...sh }, g);
@@ -1476,9 +1493,9 @@ function renderIso() {
   });
   ordered.forEach(it => {
     const f = it.f, over = f.level === "over", tall = it.z1 > ceil + 1, isSel = sel && sel.type === "furn" && sel.id === f.id;
-    const base = over ? [201, 201, 138] : f.type === "large" ? [120, 106, 180] : f.level === "on" ? [128, 150, 220] : [100, 112, 150];
+    const tk3 = taskFor(f.id), base = tk3 ? tkRgb(tkFrac(tk3)) : over ? [201, 201, 138] : f.type === "large" ? [120, 106, 180] : f.level === "on" ? [128, 150, 220] : [100, 112, 150];
     const col = m => `rgb(${base.map(v => Math.round(Math.min(255, v * m))).join(",")})`, op = over ? .45 : f.kind === "closet" ? .32 : 1;
-    const g = el("g", { "data-t": "ifurn", "data-id": f.id, style: "cursor:pointer" }, svg), n = it.ring.length;
+    const g = el("g", { "data-t": "ifurn", "data-id": f.id, style: "cursor:pointer" }, svg), n = it.ring.length; if (tk3 && tkFrac(tk3) >= 1) g.setAttribute("class", "tblink");
     const stroke = isSel ? "#f2b84b" : tall ? "#e5707e" : "#0f1117", sw = (isSel || tall ? 3 : 1) * k;
     const faces = [];
     for (let i = 0; i < n; i++) {
@@ -2215,6 +2232,86 @@ $("#panel").addEventListener("click", async e => {
 });
 if (auth) hhRefresh();
 setInterval(() => { if (auth && HH && houseOn && document.visibilityState === "visible" && !hhBusy) hhRefresh(); }, 45000);
+
+/* ---------- tasks side bar ---------- */
+let tkLastHtml = "", sideOpen = false, tkAdd = false, tkEdit = null, tkHist = {}, tkDel = null, tkDraft = null;
+const tkAgo = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : (Math.round(m / 144) / 10).toString().replace(/\.0$/, "") + " days ago"; };
+const tkWhen = t => new Date(t).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const tkNew = () => ({ name: "", type: "fresh", redDays: 7, lastAgo: 0, furnId: "", goalMin: "" });
+function tkRow(t) {
+  if (tkEdit === t.id) return tkForm(true);
+  const del = tkDel === t.id ? `<span class="hint" style="margin:0 4px">Delete it?</span><button class="small danger" data-tk="delyes" data-id="${t.id}">Yes</button><button class="small" data-tk="delno">No</button>` : `<button class="small" data-tk="edit" data-id="${t.id}">Edit</button><button class="small" data-tk="del" data-id="${t.id}" aria-label="Delete">✕</button>`;
+  if (t.type === "fresh") {
+    const fr = tkFrac(t), left = (t.redDays || 7) - (Date.now() - tkLast(t)) / 864e5, log = t.log || [], gaps = []; for (let i = 1; i < log.length; i++) gaps.push((log[i].t - log[i - 1].t) / 864e5);
+    const g5 = gaps.slice(-5), avg = g5.length ? g5.reduce((a, b) => a + b, 0) / g5.length : 0, fu = t.furnId && S.furniture.find(x => x.id === t.furnId);
+    const hist = tkHist[t.id] ? `<div style="margin-top:6px">${log.slice().reverse().slice(0, 12).map((e, i, a) => { const prev = a[i + 1]; return `<div class="hint" style="margin:2px 0">${tkWhen(e.t)}${e.by ? " · " + esc(e.by.split("@")[0]) : ""}${prev ? ` · ${Math.round((e.t - prev.t) / 864e4) / 10} days after the one before` : ""}</div>`; }).join("") || '<div class="hint">Nothing logged yet.</div>'}</div>` : "";
+    return `<div class="tk"><div class="item" style="gap:10px"><span class="dot" style="background:${tkCol(fr)}${fr >= 1 ? ";animation:tblink 1.1s infinite" : ""}"></span><b style="flex:1">${esc(t.name)}</b>${del}</div>
+      <div class="pb"><i style="width:${Math.min(100, Math.max(4, fr * 100))}%;background:${tkCol(fr)}"></i></div>
+      <div class="hint" style="margin:0">${fr >= 1 ? "Overdue by " + tkDays(-left) : "Turns red in " + tkDays(left)} · last done ${tkAgo(tkLast(t))}${avg ? ` · usually every ~${Math.round(avg * 10) / 10} days` : ""}${fu ? ` · shows on <b>${esc(fu.name)}</b>` : ""}</div>
+      <div class="row"><button class="primary small" data-tk="done" data-id="${t.id}">✓ Done now</button><button class="small" data-tk="hist" data-id="${t.id}">${tkHist[t.id] ? "Hide" : "History"}${log.length ? " · " + log.length : ""}</button></div>${hist}</div>`;
+  }
+  const goal = +t.goalMin || 0, sp = +t.spentMin || 0, pct = goal ? Math.min(100, sp / goal * 100) : 0;
+  return `<div class="tk" style="${t.done ? "opacity:.6" : ""}"><div class="item" style="gap:10px"><input type="checkbox" data-tk="check" data-id="${t.id}" ${t.done ? "checked" : ""} style="width:20px;height:20px;flex:none"><b style="flex:1;${t.done ? "text-decoration:line-through" : ""}">${esc(t.name)}</b>${del}</div>
+    ${goal ? `<div class="pb"><i style="width:${pct}%;background:${pct >= 100 ? "#6bd391" : "#8aa4ff"}"></i></div><div class="hint" style="margin:0">${tkMin(sp)} of ${tkMin(goal)}</div>${t.done ? "" : `<div class="row"><button class="small" data-tk="log" data-id="${t.id}" data-m="15">+15 min</button><button class="small" data-tk="log" data-id="${t.id}" data-m="30">+30</button><button class="small" data-tk="log" data-id="${t.id}" data-m="60">+1 h</button></div>`}` : ""}
+    ${t.done && t.doneAt ? `<div class="hint" style="margin:4px 0 0">Done ${tkWhen(t.doneAt)}</div>` : ""}</div>`;
+}
+const tkDays = n => { n = Math.round(n * 10) / 10; return n + (n === 1 ? " day" : " days"); };
+const tkMin = m => m >= 60 ? (Math.round(m / 6) / 10) + " h" : m + " min";
+function tkForm(editing) {
+  const d = tkDraft || tkNew(), fl = S.furniture.filter(x => x.kind !== "post" && x.kind !== "window");
+  return `<div class="tk" style="border-color:#f2b84b"><b>${editing ? "Edit task" : "New task"}</b>
+    <label>What is it?<input data-tkf="name" value="${esc(d.name)}" placeholder="${d.type === "fresh" ? "Take out the bathroom trash" : "Animate"}"></label>
+    <div class="row"><span class="chip ${d.type === "fresh" ? "on" : ""}" data-tk="type" data-v="fresh">♻ Keeps something fresh</span><span class="chip ${d.type === "check" ? "on" : ""}" data-tk="type" data-v="check">☑ Checklist item</span></div>
+    ${d.type === "fresh" ? `<label>Turns red after how many days?<input type="number" inputmode="decimal" data-tkf="redDays" value="${d.redDays}"></label>
+      ${editing ? "" : `<label>Last done (days ago — 0 means just now)<input type="number" inputmode="decimal" data-tkf="lastAgo" value="${d.lastAgo}"></label>`}
+      <label>Show its color on a piece in your room<select data-tkf="furnId"><option value="">— nothing yet —</option>${fl.map(x => `<option value="${x.id}" ${d.furnId === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>`
+    : `<label>Time goal in minutes (optional — like 120 for two hours)<input type="number" inputmode="decimal" data-tkf="goalMin" value="${d.goalMin}"></label>`}
+    <div class="row" style="margin-top:10px"><button class="primary" data-tk="save">${editing ? "Save" : "Add task"}</button><button class="small" data-tk="cancel">Cancel</button></div></div>`;
+}
+function renderTasks() {
+  const T = S.tasks || [], fresh = T.filter(t => t.type === "fresh").sort((a, b) => tkFrac(b) - tkFrac(a)), open = T.filter(t => t.type === "check" && !t.done), done = T.filter(t => t.type === "check" && t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+  let h = `<p class="hint" style="margin:10px 0 0">Your personal tasks. "Keeps something fresh" tasks change color the longer it has been — blue is fresh, red is overdue.</p>`;
+  h += tkAdd ? tkForm(false) : `<div class="row" style="margin-top:10px"><button class="primary" data-tk="add">+ New task</button></div>`;
+  if (fresh.length) h += `<h3 style="margin:16px 0 0;font-size:15px">Keeping fresh</h3>` + fresh.map(tkRow).join("");
+  if (open.length) h += `<h3 style="margin:16px 0 0;font-size:15px">To do</h3>` + open.map(tkRow).join("");
+  if (!T.length && !tkAdd) h += `<div class="card"><p class="hint" style="margin:0">Nothing here yet. Try “Take out the bathroom trash — turns red after 3 days”, or a checklist item like “Animate — 120 minutes”.</p></div>`;
+  if (done.length) h += `<details style="margin-top:14px"><summary class="hint">Done · ${done.length}</summary>${done.map(tkRow).join("")}</details>`;
+  if (h !== tkLastHtml) { tkLastHtml = h; $("#tkbody").innerHTML = h; }          // only redraw when something changed, so a tap is never lost to a redraw
+  const late = (S.tasks || []).filter(t => t.type === "fresh" && tkFrac(t) >= 1).length; $("#tkN").textContent = late ? late : "";
+}
+function setSide(on) { document.documentElement.style.setProperty("--hh", document.querySelector("header").offsetHeight + "px"); sideOpen = on; $("#taskbar").classList.toggle("show", on); $("#tkback").classList.toggle("show", on); if (on) renderTasks(); }
+$("#tasksBtn").addEventListener("click", () => setSide(!sideOpen)); $("#tkClose").addEventListener("click", () => setSide(false)); $("#tkback").addEventListener("click", () => setSide(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && sideOpen) setSide(false); });
+$("#taskbar").addEventListener("input", e => { const f = e.target.dataset.tkf; if (!f || !tkDraft) return; tkDraft[f] = e.target.value; });
+$("#taskbar").addEventListener("change", e => { const f = e.target.dataset.tkf; if (f && tkDraft) tkDraft[f] = e.target.value; if (e.target.dataset.tk === "check") tkAct(e.target); });
+$("#taskbar").addEventListener("click", e => { const b = e.target.closest("[data-tk]"); if (b && b.type !== "checkbox") tkAct(b); });
+function tkAct(b) {
+  const a = b.dataset.tk, T = S.tasks, t = T.find(x => x.id === b.dataset.id), b4 = snapshot();
+  if (a === "add") { tkAdd = true; tkEdit = null; tkDraft = tkNew(); }
+  else if (a === "cancel") { tkAdd = false; tkEdit = null; tkDraft = null; }
+  else if (a === "type") { if (tkDraft) tkDraft.type = b.dataset.v; }
+  else if (a === "edit" && t) { tkEdit = t.id; tkAdd = false; tkDraft = { name: t.name, type: t.type, redDays: t.redDays || 7, lastAgo: 0, furnId: t.furnId || "", goalMin: t.goalMin || "" }; }
+  else if (a === "save" && tkDraft) {
+    const d = tkDraft, nm = (d.name || "").trim(); if (!nm) { $("#tkbody").querySelector("[data-tkf=name]").focus(); return; }
+    if (tkEdit) { const x = T.find(y => y.id === tkEdit); if (x) { x.name = nm; if (x.type === "fresh") { x.redDays = Math.max(.1, +d.redDays || 7); x.furnId = d.furnId || ""; } else x.goalMin = Math.max(0, +d.goalMin || 0); } pushUndo("Edit task", b4); }
+    else {
+      const now = Date.now(), n = { id: uid(), name: nm, type: d.type, createdAt: now };
+      if (d.type === "fresh") { n.redDays = Math.max(.1, +d.redDays || 7); n.furnId = d.furnId || ""; n.log = [{ t: now - Math.max(0, +d.lastAgo || 0) * 864e5, by: auth ? auth.email : "" }]; } else { n.goalMin = Math.max(0, +d.goalMin || 0); n.spentMin = 0; n.done = false; }
+      T.push(n); pushUndo("Add task", b4);
+    }
+    tkAdd = false; tkEdit = null; tkDraft = null; save();
+  }
+  else if (a === "done" && t) { (t.log = t.log || []).push({ t: Date.now(), by: auth ? auth.email : "" }); pushUndo("Task done", b4); save(); }
+  else if (a === "check" && t) { t.done = !t.done; t.doneAt = t.done ? Date.now() : null; pushUndo(t.done ? "Task done" : "Task reopened", b4); save(); }
+  else if (a === "log" && t) { t.spentMin = (+t.spentMin || 0) + (+b.dataset.m || 0); pushUndo("Log time", b4); save(); }
+  else if (a === "hist" && t) tkHist[t.id] = !tkHist[t.id];
+  else if (a === "del" && t) tkDel = t.id;
+  else if (a === "delno") tkDel = null;
+  else if (a === "delyes" && t) { S.tasks = T.filter(x => x.id !== t.id); tkDel = null; pushUndo("Delete task", b4); save(); }
+  renderTasks(); renderMap();
+}
+const renderForTasks = render; render = function () { renderForTasks(); if (sideOpen) renderTasks(); else { const late = (S.tasks || []).filter(t => t.type === "fresh" && tkFrac(t) >= 1).length; $("#tkN").textContent = late ? late : ""; } };
+setInterval(() => { if (!(S.tasks || []).some(t => t.type === "fresh")) return; if (typeof drag !== "undefined" && drag) return; if (!houseOn) renderMap(); if (sideOpen) renderTasks(); else render(); }, 300000);
 
 { const v = document.getElementById("appver"); v.textContent = "v" + APP_VERSION; v.title = "Room Quest v" + APP_VERSION + " · updated " + APP_DATE; }
 fitView(); render(); renderUndo();
